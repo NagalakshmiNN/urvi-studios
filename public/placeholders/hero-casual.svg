@@ -1,0 +1,17 @@
+<svg width="900" height="1200" viewBox="0 0 900 1200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="1200" fill="#F7F0E4"/>
+  <rect x="18" y="18" width="864" height="1164" fill="none" stroke="#A98238" stroke-width="1.4" opacity="0.55"/>
+  <circle cx="450" cy="470" r="300" fill="none" stroke="#A98238" stroke-width="1.6" opacity="0.65"/>
+  <circle cx="450" cy="470" r="316" fill="none" stroke="#A98238" stroke-width="0.8" opacity="0.35"/>
+  <path d="M728 220 L746 238 L728 256 L710 238 Z" fill="#A98238" opacity="0.85"/>
+  <path d="M165 667 L178 680 L165 693 L152 680 Z" fill="#A98238" opacity="0.85"/>
+  <g transform="translate(450,470) scale(1.35)">
+    
+<path d="M-30,-140 C -40,-122 -36,-106 -24,-98 L -20,-24 C -56,30 -78,96 -90,168 C -78,180 78,180 90,168 C 78,96 56,30 20,-24 L 24,-98 C 36,-106 40,-122 30,-140 C 14,-152 -14,-152 -30,-140 Z" fill="#3F4827" opacity="0.9"/>
+<path d="M-24,-98 C -8,-86 8,-86 24,-98" stroke="#A98238" stroke-width="1.6" fill="none" opacity="0.85"/>
+<path d="M-20,-24 L -22,60 M 20,-24 L 22,60" stroke="#A98238" stroke-width="0.7" opacity="0.35"/>
+
+  </g>
+  <path d="M230 760 q 40 -20 70 -46" stroke="#6A7444" stroke-width="1.5" fill="none" opacity="0.7"/><ellipse cx="244" cy="754" rx="13" ry="6" fill="#6A7444" opacity="0.55" transform="rotate(-30 244 754)"/><ellipse cx="260" cy="744" rx="13" ry="6" fill="#6A7444" opacity="0.63" transform="rotate(-22 260 744)"/><ellipse cx="276" cy="734" rx="13" ry="6" fill="#6A7444" opacity="0.7100000000000001" transform="rotate(-14 276 734)"/><ellipse cx="292" cy="724" rx="13" ry="6" fill="#6A7444" opacity="0.79" transform="rotate(-6 292 724)"/><circle cx="238" cy="766" r="2.5" fill="#A98238"/>
+  <path d="M670 760 q -40 -20 -70 -46" stroke="#6A7444" stroke-width="1.5" fill="none" opacity="0.7"/><ellipse cx="656" cy="754" rx="13" ry="6" fill="#6A7444" opacity="0.55" transform="rotate(30 656 754)"/><ellipse cx="640" cy="744" rx="13" ry="6" fill="#6A7444" opacity="0.63" transform="rotate(22 640 744)"/><ellipse cx="624" cy="734" rx="13" ry="6" fill="#6A7444" opacity="0.7100000000000001" transform="rotate(14 624 734)"/><ellipse cx="608" cy="724" rx="13" ry="6" fill="#6A7444" opacity="0.79" transform="rotate(6 608 724)"/><circle cx="662" cy="766" r="2.5" fill="#A98238"/>
+</svg>
