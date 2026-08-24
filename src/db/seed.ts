@@ -1,5 +1,9 @@
-// Seed the local database with categories, sample products, a bootstrap
-// admin user, and a starter coupon. Run with: npm run db:seed
+// Seed logic for categories, sample products, a bootstrap admin user, and a
+// starter coupon. Exports runSeed() only — no auto-execution here, since
+// this module is also imported by the production bootstrap API route
+// (src/app/api/system/bootstrap/route.ts) and must be side-effect-free at
+// import time. To run this from the command line, use seed-cli.ts instead:
+//   npx tsx --env-file=.env src/db/seed-cli.ts
 
 import { db } from "./index";
 import { categories, products, productImages, productSizes, productColors, adminUsers, coupons } from "./schema";
@@ -117,7 +121,7 @@ const PRODUCTS: Array<{
     badge: "Limited", image: "/placeholders/fusion-edit.svg", stock: 5 },
 ];
 
-async function main() {
+export async function runSeed() {
   console.log("Seeding categories...");
   const categoryIds: Record<string, string> = {};
   for (const c of CATEGORIES) {
@@ -173,8 +177,3 @@ async function main() {
 
   console.log("Done.");
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
