@@ -32,7 +32,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="brand" style={{ fontFamily: "var(--font-display)", fontSize: 20 }}>
-          <Image src="/brand/logo-mark.png" alt="" width={32} height={26} style={{ height: 28, width: "auto" }} />
+          <Image src="/brand/logo-mark.png" alt="" width={27} height={24} style={{ objectFit: "contain" }} />
           URVI <span style={{ opacity: 0.6, fontSize: 13 }}>Admin</span>
         </div>
         <nav>

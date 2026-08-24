@@ -29,7 +29,7 @@ export default async function SiteHeader({ active }: { active?: string }) {
       </div>
       <div className="header-inner container">
         <Link href="/" className="brand">
-          <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={44} height={35} className="brand-mark" priority />
+          <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={46} height={40} className="brand-mark" priority />
           URVI<span className="brand-sub">Studios</span>
         </Link>
         <nav className="main-nav" id="main-nav">

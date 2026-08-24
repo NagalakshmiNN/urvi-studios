@@ -9,7 +9,7 @@ export default function SiteFooter() {
         <div className="footer-grid">
           <div className="footer-brand">
             <Link href="/" className="brand">
-              <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={44} height={35} className="brand-mark" />
+              <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={46} height={40} className="brand-mark" />
               URVI<span className="brand-sub">Studios</span>
             </Link>
             <p>Premium festive, office and everyday wear with an Indian heart and a western edit. Founded by Nagalakshmi &amp; Shilpa.</p>
