@@ -18,9 +18,14 @@ export default function ContactPage() {
             <div className="contact-card">
               <h4>WhatsApp</h4>
               <p>Sizing questions, custom requests, order updates — message us directly.</p>
-              <a href={`https://wa.me/${SITE.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-small" style={{ marginTop: 10 }}>
-                Chat on WhatsApp
-              </a>
+              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                <a href={`https://wa.me/${SITE.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-small">
+                  Chat with Lakshmi
+                </a>
+                <a href={`https://wa.me/${SITE.whatsappNumberAlt}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-small">
+                  Chat with Shilpa
+                </a>
+              </div>
             </div>
             <div className="contact-card">
               <h4>Email</h4>
