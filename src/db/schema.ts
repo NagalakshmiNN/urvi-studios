@@ -168,6 +168,15 @@ export const wishlistItems = pgTable(
   })
 );
 
+export const contactMessages = pgTable("contact_messages", {
+  id: id(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("NEW"), // NEW | READ
+  createdAt: createdAt(),
+});
+
 export const reviews = pgTable("reviews", {
   id: id(),
   productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),

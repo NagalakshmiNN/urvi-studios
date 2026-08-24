@@ -25,7 +25,7 @@ export default async function SiteHeader({ active }: { active?: string }) {
   return (
     <header className="site-header">
       <div className="announce-bar devanagari">
-        आत्मविश्वासवस्त्रम् · Confidence, worn. · Free shipping across India on orders above ₹2,999
+        आत्मविश्वासवस्त्रम् · Confidence, worn.
       </div>
       <div className="header-inner container">
         <Link href="/" className="brand">

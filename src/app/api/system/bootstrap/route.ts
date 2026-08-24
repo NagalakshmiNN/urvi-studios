@@ -10,6 +10,11 @@
 // src/db/seed.ts), so calling this more than once is harmless — it just
 // does nothing on the second call. Safe to leave in place, but the
 // BOOTSTRAP_TOKEN env var can be deleted afterward to close it off.
+//
+// Note: Netlify's Next.js runtime snapshots environment variables at
+// deploy time, not per-request — a change made via the dashboard/API only
+// takes effect on the next deploy, which is why this comment exists (to
+// force exactly that).
 
 import { NextResponse, type NextRequest } from "next/server";
 

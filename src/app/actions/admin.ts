@@ -149,3 +149,11 @@ export async function toggleCouponActiveAction(couponId: string, active: boolean
   await db.update(schema.coupons).set({ active }).where(eq(schema.coupons.id, couponId));
   revalidatePath("/admin/coupons");
 }
+
+// ------------------------------------------------------------------- Messages
+
+export async function markMessageReadAction(messageId: string, status: "NEW" | "READ") {
+  await requireAdmin();
+  await db.update(schema.contactMessages).set({ status }).where(eq(schema.contactMessages.id, messageId));
+  revalidatePath("/admin/messages");
+}
