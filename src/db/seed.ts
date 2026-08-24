@@ -121,43 +121,59 @@ const PRODUCTS: Array<{
     badge: "Limited", image: "/placeholders/fusion-edit.svg", stock: 5 },
 ];
 
+// Batched to a handful of round trips total (not one query per row) — this
+// runs inside a serverless function with a hard wall-clock timeout, and a
+// naive per-row loop over ~90 statements was blowing past it, causing the
+// whole invocation to be killed mid-flight (a bare 503 with no JS exception
+// to catch, since the platform terminates the process before any catch
+// block can run).
 export async function runSeed() {
   console.log("Seeding categories...");
-  const categoryIds: Record<string, string> = {};
-  for (const c of CATEGORIES) {
-    const existing = await db.select().from(categories).where(eq(categories.slug, c.slug)).then((r) => r[0]);
-    if (existing) {
-      categoryIds[c.slug] = existing.id;
-      continue;
-    }
-    const [row] = await db.insert(categories).values(c).returning();
-    categoryIds[c.slug] = row.id;
+  const existingCategories = await db.select({ id: categories.id, slug: categories.slug }).from(categories);
+  const categoryIds: Record<string, string> = Object.fromEntries(existingCategories.map((c) => [c.slug, c.id]));
+  const missingCategories = CATEGORIES.filter((c) => !categoryIds[c.slug]);
+  if (missingCategories.length) {
+    const inserted = await db.insert(categories).values(missingCategories).returning();
+    for (const row of inserted) categoryIds[row.slug] = row.id;
   }
 
   console.log("Seeding products...");
-  for (const p of PRODUCTS) {
-    const existing = await db.select().from(products).where(eq(products.slug, p.slug)).then((r) => r[0]);
-    if (existing) continue;
+  const existingProducts = await db.select({ slug: products.slug }).from(products);
+  const existingSlugs = new Set(existingProducts.map((p) => p.slug));
+  const missingProducts = PRODUCTS.filter((p) => !existingSlugs.has(p.slug));
 
-    const [row] = await db
+  if (missingProducts.length) {
+    const insertedProducts = await db
       .insert(products)
-      .values({
-        sku: p.sku,
-        slug: p.slug,
-        name: p.name,
-        description: p.description,
-        fabric: p.fabric,
-        price: p.price,
-        compareAtPrice: p.compareAtPrice,
-        badge: p.badge,
-        stock: p.stock,
-        categoryId: categoryIds[p.sub],
-      })
-      .returning();
+      .values(
+        missingProducts.map((p) => ({
+          sku: p.sku,
+          slug: p.slug,
+          name: p.name,
+          description: p.description,
+          fabric: p.fabric,
+          price: p.price,
+          compareAtPrice: p.compareAtPrice,
+          badge: p.badge,
+          stock: p.stock,
+          categoryId: categoryIds[p.sub],
+        })),
+      )
+      .returning({ id: products.id, slug: products.slug });
+    const productIdBySlug = Object.fromEntries(insertedProducts.map((r) => [r.slug, r.id]));
 
-    await db.insert(productImages).values({ productId: row.id, url: p.image, position: 0 });
-    await db.insert(productSizes).values(p.sizes.map((label, i) => ({ productId: row.id, label, position: i })));
-    await db.insert(productColors).values(p.colors.map((c, i) => ({ productId: row.id, name: c.name, hex: c.hex, position: i })));
+    const imageRows: { productId: string; url: string; position: number }[] = [];
+    const sizeRows: { productId: string; label: string; position: number }[] = [];
+    const colorRows: { productId: string; name: string; hex: string; position: number }[] = [];
+    for (const p of missingProducts) {
+      const productId = productIdBySlug[p.slug];
+      imageRows.push({ productId, url: p.image, position: 0 });
+      p.sizes.forEach((label, i) => sizeRows.push({ productId, label, position: i }));
+      p.colors.forEach((c, i) => colorRows.push({ productId, name: c.name, hex: c.hex, position: i }));
+    }
+    if (imageRows.length) await db.insert(productImages).values(imageRows);
+    if (sizeRows.length) await db.insert(productSizes).values(sizeRows);
+    if (colorRows.length) await db.insert(productColors).values(colorRows);
   }
 
   console.log("Seeding bootstrap admin user...");
