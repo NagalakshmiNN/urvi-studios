@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CartLine, getCart, updateQty, removeFromCart, lineKeyOf, onCartChange, formatINR } from "@/lib/cart";
 
-const FREE_SHIP_THRESHOLD = 2999;
-const SHIP_COST = 149;
+const FREE_SHIP_THRESHOLD = 5999;
 
 export default function CartClient() {
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -21,7 +20,7 @@ export default function CartClient() {
   if (!loaded) return null;
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-  const shipping = subtotal === 0 || subtotal >= FREE_SHIP_THRESHOLD ? 0 : SHIP_COST;
+  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
 
   return (
     <div className="cart-layout">
@@ -57,14 +56,14 @@ export default function CartClient() {
       <aside className="summary-card">
         <h3>Order Summary</h3>
         <div className="summary-row"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
-        <div className="summary-row"><span>Shipping</span><span>{shipping === 0 ? "Free" : formatINR(shipping)}</span></div>
-        <div className="summary-row total"><span>Total</span><span>{formatINR(subtotal + shipping)}</span></div>
+        <div className="summary-row"><span>Shipping</span><span>{cart.length === 0 ? "—" : freeShipping ? "Free" : "Confirmed before dispatch"}</span></div>
+        <div className="summary-row total"><span>Total</span><span>{formatINR(subtotal)}</span></div>
         {cart.length > 0 ? (
           <Link href="/checkout" className="btn btn-primary btn-block" style={{ marginTop: 18 }}>Proceed to Checkout</Link>
         ) : (
           <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} disabled>Proceed to Checkout</button>
         )}
-        <p className="promo-note">Free shipping on orders above ₹2,999. Coupon codes applied at checkout.</p>
+        <p className="promo-note">Free shipping on orders above ₹5,999. Coupon codes applied at checkout.</p>
       </aside>
     </div>
   );

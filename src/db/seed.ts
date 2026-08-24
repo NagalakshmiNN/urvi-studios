@@ -180,7 +180,7 @@ export async function runSeed() {
   const adminEmail = process.env.ADMIN_BOOTSTRAP_EMAIL || "owner@urvistudios.in";
   const existingAdmin = await db.select().from(adminUsers).where(eq(adminUsers.email, adminEmail)).then((r) => r[0]);
   if (!existingAdmin) {
-    const passwordHash = await hashPassword(process.env.ADMIN_BOOTSTRAP_PASSWORD || "ChangeMe123!");
+    const passwordHash = await hashPassword(process.env.ADMIN_BOOTSTRAP_PASSWORD || "JuATBHqD6dFTxO!");
     await db.insert(adminUsers).values({ email: adminEmail, passwordHash, name: "Urvi Studios Admin", role: "owner" });
     console.log(`  Admin user created: ${adminEmail} (password from ADMIN_BOOTSTRAP_PASSWORD env var)`);
   }

@@ -74,8 +74,9 @@ export async function POST(request: Request) {
   if (!razorpayConfigured) {
     const lines = pricing.lines.map((l) => `• ${l.productName} (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`).join("\n");
     const msg =
-      `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}\n\n` +
-      `Phone: ${customer.phone}\nEmail: ${customer.email}\nAddress: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}` +
+      `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}` +
+      (pricing.freeShipping ? " (free shipping)" : " + shipping (confirm with customer based on pincode)") +
+      `\n\nPhone: ${customer.phone}\nEmail: ${customer.email}\nAddress: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}` +
       (customer.notes ? `\nNotes: ${customer.notes}` : "");
     const whatsappUrl = `https://wa.me/${SITE.whatsappNumber}?text=${encodeURIComponent(msg)}`;
     return NextResponse.json({ configured: false, orderNumber, whatsappUrl });

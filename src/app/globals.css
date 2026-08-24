@@ -389,6 +389,27 @@ p { line-height: 1.7; color: var(--earth); }
 /* ---------------- About ---------------- */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
 .split img { border-radius: 4px; }
+.pull-quote {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.4;
+  color: var(--olive);
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+  position: relative;
+  padding: 0 20px;
+}
+.pull-quote::before,
+.pull-quote::after {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: var(--gold);
+  margin: 0 auto 22px;
+}
+.pull-quote::after { margin: 22px auto 0; }
 .her-editions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 30px; }
 .her-edition { text-align: center; padding: 24px 12px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 .her-edition h4 { font-family: var(--font-display); color: var(--olive); margin: 0 0 6px; font-size: 15px; }

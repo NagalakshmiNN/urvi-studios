@@ -5,8 +5,7 @@ import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { CartLine, getCart, clearCart, formatINR } from "@/lib/cart";
 
-const FREE_SHIP_THRESHOLD = 2999;
-const SHIP_COST = 149;
+const FREE_SHIP_THRESHOLD = 5999;
 
 type Prefill = { name: string; email: string; phone: string } | null;
 
@@ -39,8 +38,8 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   }
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-  const shipping = subtotal >= FREE_SHIP_THRESHOLD ? 0 : SHIP_COST;
-  const total = Math.max(0, subtotal + shipping - discount);
+  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
+  const total = Math.max(0, subtotal - discount);
 
   async function applyCoupon() {
     if (!couponCode.trim()) return;
@@ -221,9 +220,15 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
           )}
 
           <div className="summary-row"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
-          <div className="summary-row"><span>Shipping</span><span>{shipping === 0 ? "Free" : formatINR(shipping)}</span></div>
+          <div className="summary-row"><span>Shipping</span><span>{freeShipping ? "Free" : "Confirmed before dispatch"}</span></div>
           {discount > 0 && <div className="summary-row"><span>Discount</span><span>−{formatINR(discount)}</span></div>}
           <div className="summary-row total"><span>Total</span><span>{formatINR(total)}</span></div>
+          {!freeShipping && (
+            <p className="promo-note" style={{ marginTop: -6 }}>
+              Shipping isn&apos;t charged here — it depends on your pincode and package, so our team will confirm
+              it with you before your order is dispatched.
+            </p>
+          )}
 
           {error && <div className="notice-box error" style={{ marginTop: 14 }}>{error}</div>}
 

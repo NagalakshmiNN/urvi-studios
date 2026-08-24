@@ -7,8 +7,7 @@ import { db, schema } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateOrderNumberSeed } from "@/lib/format";
 
-export const FREE_SHIP_THRESHOLD = 2999;
-export const SHIP_COST = 149;
+export const FREE_SHIP_THRESHOLD = 5999;
 
 export type CartLineInput = { productId: string; size: string; color: string; qty: number };
 
@@ -23,7 +22,14 @@ export type PricedLine = {
 };
 
 export type PricingResult =
-  | { ok: true; lines: PricedLine[]; subtotal: number; shipping: number; discount: number; total: number; couponCode: string | null }
+  // `shipping` is never charged upfront — actual courier cost depends on
+  // pincode, distance, and package weight, none of which we calculate at
+  // checkout. Orders above FREE_SHIP_THRESHOLD are genuinely free; orders
+  // below it ship with `freeShipping: false`, meaning the team confirms the
+  // real charge with the customer separately before dispatch (see the
+  // Shipping & Delivery page). Never reintroduce a flat shipping fee here —
+  // that was the exact thing removed.
+  | { ok: true; lines: PricedLine[]; subtotal: number; shipping: number; freeShipping: boolean; discount: number; total: number; couponCode: string | null }
   | { ok: false; error: string };
 
 export async function priceCart(items: CartLineInput[], couponCode?: string | null): Promise<PricingResult> {
@@ -55,7 +61,9 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
   }
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-  const shipping = subtotal >= FREE_SHIP_THRESHOLD ? 0 : SHIP_COST;
+  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
+  // Not charged at checkout either way — see the PricingResult comment above.
+  const shipping = 0;
 
   let discount = 0;
   let appliedCode: string | null = null;
@@ -71,7 +79,7 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
   }
 
   const total = subtotal + shipping - discount;
-  return { ok: true, lines, subtotal, shipping, discount, total, couponCode: appliedCode };
+  return { ok: true, lines, subtotal, shipping, freeShipping, discount, total, couponCode: appliedCode };
 }
 
 export async function nextOrderNumber(): Promise<string> {

@@ -1,7 +1,7 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { formatINR } from "@/lib/format";
-import { FREE_SHIP_THRESHOLD, SHIP_COST } from "@/lib/order-pricing";
+import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { SITE } from "@/lib/site-config";
 
 export default function ShippingReturnsPage() {
@@ -16,11 +16,29 @@ export default function ShippingReturnsPage() {
       <section className="section" style={{ paddingTop: 10 }}>
         <div className="container" style={{ maxWidth: 760, margin: "0 auto" }}>
           <div className="contact-card">
-            <h4>Shipping</h4>
+            <h4>Shipping &amp; Delivery</h4>
+            <p style={{ fontStyle: "italic", color: "var(--olive)", marginBottom: 12 }}>
+              Wherever you are in India, URVI comes to you.
+            </p>
             <p>
-              We ship across India. Orders above {formatINR(FREE_SHIP_THRESHOLD)} ship free; below that, shipping
-              is a flat {formatINR(SHIP_COST)}. Most pieces leave our hands within 2–3 business days of being
-              confirmed, and typically arrive within 5–8 business days depending on your city.
+              We currently ship across India, bringing your carefully chosen pieces from our studio to your
+              doorstep.
+            </p>
+            <p>
+              Orders above {formatINR(FREE_SHIP_THRESHOLD)} qualify for complimentary shipping. For orders below
+              {" "}{formatINR(FREE_SHIP_THRESHOLD)}, shipping charges will vary based on your delivery location and
+              package. Our team will confirm the applicable courier charges with you before dispatch.
+            </p>
+            <p>
+              Once your order is confirmed, most pieces are carefully packed and dispatched within 2–3 business
+              days. Delivery typically takes 5–8 business days from dispatch, depending on your location.
+            </p>
+            <p>
+              Every URVI order is packed with care, because we believe the experience should begin before you
+              open the box.
+            </p>
+            <p style={{ fontWeight: 600, color: "var(--olive)", marginTop: 12 }}>
+              Order. Unbox. Wear it with confidence.
             </p>
           </div>
           <div className="contact-card">

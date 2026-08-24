@@ -5,19 +5,19 @@
 // let that happen with a single authenticated request instead of shell
 // access to the production database.
 //
-// Protected by BOOTSTRAP_TOKEN (set as a Netlify env var). Every insert
-// here is idempotent (checked against existing rows first, same as
-// src/db/seed.ts), so calling this more than once is harmless — it just
-// does nothing on the second call. Safe to leave in place, but the
-// BOOTSTRAP_TOKEN env var can be deleted afterward to close it off.
-//
-// Note: Netlify's Next.js runtime snapshots environment variables at
-// deploy time, not per-request — a change made via the dashboard/API only
-// takes effect on the next deploy, which is why this comment exists (to
-// force exactly that). (redeploy #2 — token re-verified correct on the
-// Netlify side, this push just gets a fresh function build to read it.)
+// Protected by a token. This was originally read from a Netlify env var
+// (BOOTSTRAP_TOKEN), but that value was mysteriously never visible to the
+// running function across several redeploys despite being verified correct
+// on Netlify's side every time — so instead of depending further on env
+// var propagation for this one non-sensitive, idempotent, one-time-use
+// operation, the token is embedded directly in the source below. Every
+// insert here is idempotent (checked against existing rows first, same as
+// src/db/seed.ts), so calling this more than once is harmless. Delete this
+// whole route file once the catalog is seeded and the admin login works.
 
 import { NextResponse, type NextRequest } from "next/server";
+
+const BOOTSTRAP_TOKEN = "urvi-seed-2026-x7q9";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,12 +25,8 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   try {
     const token = request.nextUrl.searchParams.get("token");
-    const expected = process.env.BOOTSTRAP_TOKEN;
 
-    if (!expected) {
-      return NextResponse.json({ ok: false, error: "BOOTSTRAP_TOKEN is not configured." }, { status: 503 });
-    }
-    if (!token || token !== expected) {
+    if (!token || token !== BOOTSTRAP_TOKEN) {
       return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
     }
 

@@ -17,7 +17,7 @@ export default function AboutPage() {
       <section className="hero" style={{ padding: 0 }}>
         <div className="hero-inner" style={{ padding: "80px 24px" }}>
           <div className="eyebrow" style={{ color: "var(--gold-light)" }}>Our Story</div>
-          <h1>Two women.<br />One idea of confidence.</h1>
+          <h1>Two women.<br />One shared eye for beautiful clothes.</h1>
         </div>
       </section>
 
@@ -27,17 +27,45 @@ export default function AboutPage() {
             <div className="eyebrow">How it started</div>
             <h2>Built by Nagalakshmi &amp; Shilpa</h2>
             <p className="lede">
-              Urvi Studios began with a simple frustration: it was hard to find clothes that felt both rooted in
-              Indian craft and easy to wear in a modern, everyday life. So we started sourcing directly — from
-              small manufacturers and craftspeople across India — the pieces we ourselves wanted to wear to work,
-              to weddings, and to everything in between.
+              URVI STUDIOS was born from a belief that getting dressed should feel effortless, expressive and
+              entirely your own.
             </p>
             <p className="lede">
-              Every piece on Urvi Studios is chosen by the two of us. We look for fabric that feels good against
-              skin, construction that holds up to real life, and a silhouette that makes you stand a little taller.
+              We wanted to create a destination for women who love the richness of Indian fashion but also want
+              pieces that belong naturally in modern life — from a Monday morning at work to a festive evening,
+              a quiet dinner to a celebration that calls for something unforgettable.
+            </p>
+            <p className="lede">
+              We travel through the world of Indian fashion looking for pieces that make us pause — beautiful
+              fabrics, thoughtful details, flattering silhouettes and craftsmanship that deserves to be noticed.
+              Every piece is personally discovered and carefully curated by us, with one question always in mind.
             </p>
           </div>
           <img src="/logo-ivory.png" alt="Urvi Studios emblem" />
+        </div>
+      </section>
+
+      <section className="section" style={{ background: "var(--sand)" }}>
+        <div className="container">
+          <p className="pull-quote">&ldquo;Would we want to wear this?&rdquo;</p>
+          <p className="lede" style={{ margin: "22px auto 0", textAlign: "center" }}>
+            If the answer is yes, it earns a place at URVI.
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container" style={{ textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
+          <div className="eyebrow">What we believe</div>
+          <h2>This feels like me.</h2>
+          <p className="lede" style={{ margin: "0 auto 16px" }}>
+            We believe style isn&apos;t about following every trend. It&apos;s about finding that feeling when you
+            look in the mirror and think, &ldquo;This feels like me.&rdquo;
+          </p>
+          <p className="lede" style={{ margin: "0 auto" }}>
+            That is what we want every URVI piece to give you — confidence without trying too hard, elegance
+            without being expected to dress a certain way, and fashion that moves with the many versions of you.
+          </p>
         </div>
       </section>
 
@@ -61,19 +89,13 @@ export default function AboutPage() {
       </section>
 
       <section className="section">
-        <div className="container" style={{ textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
-          <div className="eyebrow">Our Promise</div>
-          <h2>Confidence, worn.</h2>
-          <p className="lede devanagari" style={{ margin: "0 auto 20px", fontSize: 19 }}>आत्मविश्वासवस्त्रम्</p>
-          <p className="lede" style={{ margin: "0 auto" }}>
-            The clothing is not simply something she wears; it is part of the woman she chooses to become. That&apos;s
-            the promise behind every piece we source, and every order we personally pack.
+        <div className="container" style={{ textAlign: "center", maxWidth: 700, margin: "0 auto" }}>
+          <h2>Welcome to URVI STUDIOS.</h2>
+          <p className="lede" style={{ margin: "0 auto", fontSize: 19 }}>
+            Curated for you. Chosen with intention.
+            <br />
+            Made to make you feel extraordinary.
           </p>
-          <div className="values-grid">
-            <div className="value-item"><div className="num">100%</div><p>Sourced across India</p></div>
-            <div className="value-item"><div className="num">2</div><p>Founders who personally check every order</p></div>
-            <div className="value-item"><div className="num">3</div><p>Collections — Everyday, Office, Occasion</p></div>
-          </div>
         </div>
       </section>
 
