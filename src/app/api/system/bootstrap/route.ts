@@ -14,7 +14,8 @@
 // Note: Netlify's Next.js runtime snapshots environment variables at
 // deploy time, not per-request — a change made via the dashboard/API only
 // takes effect on the next deploy, which is why this comment exists (to
-// force exactly that).
+// force exactly that). (redeploy #2 — token re-verified correct on the
+// Netlify side, this push just gets a fresh function build to read it.)
 
 import { NextResponse, type NextRequest } from "next/server";
 
