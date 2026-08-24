@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getCustomerSession } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
@@ -28,6 +29,7 @@ export default async function SiteHeader({ active }: { active?: string }) {
       </div>
       <div className="header-inner container">
         <Link href="/" className="brand">
+          <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={44} height={35} className="brand-mark" priority />
           URVI<span className="brand-sub">Studios</span>
         </Link>
         <nav className="main-nav" id="main-nav">

@@ -11,25 +11,31 @@
 // does nothing on the second call. Safe to leave in place, but the
 // BOOTSTRAP_TOKEN env var can be deleted afterward to close it off.
 
-import { NextResponse } from "next/server";
-import { runSeed } from "@/db/seed";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function GET(request: Request) {
-  const token = new URL(request.url).searchParams.get("token");
-  const expected = process.env.BOOTSTRAP_TOKEN;
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-  if (!expected) {
-    return NextResponse.json({ ok: false, error: "BOOTSTRAP_TOKEN is not configured." }, { status: 503 });
-  }
-  if (!token || token !== expected) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-
+export async function GET(request: NextRequest) {
   try {
+    const token = request.nextUrl.searchParams.get("token");
+    const expected = process.env.BOOTSTRAP_TOKEN;
+
+    if (!expected) {
+      return NextResponse.json({ ok: false, error: "BOOTSTRAP_TOKEN is not configured." }, { status: 503 });
+    }
+    if (!token || token !== expected) {
+      return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+    }
+
+    const { runSeed } = await import("@/db/seed");
     await runSeed();
     return NextResponse.json({ ok: true, message: "Seed complete." });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    console.error("bootstrap route error:", err);
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) },
+      { status: 500 },
+    );
   }
 }
