@@ -228,22 +228,6 @@ p { line-height: 1.7; color: var(--earth); }
     radial-gradient(ellipse 900px 500px at 82% 8%, rgba(169, 130, 56, 0.16), transparent 60%),
     linear-gradient(155deg, var(--olive-black) 0%, var(--olive-deep) 46%, #2e3719 100%);
 }
-.hero-art {
-  position: absolute;
-  top: -2%;
-  right: 3%;
-  width: min(34vw, 460px);
-  aspect-ratio: 1 / 1;
-  background-image: url('/brand/logo-full-black.jpg');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  mix-blend-mode: screen;
-  opacity: 0.9;
-  pointer-events: none;
-  mask-image: radial-gradient(circle at 50% 46%, black 0%, black 58%, transparent 84%);
-  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 0%, black 58%, transparent 84%);
-}
 .hero-inner {
   max-width: var(--maxw);
   margin: 0 auto;
@@ -258,9 +242,7 @@ p { line-height: 1.7; color: var(--earth); }
 .hero p.lede { color: var(--sand); margin: 0 auto 30px; opacity: 0.9; }
 .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .hero-tagline-dev { font-size: 15px; letter-spacing: 2px; opacity: 0.85; margin-bottom: 6px; }
-@media (max-width: 880px) {
-  .hero-art { width: 62vw; top: 2%; right: 8%; opacity: 0.45; }
-}
+.hero .rule { margin: 4px auto 26px; }
 
 /* ---------------- Quote / founders band ---------------- */
 .quote-band {

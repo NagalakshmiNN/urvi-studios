@@ -26,12 +26,12 @@ export default async function HomePage() {
       <SiteHeader active="Home" />
 
       <section className="hero">
-        <div className="hero-art" aria-hidden="true" />
         <div className="hero-inner">
           <div className="eyebrow devanagari hero-tagline-dev">आत्मविश्वासवस्त्रम्</div>
           <div className="eyebrow">Everyday · Office · Occasion</div>
           <h1>Wear the woman
             <br /><em>you&apos;re becoming.</em></h1>
+          <hr className="rule" />
           <p className="lede">
             Premium festive wear, office wear and everyday fusion pieces — sourced from craftspeople across India, styled for the confident, modern woman.
           </p>
