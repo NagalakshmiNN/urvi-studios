@@ -25,7 +25,7 @@ export default function AboutPage() {
         <div className="container split">
           <div>
             <div className="eyebrow">How it started</div>
-            <h2>Built by Nagalakshmi &amp; Shilpa</h2>
+            <h2>Built by Shilpa &amp; Nagalakshmi</h2>
             <p className="lede">
               URVI STUDIOS was born from a belief that getting dressed should feel effortless, expressive and
               entirely your own.
@@ -38,7 +38,7 @@ export default function AboutPage() {
             <p className="lede">
               We travel through the world of Indian fashion looking for pieces that make us pause — beautiful
               fabrics, thoughtful details, flattering silhouettes and craftsmanship that deserves to be noticed.
-              Every piece is personally discovered and carefully curated by us, with one question always in mind.
+              Every piece is personally discovered and carefully curated by Shilpa and Nagalakshmi, with one question always in mind.
             </p>
           </div>
           <img src="/logo-ivory.png" alt="Urvi Studios emblem" />

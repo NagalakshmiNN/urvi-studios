@@ -105,7 +105,7 @@ export default async function HomePage() {
           <div className="eyebrow" style={{ color: "var(--gold-light)" }}>Her Girls</div>
           <h2 style={{ color: "var(--ivory)" }}>&quot;Your mood. Your moment. Your look.&quot;</h2>
           <p className="lede" style={{ color: "var(--sand)", margin: "0 auto", opacity: 0.9 }}>
-            URVI Studios is built by two women, for women who refuse to choose between comfort, craft and confidence — because the right outfit isn&apos;t just fabric. It&apos;s who you become when you wear it.
+            URVI Studios is built by Shilpa and Nagalakshmi, for women who refuse to choose between comfort, craft and confidence — because the right outfit isn&apos;t just fabric. It&apos;s who you become when you wear it.
           </p>
           <Link href="/about" className="btn btn-outline on-dark" style={{ marginTop: 26 }}>Meet the Founders</Link>
         </div>

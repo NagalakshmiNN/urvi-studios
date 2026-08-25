@@ -230,16 +230,19 @@ p { line-height: 1.7; color: var(--earth); }
 }
 .hero-art {
   position: absolute;
-  top: -10%;
-  right: -8%;
-  width: min(42vw, 560px);
+  top: -2%;
+  right: 3%;
+  width: min(34vw, 460px);
   aspect-ratio: 1 / 1;
   background-image: url('/brand/logo-full-black.jpg');
-  background-size: cover;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
   mix-blend-mode: screen;
   opacity: 0.9;
   pointer-events: none;
+  mask-image: radial-gradient(circle at 50% 46%, black 0%, black 58%, transparent 84%);
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 0%, black 58%, transparent 84%);
 }
 .hero-inner {
   max-width: var(--maxw);
@@ -256,7 +259,7 @@ p { line-height: 1.7; color: var(--earth); }
 .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .hero-tagline-dev { font-size: 15px; letter-spacing: 2px; opacity: 0.85; margin-bottom: 6px; }
 @media (max-width: 880px) {
-  .hero-art { width: 78vw; top: -4%; right: -20%; opacity: 0.5; }
+  .hero-art { width: 62vw; top: 2%; right: 8%; opacity: 0.45; }
 }
 
 /* ---------------- Quote / founders band ---------------- */
@@ -268,17 +271,20 @@ p { line-height: 1.7; color: var(--earth); }
 }
 .quote-band .art-wash {
   position: absolute;
-  top: 50%;
+  top: 48%;
   left: 50%;
-  width: min(60vw, 760px);
+  width: min(44vw, 560px);
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
   background-image: url('/brand/logo-full-black.jpg');
-  background-size: cover;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
   mix-blend-mode: screen;
-  opacity: 0.45;
+  opacity: 0.4;
   pointer-events: none;
+  mask-image: radial-gradient(circle at 50% 50%, black 0%, black 55%, transparent 82%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, black 55%, transparent 82%);
 }
 .quote-band .container { position: relative; z-index: 2; }
 

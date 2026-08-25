@@ -12,7 +12,7 @@ export default function SiteFooter() {
               <Image src="/brand/logo-mark.png" alt="Urvi Studios" width={46} height={40} className="brand-mark" />
               URVI<span className="brand-sub">Studios</span>
             </Link>
-            <p>Premium festive, office and everyday wear with an Indian heart and a western edit. Founded by Nagalakshmi &amp; Shilpa.</p>
+            <p>Premium festive, office and everyday wear with an Indian heart and a western edit. Founded by Shilpa &amp; Nagalakshmi.</p>
             <div className="social-row">
               <a href={`https://instagram.com/${SITE.instagramHandle}`} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="2" width="20" height="20" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" /></svg>
