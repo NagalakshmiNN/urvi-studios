@@ -26,11 +26,12 @@ export default async function HomePage() {
       <SiteHeader active="Home" />
 
       <section className="hero">
+        <div className="hero-art" aria-hidden="true" />
         <div className="hero-inner">
           <div className="eyebrow devanagari hero-tagline-dev">आत्मविश्वासवस्त्रम्</div>
           <div className="eyebrow">Everyday · Office · Occasion</div>
           <h1>Wear the woman
-            <br />you&apos;re becoming.</h1>
+            <br /><em>you&apos;re becoming.</em></h1>
           <p className="lede">
             Premium festive wear, office wear and everyday fusion pieces — sourced from craftspeople across India, styled for the confident, modern woman.
           </p>
@@ -50,15 +51,15 @@ export default async function HomePage() {
           <div className="category-grid">
             <Link href="/shop?cat=Everyday" className="category-card">
               <img src="/placeholders/hero-casual.svg" alt="Everyday wear" />
-              <div className="overlay"><span>The Essentials</span><h3>Everyday</h3></div>
+              <div className="overlay"><span>The Essentials</span><h3>Everyday</h3><div className="rule-mini" /></div>
             </Link>
             <Link href="/shop?cat=Office" className="category-card">
               <img src="/placeholders/hero-office.svg" alt="Office wear" />
-              <div className="overlay"><span>Sharp &amp; Considered</span><h3>Office</h3></div>
+              <div className="overlay"><span>Sharp &amp; Considered</span><h3>Office</h3><div className="rule-mini" /></div>
             </Link>
             <Link href="/shop?cat=Occasion" className="category-card">
               <img src="/placeholders/hero-festive.svg" alt="Occasion wear" />
-              <div className="overlay"><span>Festive &amp; Fusion</span><h3>Occasion</h3></div>
+              <div className="overlay"><span>Festive &amp; Fusion</span><h3>Occasion</h3><div className="rule-mini" /></div>
             </Link>
           </div>
         </div>
@@ -72,11 +73,11 @@ export default async function HomePage() {
             <p className="lede" style={{ margin: "14px auto 0" }}>Different versions of HER — pick the mood, we&apos;ll style the edit.</p>
           </div>
           <div className="mood-grid">
-            <div className="mood-card"><div className="icon">👑</div><h4>The Leader</h4><p>Structured &amp; sharp</p></div>
-            <div className="mood-card"><div className="icon">🌿</div><h4>The Everyday Woman</h4><p>Effortless &amp; easy</p></div>
-            <div className="mood-card"><div className="icon">✨</div><h4>The Social Butterfly</h4><p>Festive &amp; radiant</p></div>
-            <div className="mood-card"><div className="icon">🕊️</div><h4>The Minimalist</h4><p>Clean &amp; considered</p></div>
-            <div className="mood-card"><div className="icon">🌙</div><h4>The Dreamer</h4><p>Soft &amp; fluid</p></div>
+            <div className="mood-card"><div className="mood-mark">L</div><h4>The Leader</h4><p>Structured &amp; sharp</p></div>
+            <div className="mood-card"><div className="mood-mark">E</div><h4>The Everyday Woman</h4><p>Effortless &amp; easy</p></div>
+            <div className="mood-card"><div className="mood-mark">S</div><h4>The Social Butterfly</h4><p>Festive &amp; radiant</p></div>
+            <div className="mood-card"><div className="mood-mark">M</div><h4>The Minimalist</h4><p>Clean &amp; considered</p></div>
+            <div className="mood-card"><div className="mood-mark">D</div><h4>The Dreamer</h4><p>Soft &amp; fluid</p></div>
           </div>
         </div>
       </section>
@@ -98,7 +99,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section" style={{ background: "var(--olive)", color: "var(--sand)", textAlign: "center" }}>
+      <section className="section quote-band" style={{ textAlign: "center" }}>
+        <div className="art-wash" aria-hidden="true" />
         <div className="container" style={{ maxWidth: 760 }}>
           <div className="eyebrow" style={{ color: "var(--gold-light)" }}>Her Girls</div>
           <h2 style={{ color: "var(--ivory)" }}>&quot;Your mood. Your moment. Your look.&quot;</h2>
