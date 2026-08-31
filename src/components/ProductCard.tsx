@@ -13,8 +13,12 @@ export default function ProductCard({
   isLoggedIn: boolean;
   wishlisted: boolean;
 }) {
-  const inStock = product.stock > 0;
-  const midSize = product.sizes[Math.floor(product.sizes.length / 2)]?.label ?? "M";
+  // Quick-add from the card needs one concrete size to add — prefer one
+  // that's actually in stock, since stock is now tracked per size.
+  const pickSize =
+    product.sizes.find((s) => s.stock > 0) ?? product.sizes[Math.floor(product.sizes.length / 2)];
+  const inStock = (pickSize?.stock ?? product.stock) > 0;
+  const midSize = pickSize?.label ?? "M";
 
   return (
     <div className="product-card">

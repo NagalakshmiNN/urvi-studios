@@ -163,12 +163,16 @@ export async function runSeed() {
     const productIdBySlug = Object.fromEntries(insertedProducts.map((r) => [r.slug, r.id]));
 
     const imageRows: { productId: string; url: string; position: number }[] = [];
-    const sizeRows: { productId: string; label: string; position: number }[] = [];
+    const sizeRows: { productId: string; label: string; stock: number; position: number }[] = [];
     const colorRows: { productId: string; name: string; hex: string; position: number }[] = [];
     for (const p of missingProducts) {
       const productId = productIdBySlug[p.slug];
       imageRows.push({ productId, url: p.image, position: 0 });
-      p.sizes.forEach((label, i) => sizeRows.push({ productId, label, position: i }));
+      // Split the seed product's total stock evenly across its sizes, same
+      // as a fresh Excel import would.
+      const base = Math.floor(p.stock / p.sizes.length);
+      const remainder = p.stock % p.sizes.length;
+      p.sizes.forEach((label, i) => sizeRows.push({ productId, label, stock: base + (i < remainder ? 1 : 0), position: i }));
       p.colors.forEach((c, i) => colorRows.push({ productId, name: c.name, hex: c.hex, position: i }));
     }
     if (imageRows.length) await db.insert(productImages).values(imageRows);

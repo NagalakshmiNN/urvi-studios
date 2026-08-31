@@ -9,6 +9,6 @@ export type ProductCardData = {
   stock: number;
   images: { url: string }[];
   colors: { name: string; hex: string }[];
-  sizes: { label: string }[];
+  sizes: { label: string; stock: number }[];
   category: { name: string; slug: string; parent: string | null };
 };

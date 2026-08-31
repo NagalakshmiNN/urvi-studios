@@ -16,25 +16,27 @@ export default async function AdminDashboardPage() {
   const lowStock = await db.query.products.findMany({ where: lt(schema.products.stock, 5), orderBy: schema.products.stock });
   const recentOrders = await db.query.orders.findMany({ orderBy: desc(schema.orders.createdAt), limit: 8 });
 
-  // Stock overview — the catalog tracks one stock count per product (not a
-  // separate count per size/colour), so "units in a size" really means
-  // "units of the products that come in that size." Good enough to see at a
-  // glance what's running low in which size without opening every product.
+  // Stock is tracked per size (product_sizes.stock is the source of truth;
+  // products.stock is kept as a synced total) — so this is a real
+  // size-by-size breakdown, not an approximation from the product total.
   const allProducts = await db.query.products.findMany({ with: { sizes: true } });
   const totalUnits = allProducts.reduce((sum, p) => sum + p.stock, 0);
   const activeUnits = allProducts.filter((p) => p.isActive).reduce((sum, p) => sum + p.stock, 0);
 
   const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "ONE SIZE"];
   const bySize = new Map<string, { units: number; items: { name: string; stock: number }[] }>();
+  const lowStockSizes: { productName: string; size: string; stock: number }[] = [];
   for (const p of allProducts) {
     for (const s of p.sizes) {
       const label = s.label.trim();
       if (!bySize.has(label)) bySize.set(label, { units: 0, items: [] });
       const entry = bySize.get(label)!;
-      entry.units += p.stock;
-      entry.items.push({ name: p.name, stock: p.stock });
+      entry.units += s.stock;
+      entry.items.push({ name: p.name, stock: s.stock });
+      if (p.isActive && s.stock < 5) lowStockSizes.push({ productName: p.name, size: label, stock: s.stock });
     }
   }
+  lowStockSizes.sort((a, b) => a.stock - b.stock);
   const sizeRows = [...bySize.entries()].sort((a, b) => {
     const ai = SIZE_ORDER.indexOf(a[0].toUpperCase());
     const bi = SIZE_ORDER.indexOf(b[0].toUpperCase());
@@ -78,8 +80,7 @@ export default async function AdminDashboardPage() {
           </span>
         </div>
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 16 }}>
-          Stock is tracked per product, not per size — so &quot;units in a size&quot; below means units of the
-          products that come in that size.
+          Pieces on hand, size by size, across every product that comes in that size.
         </p>
         <table className="admin-table">
           <thead>
@@ -103,9 +104,32 @@ export default async function AdminDashboardPage() {
         </table>
       </div>
 
+      {lowStockSizes.length > 0 && (
+        <div className="admin-card" style={{ marginBottom: 28 }}>
+          <h3 style={{ marginBottom: 4 }}>Running Low, By Size</h3>
+          <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 14 }}>
+            Fewer than 5 pieces left in this specific size — even if the product overall still looks fine.
+          </p>
+          <table className="admin-table">
+            <thead>
+              <tr><th>Product</th><th>Size</th><th>Pieces left</th></tr>
+            </thead>
+            <tbody>
+              {lowStockSizes.map((row, i) => (
+                <tr key={i}>
+                  <td>{row.productName}</td>
+                  <td style={{ fontWeight: 600 }}>{row.size}</td>
+                  <td style={{ color: row.stock === 0 ? "#a5333a" : "inherit" }}>{row.stock}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {lowStock.length > 0 && (
         <div className="admin-card" style={{ marginBottom: 28 }}>
-          <h3 style={{ marginBottom: 14 }}>Low Stock</h3>
+          <h3 style={{ marginBottom: 14 }}>Low Stock — Overall</h3>
           <table className="admin-table">
             <thead>
               <tr><th>Product</th><th>Stock</th><th></th></tr>

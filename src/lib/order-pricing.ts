@@ -40,7 +40,7 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
   const productIds = [...new Set(items.map((i) => i.productId))];
   const products = await db.query.products.findMany({
     where: inArray(schema.products.id, productIds),
-    with: { images: true },
+    with: { images: true, sizes: true },
   });
   const byId = new Map(products.map((p) => [p.id, p]));
 
@@ -49,7 +49,18 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
     const product = byId.get(item.productId);
     if (!product || !product.isActive) return { ok: false, error: "One of the items in your bag is no longer available." };
     const qty = Math.max(1, Math.min(10, Math.floor(item.qty) || 1));
-    if (product.stock < qty) return { ok: false, error: `Only ${product.stock} left of "${product.name}" — please adjust the quantity.` };
+
+    // Stock is tracked per size (see product_sizes.stock) — fall back to
+    // the product's own total only for the rare case of an unsized product
+    // or a size label that no longer matches any of the product's sizes.
+    const sizeLabel = String(item.size || "").trim();
+    const matchedSize = product.sizes.find((s) => s.label.toLowerCase() === sizeLabel.toLowerCase());
+    const available = matchedSize ? matchedSize.stock : product.stock;
+    if (available < qty) {
+      const sizeNote = matchedSize ? ` in size ${matchedSize.label}` : "";
+      return { ok: false, error: `Only ${available} left${sizeNote} of "${product.name}" — please adjust the quantity.` };
+    }
+
     lines.push({
       productId: product.id,
       productName: product.name,

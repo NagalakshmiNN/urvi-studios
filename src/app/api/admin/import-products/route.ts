@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getAdminSession } from "@/lib/auth";
+import { distributeStock } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -210,8 +211,13 @@ export async function POST(request: Request) {
         })
         .where(eq(schema.products.id, existingProduct.id));
 
+      // The sheet only has one "Stock" number per row, not a count per
+      // size — split it as evenly as possible across the sizes listed so
+      // it lands somewhere real rather than zero; fine-tune the exact
+      // per-size split afterward from Edit Product.
+      const sizeStocks = distributeStock(stock, sizeLabels.length);
       await db.delete(schema.productSizes).where(eq(schema.productSizes.productId, existingProduct.id));
-      await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: existingProduct.id, label, position: i })));
+      await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: existingProduct.id, label, stock: sizeStocks[i], position: i })));
 
       await db.delete(schema.productColors).where(eq(schema.productColors.productId, existingProduct.id));
       if (colorPairs.length) {
@@ -261,7 +267,8 @@ export async function POST(request: Request) {
     // until real photos are added afterward (drag-and-drop in Edit).
     const imageUrl = CATEGORY_PLACEHOLDER[category.slug] ?? "/placeholders/casual-wear.svg";
     await db.insert(schema.productImages).values({ productId: product.id, url: imageUrl, position: 0 });
-    await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: product.id, label, position: i })));
+    const newSizeStocks = distributeStock(stock, sizeLabels.length);
+    await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: product.id, label, stock: newSizeStocks[i], position: i })));
     if (colorPairs.length) {
       await db.insert(schema.productColors).values(
         colorPairs.map((pair, i) => {

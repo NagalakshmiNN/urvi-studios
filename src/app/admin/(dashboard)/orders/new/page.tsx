@@ -24,7 +24,7 @@ export default async function NewManualOrderPage() {
             name: p.name,
             price: p.price,
             stock: p.stock,
-            sizes: p.sizes.map((s) => ({ label: s.label })),
+            sizes: p.sizes.map((s) => ({ label: s.label, stock: s.stock })),
             colors: p.colors.map((c) => ({ name: c.name })),
           }))}
         />

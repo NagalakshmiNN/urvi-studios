@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { updateProductFullAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
+import SizeStockEditor from "@/components/SizeStockEditor";
 
 type Product = {
   id: string;
@@ -21,7 +22,7 @@ type Product = {
   isActive: boolean;
   categoryId: string;
   images: { url: string }[];
-  sizes: { label: string }[];
+  sizes: { label: string; stock: number }[];
   colors: { name: string; hex: string }[];
 };
 
@@ -88,10 +89,6 @@ export default function EditProductForm({ product, categories }: { product: Prod
           <label>Compare-at price (₹, optional)</label>
           <input type="number" name="compareAtPrice" min={1} defaultValue={product.compareAtPrice ?? ""} />
         </div>
-        <div className="form-group">
-          <label>Stock</label>
-          <input type="number" name="stock" min={0} defaultValue={product.stock} />
-        </div>
       </div>
       <div className="form-group">
         <label>Badge (optional)</label>
@@ -102,8 +99,8 @@ export default function EditProductForm({ product, categories }: { product: Prod
         <ImageUploader name="images" defaultUrls={product.images.map((i) => i.url)} />
       </div>
       <div className="form-group">
-        <label>Sizes (comma separated)</label>
-        <input type="text" name="sizes" required placeholder="S, M, L, XL" defaultValue={product.sizes.map((s) => s.label).join(", ")} />
+        <label>Sizes &amp; stock</label>
+        <SizeStockEditor initialSizes={product.sizes.map((s) => ({ label: s.label, stock: s.stock }))} />
       </div>
       <div className="form-group">
         <label>Colors (optional, Name:#hex, comma separated)</label>

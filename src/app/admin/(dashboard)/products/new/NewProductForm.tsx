@@ -3,6 +3,7 @@
 import { useActionState, useRef, useEffect } from "react";
 import { createProductAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
+import SizeStockEditor from "@/components/SizeStockEditor";
 
 export default function NewProductForm({ categories }: { categories: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState(createProductAction, undefined);
@@ -67,10 +68,6 @@ export default function NewProductForm({ categories }: { categories: { id: strin
           <label>Compare-at price (₹, optional)</label>
           <input type="number" name="compareAtPrice" min={1} />
         </div>
-        <div className="form-group">
-          <label>Stock</label>
-          <input type="number" name="stock" defaultValue={10} min={0} />
-        </div>
       </div>
       <div className="form-group">
         <label>Badge (optional)</label>
@@ -81,8 +78,8 @@ export default function NewProductForm({ categories }: { categories: { id: strin
         <ImageUploader name="images" />
       </div>
       <div className="form-group">
-        <label>Sizes (comma separated)</label>
-        <input type="text" name="sizes" required placeholder="S, M, L, XL" />
+        <label>Sizes &amp; stock</label>
+        <SizeStockEditor />
       </div>
       <div className="form-group">
         <label>Colors (optional, Name:#hex, comma separated)</label>

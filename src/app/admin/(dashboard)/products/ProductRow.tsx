@@ -60,7 +60,9 @@ export default function ProductRow({ product }: { product: Product }) {
           <input form={formId} type="text" name="badge" defaultValue={product.badge ?? ""} style={{ width: 90 }} className="admin-inline-input" />
         </td>
         <td>
-          <input form={formId} type="number" name="stock" defaultValue={product.stock} style={{ width: 60 }} className="admin-inline-input" />
+          <Link href={`/admin/products/${product.id}/edit`} title="Edit sizes to change stock" style={{ color: "var(--earth)" }}>
+            {product.stock}
+          </Link>
         </td>
         <td>
           <input form={formId} type="checkbox" name="isActive" defaultChecked={product.isActive} />

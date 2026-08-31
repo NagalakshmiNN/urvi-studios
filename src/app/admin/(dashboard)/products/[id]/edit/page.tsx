@@ -9,7 +9,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const [product, categories] = await Promise.all([
     db.query.products.findFirst({
       where: eq(schema.products.id, id),
-      with: { images: true, sizes: true, colors: true },
+      with: { images: true, sizes: { orderBy: (s, { asc }) => [asc(s.position)] }, colors: true },
     }),
     db.query.categories.findMany({ orderBy: (c, { asc }) => [asc(c.position)] }),
   ]);

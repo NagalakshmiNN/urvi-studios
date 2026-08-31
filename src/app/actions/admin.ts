@@ -1,11 +1,12 @@
 "use server";
 
 import { db, schema } from "@/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
+import { adjustStockForLine } from "@/lib/stock";
 
 export type AdminFormState = { error?: string; success?: string } | undefined;
 
@@ -38,10 +39,13 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
-  const stock = parseInt(String(formData.get("stock") || "0"), 10);
   const categoryId = String(formData.get("categoryId") || "");
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
-  const sizeLabels = String(formData.get("sizes") || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const sizeLabels = formData.getAll("sizeLabel").map(String);
+  const sizeStocks = formData.getAll("sizeStock").map(String);
+  const sizes = sizeLabels
+    .map((label, i) => ({ label: label.trim(), stock: Math.max(0, parseInt(sizeStocks[i] || "0", 10) || 0) }))
+    .filter((s) => s.label);
   const colorPairs = String(formData.get("colors") || "").split(",").map((s) => s.trim()).filter(Boolean);
 
   if (!name || name.length < 3) return { error: "Please enter a product name." };
@@ -49,7 +53,9 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
-  if (sizeLabels.length === 0) return { error: "Please add at least one size." };
+  if (sizes.length === 0) return { error: "Please add at least one size." };
+
+  const totalStock = sizes.reduce((sum, s) => sum + s.stock, 0);
 
   const slugBase = slugify(name);
   let slug = slugBase;
@@ -74,13 +80,13 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       badge: badge || null,
-      stock: Number.isFinite(stock) ? stock : 0,
+      stock: totalStock,
       categoryId,
     })
     .returning();
 
   await db.insert(schema.productImages).values(imageUrls.map((url, i) => ({ productId: product.id, url, position: i })));
-  await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: product.id, label, position: i })));
+  await db.insert(schema.productSizes).values(sizes.map((s, i) => ({ productId: product.id, label: s.label, stock: s.stock, position: i })));
 
   if (colorPairs.length) {
     await db.insert(schema.productColors).values(
@@ -100,20 +106,20 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
 
   const productId = String(formData.get("productId") || "");
   const price = parseInt(String(formData.get("price") || ""), 10);
-  const stock = parseInt(String(formData.get("stock") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
   const isActive = formData.get("isActive") === "on";
 
   if (!productId) return { error: "Missing product." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
-  if (!Number.isFinite(stock) || stock < 0) return { error: "Please enter a valid stock count." };
 
+  // Stock is tracked per size now (see the Edit Product page) — this quick
+  // row edit no longer touches it, so a stray save here can never overwrite
+  // a real per-size count with a stale total.
   await db
     .update(schema.products)
     .set({
       price,
-      stock,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       badge: badge || null,
       isActive,
@@ -142,21 +148,25 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
-  const stock = parseInt(String(formData.get("stock") || "0"), 10);
   const categoryId = String(formData.get("categoryId") || "");
   const isActive = formData.get("isActive") === "on";
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
-  const sizeLabels = String(formData.get("sizes") || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const sizeLabels = formData.getAll("sizeLabel").map(String);
+  const sizeStocks = formData.getAll("sizeStock").map(String);
+  const sizes = sizeLabels
+    .map((label, i) => ({ label: label.trim(), stock: Math.max(0, parseInt(sizeStocks[i] || "0", 10) || 0) }))
+    .filter((s) => s.label);
   const colorPairs = String(formData.get("colors") || "").split(",").map((s) => s.trim()).filter(Boolean);
 
   if (!productId) return { error: "Missing product." };
   if (!name || name.length < 3) return { error: "Please enter a product name." };
   if (!description) return { error: "Please enter a description." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
-  if (!Number.isFinite(stock) || stock < 0) return { error: "Please enter a valid stock count." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
-  if (sizeLabels.length === 0) return { error: "Please add at least one size." };
+  if (sizes.length === 0) return { error: "Please add at least one size." };
+
+  const totalStock = sizes.reduce((sum, s) => sum + s.stock, 0);
 
   await db
     .update(schema.products)
@@ -171,7 +181,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       badge: badge || null,
-      stock: Number.isFinite(stock) ? stock : 0,
+      stock: totalStock,
       categoryId,
       isActive,
       updatedAt: new Date(),
@@ -182,7 +192,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   await db.insert(schema.productImages).values(imageUrls.map((url, i) => ({ productId, url, position: i })));
 
   await db.delete(schema.productSizes).where(eq(schema.productSizes.productId, productId));
-  await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId, label, position: i })));
+  await db.insert(schema.productSizes).values(sizes.map((s, i) => ({ productId, label: s.label, stock: s.stock, position: i })));
 
   await db.delete(schema.productColors).where(eq(schema.productColors.productId, productId));
   if (colorPairs.length) {
@@ -240,20 +250,14 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
   if (STATUSES_THAT_IMPLY_SOLD.has(status) && !order.stockDeducted) {
     for (const item of order.items) {
       if (item.productId) {
-        await db
-          .update(schema.products)
-          .set({ stock: sql`greatest(0, ${schema.products.stock} - ${item.qty})` })
-          .where(eq(schema.products.id, item.productId));
+        await adjustStockForLine(item.productId, item.size, -item.qty);
       }
     }
     await db.update(schema.orders).set({ status, stockDeducted: true, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
   } else if (STATUSES_THAT_RELEASE_STOCK.has(status) && order.stockDeducted) {
     for (const item of order.items) {
       if (item.productId) {
-        await db
-          .update(schema.products)
-          .set({ stock: sql`${schema.products.stock} + ${item.qty}` })
-          .where(eq(schema.products.id, item.productId));
+        await adjustStockForLine(item.productId, item.size, item.qty);
       }
     }
     await db.update(schema.orders).set({ status, stockDeducted: false, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
@@ -349,10 +353,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
   );
 
   for (const line of pricing.lines) {
-    await db
-      .update(schema.products)
-      .set({ stock: sql`greatest(0, ${schema.products.stock} - ${line.qty})` })
-      .where(eq(schema.products.id, line.productId));
+    await adjustStockForLine(line.productId, line.size, -line.qty);
   }
 
   revalidatePath("/admin/orders");

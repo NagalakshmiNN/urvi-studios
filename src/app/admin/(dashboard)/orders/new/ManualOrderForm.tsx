@@ -9,7 +9,7 @@ type Product = {
   name: string;
   price: number;
   stock: number;
-  sizes: { label: string }[];
+  sizes: { label: string; stock: number }[];
   colors: { name: string }[];
 };
 
@@ -72,7 +72,9 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
               <select name="lineSize" defaultValue="">
                 <option value="">—</option>
                 {(product?.sizes ?? []).map((s) => (
-                  <option key={s.label} value={s.label}>{s.label}</option>
+                  <option key={s.label} value={s.label} disabled={s.stock <= 0}>
+                    {s.label} ({s.stock} left)
+                  </option>
                 ))}
               </select>
             </div>

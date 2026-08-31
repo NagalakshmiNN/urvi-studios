@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { db, schema } from "@/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { sendOrderNotification } from "@/lib/order-notify";
+import { adjustStockForLine } from "@/lib/stock";
 
 export async function POST(request: Request) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -43,10 +44,7 @@ export async function POST(request: Request) {
 
     for (const item of order.items) {
       if (item.productId) {
-        await db
-          .update(schema.products)
-          .set({ stock: sql`greatest(0, ${schema.products.stock} - ${item.qty})` })
-          .where(eq(schema.products.id, item.productId));
+        await adjustStockForLine(item.productId, item.size, -item.qty);
       }
     }
 

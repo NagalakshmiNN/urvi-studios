@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatINR } from "@/lib/format";
 import { addToCart } from "@/lib/cart";
 import WishlistButton from "@/components/WishlistButton";
@@ -21,7 +21,7 @@ type Product = {
   compareAtPrice: number | null;
   stock: number;
   images: { url: string }[];
-  sizes: { label: string }[];
+  sizes: { label: string; stock: number }[];
   colors: { name: string; hex: string }[];
   category: { name: string };
 };
@@ -36,11 +36,24 @@ export default function ProductDetailClient({
   wishlisted: boolean;
 }) {
   const router = useRouter();
-  const [size, setSize] = useState(product.sizes[0]?.label ?? "");
+  const [size, setSize] = useState(
+    () => product.sizes.find((s) => s.stock > 0)?.label ?? product.sizes[0]?.label ?? ""
+  );
   const [color, setColor] = useState(product.colors[0]?.name ?? "");
   const [qty, setQty] = useState(1);
-  const inStock = product.stock > 0;
-  const lowStock = inStock && product.stock <= 5;
+
+  // Stock is tracked per size — fall back to the product total only for the
+  // rare unsized product.
+  const selectedSize = product.sizes.find((s) => s.label === size);
+  const sizeStock = product.sizes.length ? (selectedSize?.stock ?? 0) : product.stock;
+  const inStock = sizeStock > 0;
+  const lowStock = inStock && sizeStock <= 5;
+
+  // Switching to a smaller-stock size shouldn't leave a stale, too-high qty
+  // selected.
+  useEffect(() => {
+    setQty((q) => Math.max(1, Math.min(q, sizeStock || 1)));
+  }, [sizeStock]);
 
   function handleAdd() {
     addToCart({
@@ -76,7 +89,11 @@ export default function ProductDetailClient({
           {product.compareAtPrice && <span className="strike">{formatINR(product.compareAtPrice)}</span>}
         </div>
         <div className={`pdp-stock ${!inStock ? "out" : lowStock ? "low" : ""}`}>
-          {!inStock ? "Out of stock" : lowStock ? `Only ${product.stock} left — order soon` : "In stock · Ships in 3–5 business days"}
+          {!inStock
+            ? `Out of stock${size ? ` in size ${size}` : ""}`
+            : lowStock
+            ? `Only ${sizeStock} left${size ? ` in size ${size}` : ""} — order soon`
+            : "In stock · Ships in 3–5 business days"}
         </div>
         <p className="pdp-desc">{product.description}</p>
 
@@ -98,15 +115,19 @@ export default function ProductDetailClient({
         <div className="field-block">
           <div className="field-label"><span>Size — {size}</span></div>
           <div className="size-options">
-            {product.sizes.map((s) => (
-              <span
-                key={s.label}
-                className={`size-opt ${s.label === size ? "selected" : ""}`}
-                onClick={() => setSize(s.label)}
-              >
-                {s.label}
-              </span>
-            ))}
+            {product.sizes.map((s) => {
+              const soldOut = s.stock <= 0;
+              return (
+                <span
+                  key={s.label}
+                  className={`size-opt ${s.label === size ? "selected" : ""} ${soldOut ? "sold-out" : ""}`}
+                  title={soldOut ? "Sold out in this size" : undefined}
+                  onClick={() => !soldOut && setSize(s.label)}
+                >
+                  {s.label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -115,7 +136,7 @@ export default function ProductDetailClient({
           <div className="qty-stepper">
             <button onClick={() => setQty((q) => Math.max(1, q - 1))}>–</button>
             <span>{qty}</span>
-            <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))}>+</button>
+            <button onClick={() => setQty((q) => Math.min(sizeStock || 1, q + 1))}>+</button>
           </div>
         </div>
 

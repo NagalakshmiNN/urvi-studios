@@ -102,6 +102,12 @@ export const productSizes = pgTable("product_sizes", {
   id: id(),
   productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
+  // How many physical pieces of this product, in this size, are actually on
+  // hand — the real answer to "how do we track the 4 to 40 pieces." Colors
+  // are still shared across a size's stock (not their own dimension) since
+  // most of the catalog only offers 1–2 colors per style; this is the
+  // granularity that actually determines whether a size can be sold.
+  stock: integer("stock").notNull().default(0),
   position: integer("position").notNull().default(0),
 });
 
