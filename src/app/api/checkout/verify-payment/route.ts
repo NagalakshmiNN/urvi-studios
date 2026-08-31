@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { db, schema } from "@/db";
 import { eq, sql } from "drizzle-orm";
+import { sendOrderNotification } from "@/lib/order-notify";
 
 export async function POST(request: Request) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -48,6 +49,11 @@ export async function POST(request: Request) {
           .where(eq(schema.products.id, item.productId));
       }
     }
+
+    await sendOrderNotification(
+      { ...order, paymentStatus: "PAID" },
+      order.items.map((i) => ({ productName: i.productName, size: i.size, color: i.color, qty: i.qty, price: i.price }))
+    );
   }
 
   return NextResponse.json({ verified: true, orderNumber: order.orderNumber });

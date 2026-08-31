@@ -5,6 +5,7 @@ import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pric
 import { getCustomerSession } from "@/lib/auth";
 import { SITE } from "@/lib/site-config";
 import { formatINR } from "@/lib/format";
+import { sendOrderNotification } from "@/lib/order-notify";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,6 +80,16 @@ export async function POST(request: Request) {
       `\n\nPhone: ${customer.phone}\nEmail: ${customer.email}\nAddress: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}` +
       (customer.notes ? `\nNotes: ${customer.notes}` : "");
     const whatsappUrl = `https://wa.me/${SITE.whatsappNumber}?text=${encodeURIComponent(msg)}`;
+
+    // The customer still has to tap through to actually send that WhatsApp
+    // message, so this email is the reliable half of the intimation — it
+    // fires the moment the order is placed, whether or not they follow
+    // through on WhatsApp.
+    await sendOrderNotification(
+      { ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" },
+      pricing.lines.map((l) => ({ productName: l.productName, size: l.size, color: l.color, qty: l.qty, price: l.price }))
+    );
+
     return NextResponse.json({ configured: false, orderNumber, whatsappUrl });
   }
 
