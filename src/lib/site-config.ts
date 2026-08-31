@@ -4,5 +4,11 @@ export const SITE = {
   whatsappNumberAlt: "919632311118", // Shilpa
   instagramHandle: "urvi.studios",
   contactEmail: "urvistudios2026@gmail.com",
-  freeShippingThreshold: 5999, // below this, shipping is confirmed with the customer per pincode — not a flat fee
+  // Every number an order handoff (the WhatsApp fallback when Razorpay isn't
+  // configured) can be sent to — a customer can reach whichever is easiest.
+  whatsappOrderNumbers: [
+    { name: "Lakshmi", number: "919538559595" },
+    { name: "Shilpa", number: "919632311118" },
+    { name: "Urvi Studio", number: "919180181526" },
+  ],
 };

@@ -3,7 +3,10 @@ import { db } from "@/db";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import ProductCard from "@/components/ProductCard";
+import RollingCategoryImage from "@/components/RollingCategoryImage";
 import { getCustomerSession } from "@/lib/auth";
+
+const CATEGORY_IMAGE_LIMIT = 6;
 
 export default async function HomePage() {
   const customerId = await getCustomerSession();
@@ -14,6 +17,30 @@ export default async function HomePage() {
     orderBy: (p, { desc }) => [desc(p.createdAt)],
     limit: 8,
   });
+
+  // A handful of real photos per parent group (Everyday/Office/Occasion),
+  // newest first, to roll through in the homepage circles — no separate
+  // "category image" upload needed, since the catalog already has real
+  // product photos to draw from.
+  const forRolling = await db.query.products.findMany({
+    where: (p, { eq }) => eq(p.isActive, true),
+    with: { images: true, category: true },
+    orderBy: (p, { desc }) => [desc(p.createdAt)],
+  });
+  const imagesByParent: Record<string, string[]> = { Everyday: [], Office: [], Occasion: [] };
+  for (const p of forRolling) {
+    const parent = p.category.parent;
+    const url = p.images[0]?.url;
+    // Only real uploaded photos are worth rolling through — most products
+    // still carry a category placeholder illustration until a real photo
+    // is uploaded, and rotating between copies of the same static SVG (or
+    // between illustrations that don't clearly read as different) isn't
+    // useful. A category with no real photos yet just shows its one static
+    // illustration, same as before.
+    if (parent && url?.startsWith("/api/images/") && imagesByParent[parent] && imagesByParent[parent].length < CATEGORY_IMAGE_LIMIT) {
+      imagesByParent[parent].push(url);
+    }
+  }
 
   let wishlistedIds = new Set<string>();
   if (customerId) {
@@ -50,15 +77,15 @@ export default async function HomePage() {
           </div>
           <div className="category-grid">
             <Link href="/shop?cat=Everyday" className="category-card">
-              <img src="/placeholders/hero-casual.svg" alt="Everyday wear" />
+              <RollingCategoryImage images={imagesByParent.Everyday} fallback="/placeholders/hero-casual.svg" alt="Everyday wear" />
               <div className="overlay"><span>The Essentials</span><h3>Everyday</h3><div className="rule-mini" /></div>
             </Link>
             <Link href="/shop?cat=Office" className="category-card">
-              <img src="/placeholders/hero-office.svg" alt="Office wear" />
+              <RollingCategoryImage images={imagesByParent.Office} fallback="/placeholders/hero-office.svg" alt="Office wear" />
               <div className="overlay"><span>Sharp &amp; Considered</span><h3>Office</h3><div className="rule-mini" /></div>
             </Link>
             <Link href="/shop?cat=Occasion" className="category-card">
-              <img src="/placeholders/hero-festive.svg" alt="Occasion wear" />
+              <RollingCategoryImage images={imagesByParent.Occasion} fallback="/placeholders/hero-festive.svg" alt="Occasion wear" />
               <div className="overlay"><span>Festive &amp; Fusion</span><h3>Occasion</h3><div className="rule-mini" /></div>
             </Link>
           </div>

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CartLine, getCart, updateQty, removeFromCart, lineKeyOf, onCartChange, formatINR } from "@/lib/cart";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { calculateGst } from "@/lib/gst";
 
-const FREE_SHIP_THRESHOLD = 5999;
+const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
 export default function CartClient() {
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -21,6 +23,7 @@ export default function CartClient() {
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
+  const { totalGst, rateLabel } = calculateGst(cart.map((l) => ({ price: l.price, qty: l.qty })));
 
   return (
     <div className="cart-layout">
@@ -57,14 +60,25 @@ export default function CartClient() {
       <aside className="summary-card">
         <h3>Order Summary</h3>
         <div className="summary-row"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
-        <div className="summary-row"><span>Shipping</span><span>{cart.length === 0 ? "—" : freeShipping ? "Free" : "Confirmed before dispatch"}</span></div>
+        {cart.length > 0 && (
+          <div className="summary-row" style={{ color: "var(--sage)", fontSize: 12.5 }}>
+            <span>GST ({rateLabel}, included)</span><span>{formatINR(totalGst)}</span>
+          </div>
+        )}
+        <div className="summary-row"><span>Delivery</span><span>{cart.length === 0 ? "—" : freeShipping ? "Free" : "Additional"}</span></div>
         <div className="summary-row total"><span>Total</span><span>{formatINR(subtotal)}</span></div>
         {cart.length > 0 ? (
           <Link href="/checkout" className="btn btn-primary btn-block" style={{ marginTop: 18 }}>Proceed to Checkout</Link>
         ) : (
           <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} disabled>Proceed to Checkout</button>
         )}
-        <p className="promo-note">Free shipping on orders above ₹5,999. Coupon codes applied at checkout.</p>
+        {!freeShipping && cart.length > 0 && (
+          <p className="promo-note" style={{ marginTop: -6 }}>
+            Delivery charges are additional on this order and will be confirmed based on your location before
+            dispatch.
+          </p>
+        )}
+        <p className="promo-note">Free delivery on orders above ₹5,000. We deliver across India. Coupon codes applied at checkout.</p>
       </aside>
     </div>
   );

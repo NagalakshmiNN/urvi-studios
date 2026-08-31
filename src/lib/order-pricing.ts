@@ -6,8 +6,12 @@
 import { db, schema } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateOrderNumberSeed } from "@/lib/format";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
 
-export const FREE_SHIP_THRESHOLD = 5999;
+// Re-exported so existing importers (shipping-returns page, order detail
+// pages) don't need to change — src/lib/shipping.ts is the actual source of
+// truth, kept client-safe (no db import) so cart/checkout can use it too.
+export const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
 export type CartLineInput = { productId: string; size: string; color: string; qty: number };
 

@@ -77,10 +77,16 @@ export async function POST(request: Request) {
     const lines = pricing.lines.map((l) => `• ${l.productName} [ID: ${l.sku}] (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`).join("\n");
     const msg =
       `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}` +
-      (pricing.freeShipping ? " (free shipping)" : " + shipping (confirm with customer based on pincode)") +
+      (pricing.freeShipping ? " (free delivery)" : " + delivery charges (additional, confirmed with customer based on pincode)") +
       `\n\nPhone: ${customer.phone}\nEmail: ${customer.email}\nAddress: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}` +
       (customer.notes ? `\nNotes: ${customer.notes}` : "");
-    const whatsappUrl = `https://wa.me/${SITE.whatsappNumber}?text=${encodeURIComponent(msg)}`;
+    // Offer every number a customer could reach the shop on — whichever's
+    // easiest for them, since all three go to someone who can confirm the
+    // order.
+    const whatsappUrls = SITE.whatsappOrderNumbers.map((n) => ({
+      name: n.name,
+      url: `https://wa.me/${n.number}?text=${encodeURIComponent(msg)}`,
+    }));
 
     // The customer still has to tap through to actually send that WhatsApp
     // message, so this email is the reliable half of the intimation — it
@@ -91,7 +97,7 @@ export async function POST(request: Request) {
       pricing.lines.map((l) => ({ productName: l.productName, sku: l.sku, size: l.size, color: l.color, qty: l.qty, price: l.price }))
     );
 
-    return NextResponse.json({ configured: false, orderNumber, whatsappUrl });
+    return NextResponse.json({ configured: false, orderNumber, whatsappUrls });
   }
 
   const amountPaise = Math.round(pricing.total * 100);

@@ -21,13 +21,13 @@ export default function ShippingReturnsPage() {
               Wherever you are in India, URVI comes to you.
             </p>
             <p>
-              We currently ship across India, bringing your carefully chosen pieces from our studio to your
-              doorstep.
+              We deliver across India, bringing your carefully chosen pieces from our studio to your doorstep,
+              wherever you are.
             </p>
             <p>
-              Orders above {formatINR(FREE_SHIP_THRESHOLD)} qualify for complimentary shipping. For orders below
-              {" "}{formatINR(FREE_SHIP_THRESHOLD)}, shipping charges will vary based on your delivery location and
-              package. Our team will confirm the applicable courier charges with you before dispatch.
+              Delivery is <strong>free on orders above {formatINR(FREE_SHIP_THRESHOLD)}</strong>. On orders below
+              {" "}{formatINR(FREE_SHIP_THRESHOLD)}, delivery charges are additional — they vary based on your
+              location and package, and our team will confirm the exact amount with you before dispatch.
             </p>
             <p>
               Once your order is confirmed, most pieces are carefully packed and dispatched within 2–3 business

@@ -190,8 +190,8 @@ export default function ProductDetailClient({
           )}
           <dt>Fabric &amp; Care</dt>
           <dd>{product.fabric}. Dry clean recommended for festive pieces; gentle machine wash for everyday cotton.</dd>
-          <dt>Shipping</dt>
-          <dd>Free shipping across India on orders above ₹2,999. Cash on delivery available in select pincodes.</dd>
+          <dt>Delivery</dt>
+          <dd>We deliver across India. Free delivery on orders above ₹5,000 — below that, delivery charges are additional and confirmed based on your location. Cash on delivery available in select pincodes.</dd>
         </dl>
       </div>
     </div>

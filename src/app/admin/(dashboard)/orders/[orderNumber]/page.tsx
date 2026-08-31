@@ -36,7 +36,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </table>
         <div style={{ marginTop: 16, textAlign: "right", fontSize: 14 }}>
           <div>Subtotal: {formatINR(order.subtotal)}</div>
-          <div>Shipping: {order.subtotal >= FREE_SHIP_THRESHOLD ? "Free" : "To confirm with customer (pincode-based)"}</div>
+          <div>Delivery: {order.subtotal >= FREE_SHIP_THRESHOLD ? "Free" : "Additional — confirm with customer (pincode-based)"}</div>
           {order.discount > 0 && <div>Discount ({order.couponCode}): −{formatINR(order.discount)}</div>}
           <div style={{ fontWeight: 700, marginTop: 6 }}>Total: {formatINR(order.total)}</div>
         </div>

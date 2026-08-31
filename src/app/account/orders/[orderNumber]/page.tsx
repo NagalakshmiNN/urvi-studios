@@ -51,7 +51,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
 
           <div className="summary-card" style={{ maxWidth: 360, marginTop: 24 }}>
             <div className="summary-row"><span>Subtotal</span><span>{formatINR(order.subtotal)}</span></div>
-            <div className="summary-row"><span>Shipping</span><span>{order.subtotal >= FREE_SHIP_THRESHOLD ? "Free" : "Confirmed before dispatch"}</span></div>
+            <div className="summary-row"><span>Delivery</span><span>{order.subtotal >= FREE_SHIP_THRESHOLD ? "Free" : "Additional"}</span></div>
             {order.discount > 0 && <div className="summary-row"><span>Discount {order.couponCode ? `(${order.couponCode})` : ""}</span><span>−{formatINR(order.discount)}</span></div>}
             <div className="summary-row total"><span>Total</span><span>{formatINR(order.total)}</span></div>
           </div>

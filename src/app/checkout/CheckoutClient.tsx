@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { CartLine, getCart, clearCart, formatINR } from "@/lib/cart";
+import { CartLine, getCart, clearCart, updateQty, removeFromCart, lineKeyOf, formatINR } from "@/lib/cart";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { calculateGst } from "@/lib/gst";
 
-const FREE_SHIP_THRESHOLD = 5999;
+const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
 type Prefill = { name: string; email: string; phone: string } | null;
 
@@ -18,7 +20,7 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   const [discount, setDiscount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [whatsappHandoff, setWhatsappHandoff] = useState<{ url: string; orderNumber: string } | null>(null);
+  const [whatsappHandoff, setWhatsappHandoff] = useState<{ urls: { name: string; url: string }[]; orderNumber: string } | null>(null);
 
   useEffect(() => {
     setCart(getCart());
@@ -40,6 +42,26 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
   const total = Math.max(0, subtotal - discount);
+  const { totalGst, rateLabel } = calculateGst(cart.map((l) => ({ price: l.price, qty: l.qty })));
+
+  // Cart edits happen on the same localStorage cart the Cart page uses —
+  // update it there (so the two pages never disagree) and mirror the
+  // change into local state so this page's totals recompute immediately.
+  // An already-applied coupon is cleared, since editing the cart can change
+  // whether it still qualifies — re-apply it to confirm against the new total.
+  function changeQty(key: string, qty: number) {
+    const newQty = Math.max(1, qty);
+    updateQty(key, newQty);
+    setCart((prev) => prev.map((l) => (lineKeyOf(l) === key ? { ...l, qty: newQty } : l)));
+    setDiscount(0);
+    setCouponMsg(null);
+  }
+  function removeLine(key: string) {
+    removeFromCart(key);
+    setCart((prev) => prev.filter((l) => lineKeyOf(l) !== key));
+    setDiscount(0);
+    setCouponMsg(null);
+  }
 
   async function applyCoupon() {
     if (!couponCode.trim()) return;
@@ -96,7 +118,7 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
 
       if (!data.configured) {
         clearCart();
-        setWhatsappHandoff({ url: data.whatsappUrl, orderNumber: data.orderNumber });
+        setWhatsappHandoff({ urls: data.whatsappUrls, orderNumber: data.orderNumber });
         setBusy(false);
         return;
       }
@@ -144,10 +166,14 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
     return (
       <div className="empty-state" style={{ padding: "60px 20px" }}>
         <h3>Order {whatsappHandoff.orderNumber} received</h3>
-        <p>Online payment is being finalised for Urvi Studios. Tap below to send your order to us on WhatsApp — we&apos;ll confirm and share a payment link personally.</p>
-        <a href={whatsappHandoff.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ marginTop: 18 }}>
-          Send Order on WhatsApp
-        </a>
+        <p>Online payment is being finalised for Urvi Studios. Send your order to whichever of us is easiest to reach — we&apos;ll confirm and share a payment link personally.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", marginTop: 18, width: "100%", maxWidth: 320, marginLeft: "auto", marginRight: "auto" }}>
+          {whatsappHandoff.urls.map((w) => (
+            <a key={w.name} href={w.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-block">
+              Send to {w.name} on WhatsApp
+            </a>
+          ))}
+        </div>
       </div>
     );
   }
@@ -199,18 +225,28 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
         <aside className="summary-card">
           <h3>Order Summary</h3>
           <div id="checkout-lines">
-            {cart.map((item) => (
-              <div className="mini-line" key={[item.productId, item.size, item.color].join("::")}>
-                <img src={item.image} alt={item.name} />
-                <div style={{ flex: 1 }}>
-                  <div>{item.name}</div>
-                  <div style={{ color: "var(--sage)", fontSize: 11.5 }}>Size {item.size} · {item.color} · Qty {item.qty}</div>
-                  <div style={{ color: "var(--sage)", fontSize: 11, fontFamily: "monospace" }}>ID — {item.sku}</div>
+            {cart.map((item) => {
+              const key = lineKeyOf(item);
+              return (
+                <div className="mini-line" key={key}>
+                  <img src={item.image} alt={item.name} />
+                  <div style={{ flex: 1 }}>
+                    <div>{item.name}</div>
+                    <div style={{ color: "var(--sage)", fontSize: 11.5 }}>Size {item.size} · {item.color}</div>
+                    <div style={{ color: "var(--sage)", fontSize: 11, fontFamily: "monospace" }}>ID — {item.sku}</div>
+                    <div className="qty-stepper" style={{ width: "fit-content", marginTop: 6, transform: "scale(0.85)", transformOrigin: "left center" }}>
+                      <button type="button" onClick={() => changeQty(key, item.qty - 1)}>–</button>
+                      <span>{item.qty}</span>
+                      <button type="button" onClick={() => changeQty(key, item.qty + 1)}>+</button>
+                    </div>
+                    <button type="button" className="link-btn danger" style={{ fontSize: 10.5, marginTop: 6 }} onClick={() => removeLine(key)}>Remove</button>
+                  </div>
+                  <div style={{ fontWeight: 600 }}>{formatINR(item.price * item.qty)}</div>
                 </div>
-                <div style={{ fontWeight: 600 }}>{formatINR(item.price * item.qty)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <a href="/shop" className="link-btn" style={{ display: "inline-block", marginBottom: 16 }}>+ Add more items</a>
 
           <div className="coupon-row">
             <input type="text" placeholder="Coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} />
@@ -221,15 +257,19 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
           )}
 
           <div className="summary-row"><span>Subtotal</span><span>{formatINR(subtotal)}</span></div>
-          <div className="summary-row"><span>Shipping</span><span>{freeShipping ? "Free" : "Confirmed before dispatch"}</span></div>
+          <div className="summary-row" style={{ color: "var(--sage)", fontSize: 12.5 }}>
+            <span>GST ({rateLabel}, included)</span><span>{formatINR(totalGst)}</span>
+          </div>
+          <div className="summary-row"><span>Delivery</span><span>{freeShipping ? "Free" : "Additional"}</span></div>
           {discount > 0 && <div className="summary-row"><span>Discount</span><span>−{formatINR(discount)}</span></div>}
           <div className="summary-row total"><span>Total</span><span>{formatINR(total)}</span></div>
           {!freeShipping && (
             <p className="promo-note" style={{ marginTop: -6 }}>
-              Shipping isn&apos;t charged here — it depends on your pincode and package, so our team will confirm
-              it with you before your order is dispatched.
+              Delivery charges are additional on this order — they depend on your pincode and package, so our
+              team will confirm the amount with you before dispatch. Free delivery on orders above ₹5,000.
             </p>
           )}
+          <p className="promo-note" style={{ marginTop: freeShipping ? -6 : 0 }}>We deliver across India.</p>
 
           {error && <div className="notice-box error" style={{ marginTop: 14 }}>{error}</div>}
 
