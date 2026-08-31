@@ -203,10 +203,51 @@ export async function deleteProductAction(productId: string): Promise<{ error?: 
 
 // --------------------------------------------------------------------- Orders
 
+// Razorpay orders already have their stock deducted the moment payment
+// verifies (see verify-payment), and manual orders deduct it at creation —
+// so for both, `stockDeducted` is already true by the time an admin touches
+// this dropdown, and the guards below are no-ops. The one path that still
+// needs this: a WhatsApp/COD order (no online payment step at all) only
+// ever gets its stock taken out of the catalog when an admin confirms it
+// here for the first time. Marking a still-undeducted order cancelled skips
+// stock entirely; cancelling or returning one that *was* deducted puts the
+// stock back.
+const STATUSES_THAT_IMPLY_SOLD = new Set(["CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"]);
+const STATUSES_THAT_RELEASE_STOCK = new Set(["CANCELLED", "RETURNED"]);
+
 export async function updateOrderStatusAction(orderId: string, status: string) {
   await requireAdmin();
-  await db.update(schema.orders).set({ status, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
+
+  const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, orderId), with: { items: true } });
+  if (!order) return;
+
+  if (STATUSES_THAT_IMPLY_SOLD.has(status) && !order.stockDeducted) {
+    for (const item of order.items) {
+      if (item.productId) {
+        await db
+          .update(schema.products)
+          .set({ stock: sql`greatest(0, ${schema.products.stock} - ${item.qty})` })
+          .where(eq(schema.products.id, item.productId));
+      }
+    }
+    await db.update(schema.orders).set({ status, stockDeducted: true, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
+  } else if (STATUSES_THAT_RELEASE_STOCK.has(status) && order.stockDeducted) {
+    for (const item of order.items) {
+      if (item.productId) {
+        await db
+          .update(schema.products)
+          .set({ stock: sql`${schema.products.stock} + ${item.qty}` })
+          .where(eq(schema.products.id, item.productId));
+      }
+    }
+    await db.update(schema.orders).set({ status, stockDeducted: false, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
+  } else {
+    await db.update(schema.orders).set({ status, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
+  }
+
   revalidatePath("/admin/orders");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
 }
 
 // A sale that happened over WhatsApp, a phone call, or in person — logged
@@ -261,6 +302,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
       paymentStatus,
       paymentMethod: "manual",
       source,
+      stockDeducted: true,
       subtotal: pricing.subtotal,
       shipping: pricing.shipping,
       discount: pricing.discount,

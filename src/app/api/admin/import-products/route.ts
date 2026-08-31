@@ -1,0 +1,212 @@
+import { NextResponse } from "next/server";
+import ExcelJS from "exceljs";
+import { db, schema } from "@/db";
+import { getAdminSession } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function cellText(cell: ExcelJS.Cell | undefined): string {
+  if (!cell) return "";
+  const v = cell.value;
+  if (v == null) return "";
+  if (typeof v === "object" && "richText" in (v as object)) {
+    return (v as { richText: { text: string }[] }).richText.map((r) => r.text).join("");
+  }
+  if (typeof v === "object" && "text" in (v as object)) {
+    return String((v as { text: unknown }).text ?? "");
+  }
+  return String(v).trim();
+}
+
+const CATEGORY_PLACEHOLDER: Record<string, string> = {
+  "festive-wear": "/placeholders/festive-wear.svg",
+  "office-wear": "/placeholders/office-wear.svg",
+  "casual-wear": "/placeholders/casual-wear.svg",
+  "short-tops": "/placeholders/short-tops.svg",
+  kurta: "/placeholders/kurta.svg",
+  "fusion-edit": "/placeholders/fusion-edit.svg",
+};
+
+export async function POST(request: Request) {
+  const adminId = await getAdminSession();
+  if (!adminId) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get("file");
+  if (!file || !(file instanceof Blob)) {
+    return NextResponse.json({ error: "No file received." }, { status: 400 });
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const workbook = new ExcelJS.Workbook();
+  try {
+    await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+  } catch {
+    return NextResponse.json({ error: "That doesn't look like a valid .xlsx file." }, { status: 400 });
+  }
+
+  // Find the sheet with the product table — prefer one literally named
+  // "Add Products" (our template), otherwise the last sheet (Instructions
+  // is usually first), otherwise whatever's there.
+  const sheet =
+    workbook.getWorksheet("Add Products") ??
+    workbook.worksheets[workbook.worksheets.length - 1] ??
+    workbook.worksheets[0];
+  if (!sheet) return NextResponse.json({ error: "The workbook has no sheets." }, { status: 400 });
+
+  // Locate the header row by scanning the first 6 rows for one containing
+  // "Category" — the template has two title rows above it, but a hand-edited
+  // file might not.
+  let headerRowNumber = -1;
+  let headers: Record<string, number> = {};
+  for (let r = 1; r <= 6; r++) {
+    const row = sheet.getRow(r);
+    const map: Record<string, number> = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const t = cellText(cell).toLowerCase();
+      if (t) map[t] = colNumber;
+    });
+    if (Object.keys(map).some((h) => h.includes("category")) && Object.keys(map).some((h) => h.includes("product name"))) {
+      headerRowNumber = r;
+      headers = map;
+      break;
+    }
+  }
+  if (headerRowNumber === -1) {
+    return NextResponse.json(
+      { error: "Couldn't find the header row (expected columns like \"Category\" and \"Product Name\") — please use the template as given." },
+      { status: 400 }
+    );
+  }
+
+  const col = (name: string) => {
+    const key = Object.keys(headers).find((h) => h.includes(name));
+    return key ? headers[key] : undefined;
+  };
+  const cCategory = col("category");
+  const cName = col("product name");
+  const cDescription = col("description");
+  const cFabric = col("material");
+  const cPrice = col("price");
+  const cCompareAt = col("compare-at");
+  const cStock = col("stock");
+  const cSizes = col("sizes");
+  const cColors = col("colors");
+  const cBadge = col("badge");
+  const cPhotos = col("photos");
+
+  if (!cCategory || !cName || !cPrice) {
+    return NextResponse.json({ error: "The sheet is missing required columns (Category, Product Name, Price)." }, { status: 400 });
+  }
+
+  const categories = await db.query.categories.findMany();
+  const categoryByName = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c]));
+
+  const existingProducts = await db.query.products.findMany({ columns: { slug: true } });
+  const existingSlugs = new Set(existingProducts.map((p) => p.slug));
+
+  let created = 0;
+  let skippedExample = 0;
+  const errors: { row: number; reason: string }[] = [];
+
+  for (let r = headerRowNumber + 1; r <= sheet.rowCount; r++) {
+    const row = sheet.getRow(r);
+    const name = cellText(row.getCell(cName));
+    if (!name) continue; // blank row
+
+    const photosText = cPhotos ? cellText(row.getCell(cPhotos)) : "";
+    if (photosText.trim().toLowerCase() === "(insert photo here)") {
+      skippedExample++;
+      continue; // the untouched example row
+    }
+
+    if (name.length < 3) {
+      errors.push({ row: r, reason: "Product name is too short." });
+      continue;
+    }
+
+    const categoryRaw = cellText(row.getCell(cCategory));
+    const category = categoryByName.get(categoryRaw.toLowerCase().trim());
+    if (!category) {
+      errors.push({ row: r, reason: `Unrecognised category "${categoryRaw || "(blank)"}" — use one from the dropdown.` });
+      continue;
+    }
+
+    const priceText = cellText(row.getCell(cPrice)).replace(/[^\d.]/g, "");
+    const price = Math.round(parseFloat(priceText));
+    if (!Number.isFinite(price) || price <= 0) {
+      errors.push({ row: r, reason: "Missing or invalid price." });
+      continue;
+    }
+
+    const sizesText = cSizes ? cellText(row.getCell(cSizes)) : "";
+    const sizeLabels = sizesText.split(",").map((s) => s.trim()).filter(Boolean);
+    if (sizeLabels.length === 0) {
+      errors.push({ row: r, reason: "No sizes listed." });
+      continue;
+    }
+
+    const description = cDescription ? cellText(row.getCell(cDescription)) : "";
+    const fabric = cFabric ? cellText(row.getCell(cFabric)) : "";
+    const compareAtText = cCompareAt ? cellText(row.getCell(cCompareAt)).replace(/[^\d.]/g, "") : "";
+    const compareAtPrice = compareAtText ? Math.round(parseFloat(compareAtText)) : null;
+    const stockText = cStock ? cellText(row.getCell(cStock)).replace(/[^\d.]/g, "") : "";
+    const stock = stockText ? Math.max(0, Math.round(parseFloat(stockText))) : 10;
+    const badge = cBadge ? cellText(row.getCell(cBadge)) : "";
+    const colorsText = cColors ? cellText(row.getCell(cColors)) : "";
+    const colorPairs = colorsText.split(",").map((s) => s.trim()).filter(Boolean);
+
+    let slugBase = slugify(name);
+    if (!slugBase) slugBase = "product";
+    let slug = slugBase;
+    let n = 1;
+    while (existingSlugs.has(slug)) slug = `${slugBase}-${++n}`;
+    existingSlugs.add(slug);
+    const sku = `URVI-${slugBase.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}-${created}`;
+
+    const [product] = await db
+      .insert(schema.products)
+      .values({
+        sku,
+        slug,
+        name,
+        description: description || "Details coming soon.",
+        fabric: fabric || "See description",
+        price,
+        compareAtPrice,
+        badge: badge || null,
+        stock,
+        categoryId: category.id,
+      })
+      .returning();
+
+    // The template's photos are meant to be pasted directly into the cell —
+    // that image data isn't something a spreadsheet library can pull out
+    // reliably, so new products import with a category placeholder image
+    // until real photos are sent separately and added via Edit.
+    const imageUrl = CATEGORY_PLACEHOLDER[category.slug] ?? "/placeholders/casual-wear.svg";
+    await db.insert(schema.productImages).values({ productId: product.id, url: imageUrl, position: 0 });
+    await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: product.id, label, position: i })));
+    if (colorPairs.length) {
+      await db.insert(schema.productColors).values(
+        colorPairs.map((pair, i) => {
+          const [colorName, hex] = pair.split(":").map((s) => s.trim());
+          return { productId: product.id, name: colorName || pair, hex: hex || "#999999", position: i };
+        })
+      );
+    }
+
+    created++;
+  }
+
+  return NextResponse.json({ created, skippedExample, errors });
+}

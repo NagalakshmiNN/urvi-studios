@@ -32,11 +32,12 @@ export async function POST(request: Request) {
   }
 
   // Idempotent: if this order was already confirmed (e.g. a retried
-  // callback), don't decrement stock a second time.
-  if (order.paymentStatus !== "PAID") {
+  // callback), don't decrement stock a second time. stockDeducted is the
+  // real guard — paymentStatus is checked too as a belt-and-braces measure.
+  if (order.paymentStatus !== "PAID" && !order.stockDeducted) {
     await db
       .update(schema.orders)
-      .set({ paymentStatus: "PAID", status: "CONFIRMED", razorpayPaymentId: razorpay_payment_id, updatedAt: new Date() })
+      .set({ paymentStatus: "PAID", status: "CONFIRMED", razorpayPaymentId: razorpay_payment_id, stockDeducted: true, updatedAt: new Date() })
       .where(eq(schema.orders.id, order.id));
 
     for (const item of order.items) {

@@ -13,7 +13,10 @@ export default async function AdminProductsPage() {
     <>
       <div className="admin-header">
         <h1>Products</h1>
-        <Link href="/admin/products/new" className="btn btn-primary">Add Product</Link>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Link href="/admin/products/import" className="btn btn-outline">Import from Excel</Link>
+          <Link href="/admin/products/new" className="btn btn-primary">Add Product</Link>
+        </div>
       </div>
 
       <div className="admin-card">

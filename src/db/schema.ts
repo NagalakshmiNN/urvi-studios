@@ -111,6 +111,11 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().default("PLACED"),
   paymentStatus: text("payment_status").notNull().default("PENDING"),
   paymentMethod: text("payment_method").notNull(), // "razorpay" | "whatsapp_cod" | "manual"
+  // Whether stock has actually been taken out of the catalog for this order
+  // yet — true the moment a Razorpay payment verifies, a manual order is
+  // recorded, or an admin confirms a WhatsApp/COD order. Prevents double
+  // (or missed) stock decrements no matter which path an order took.
+  stockDeducted: boolean("stock_deducted").notNull().default(false),
   // How the order actually came in — the website itself, or Shilpa/Nagalakshmi
   // logging a sale that happened over WhatsApp, a phone call, or in person.
   // Defaults to "online" so every pre-existing row stays accurate.
