@@ -9,11 +9,19 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   if (status !== "all") orders = orders.filter((o) => o.status === status);
 
   const STATUSES = ["all", "PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
+  const SOURCE_LABELS: Record<string, string> = {
+    online: "Website",
+    whatsapp: "WhatsApp",
+    phone: "Phone call",
+    word_of_mouth: "Word of mouth",
+    other: "Other",
+  };
 
   return (
     <>
       <div className="admin-header">
         <h1>Orders</h1>
+        <Link href="/admin/orders/new" className="btn btn-primary">Record an Order</Link>
       </div>
 
       <div className="filter-bar" style={{ marginBottom: 20 }}>
@@ -27,14 +35,14 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       <div className="admin-card">
         <table className="admin-table">
           <thead>
-            <tr><th>Order</th><th>Customer</th><th>Items</th><th>Status</th><th>Payment</th><th>Total</th><th>Date</th></tr>
+            <tr><th>Order</th><th>Customer</th><th>Source</th><th>Status</th><th>Payment</th><th>Total</th><th>Date</th></tr>
           </thead>
           <tbody>
             {orders.map((o) => (
               <tr key={o.id}>
                 <td><Link href={`/admin/orders/${o.orderNumber}`} style={{ color: "var(--olive)", fontWeight: 600 }}>{o.orderNumber}</Link></td>
                 <td>{o.customerName}<br /><span style={{ color: "var(--sage)", fontSize: 11.5 }}>{o.customerPhone}</span></td>
-                <td>{o.paymentMethod === "razorpay" ? "Razorpay" : "WhatsApp"}</td>
+                <td>{SOURCE_LABELS[o.source] ?? o.source}</td>
                 <td><span className={`order-status-badge ${o.status.toLowerCase()}`}>{o.status.replace(/_/g, " ")}</span></td>
                 <td>{o.paymentStatus}</td>
                 <td>{formatINR(o.total)}</td>

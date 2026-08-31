@@ -44,13 +44,18 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       <div className="admin-card">
         <h3 style={{ marginBottom: 10 }}>Customer & Shipping</h3>
         <p style={{ fontSize: 14, lineHeight: 1.8 }}>
-          {order.customerName} · {order.customerEmail} · {order.customerPhone}<br />
-          {order.addressLine1}, {order.city}, {order.state} {order.pincode}
+          {[order.customerName, order.customerEmail, order.customerPhone].filter(Boolean).join(" · ")}<br />
+          {[order.addressLine1, order.city, order.state, order.pincode].filter(Boolean).join(", ") || (
+            <span style={{ color: "var(--sage)" }}>No address on file yet</span>
+          )}
           {order.notes && <><br /><em>Notes: {order.notes}</em></>}
         </p>
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 10 }}>
-          Payment: {order.paymentMethod === "razorpay" ? "Razorpay" : "WhatsApp / COD handoff"} · {order.paymentStatus}
+          Payment: {order.paymentMethod === "razorpay" ? "Razorpay" : order.paymentMethod === "manual" ? "Recorded manually" : "WhatsApp / COD handoff"} · {order.paymentStatus}
           {order.razorpayPaymentId && <> · {order.razorpayPaymentId}</>}
+        </p>
+        <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>
+          Source: {{ online: "Website", whatsapp: "WhatsApp", phone: "Phone call", word_of_mouth: "Word of mouth", other: "Other" }[order.source] ?? order.source}
         </p>
       </div>
     </>

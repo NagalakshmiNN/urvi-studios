@@ -110,7 +110,11 @@ export const orders = pgTable("orders", {
 
   status: text("status").notNull().default("PLACED"),
   paymentStatus: text("payment_status").notNull().default("PENDING"),
-  paymentMethod: text("payment_method").notNull(), // "razorpay" | "whatsapp_cod"
+  paymentMethod: text("payment_method").notNull(), // "razorpay" | "whatsapp_cod" | "manual"
+  // How the order actually came in — the website itself, or Shilpa/Nagalakshmi
+  // logging a sale that happened over WhatsApp, a phone call, or in person.
+  // Defaults to "online" so every pre-existing row stays accurate.
+  source: text("source").notNull().default("online"), // "online" | "whatsapp" | "phone" | "word_of_mouth" | "other"
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
 

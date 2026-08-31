@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "source" text DEFAULT 'online' NOT NULL;

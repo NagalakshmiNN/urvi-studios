@@ -4,6 +4,7 @@ import { useActionState, useId, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { updateProductAction } from "@/app/actions/admin";
 import Link from "next/link";
+import DeleteProductButton from "./DeleteProductButton";
 
 type Product = {
   id: string;
@@ -63,7 +64,11 @@ export default function ProductRow({ product }: { product: Product }) {
           <input form={formId} type="checkbox" name="isActive" defaultChecked={product.isActive} />
         </td>
         <td>
-          <button form={formId} type="submit" className="link-btn" disabled={!mounted || pending}>{pending ? "Saving…" : "Save"}</button>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <button form={formId} type="submit" className="link-btn" disabled={!mounted || pending}>{pending ? "Saving…" : "Save"}</button>
+            <Link href={`/admin/products/${product.id}/edit`} className="link-btn">Edit</Link>
+            <DeleteProductButton productId={product.id} productName={product.name} />
+          </div>
           {state?.error && <div style={{ color: "#a5333a", fontSize: 11.5, marginTop: 4 }}>{state.error}</div>}
         </td>
       </tr>
