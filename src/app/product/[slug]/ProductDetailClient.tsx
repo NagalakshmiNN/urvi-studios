@@ -74,7 +74,7 @@ export default function ProductDetailClient({
         <p className="pdp-desc">{product.description}</p>
 
         <div className="field-block">
-          <div className="field-label"><span>Colour — {color}</span></div>
+          <div className="field-label"><span>Color — {color}</span></div>
           <div className="color-options">
             {product.colors.map((c) => (
               <span

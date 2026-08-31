@@ -46,7 +46,7 @@ export default async function HomePage() {
         <div className="container">
           <div className="section-head">
             <div className="eyebrow">Shop by moment</div>
-            <h2>Everyday · Office · Occasion</h2>
+            <h2>Everyday <span className="flow">·</span> Office <span className="flow">·</span> Occasion</h2>
           </div>
           <div className="category-grid">
             <Link href="/shop?cat=Everyday" className="category-card">

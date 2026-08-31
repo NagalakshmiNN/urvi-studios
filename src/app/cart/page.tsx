@@ -8,7 +8,7 @@ export default async function CartPage() {
       <SiteHeader active="Cart" />
       <div className="page-hero container">
         <div className="eyebrow">Step 1 of 2</div>
-        <h1>Your Bag</h1>
+        <h1>Your <span className="flow">Bag</span></h1>
       </div>
       <div className="container">
         <CartClient />

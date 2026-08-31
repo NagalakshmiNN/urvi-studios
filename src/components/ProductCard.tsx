@@ -25,16 +25,6 @@ export default function ProductCard({
           product.badge && <span className="badge">{product.badge}</span>
         )}
         <img src={product.images[0]?.url} alt={product.name} />
-        <QuickAddButton
-          productId={product.id}
-          slug={product.slug}
-          name={product.name}
-          price={product.price}
-          image={product.images[0]?.url ?? ""}
-          size={midSize}
-          color={product.colors[0]?.name ?? ""}
-          disabled={!inStock}
-        />
       </Link>
       <div style={{ position: "absolute", top: 12, right: 12, zIndex: 3 }}>
         <WishlistButton productId={product.id} isLoggedIn={isLoggedIn} initialActive={wishlisted} />
@@ -52,6 +42,16 @@ export default function ProductCard({
           ))}
         </div>
       </Link>
+      <QuickAddButton
+        productId={product.id}
+        slug={product.slug}
+        name={product.name}
+        price={product.price}
+        image={product.images[0]?.url ?? ""}
+        size={midSize}
+        color={product.colors[0]?.name ?? ""}
+        disabled={!inStock}
+      />
     </div>
   );
 }

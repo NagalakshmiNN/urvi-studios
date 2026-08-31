@@ -21,12 +21,17 @@
   --line: rgba(63, 72, 39, 0.16);
   --shadow: 0 10px 30px rgba(43, 42, 36, 0.08);
 
-  --font-display: 'Fraunces', 'Playfair Display', Georgia, serif;
+  --font-display: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   --font-body: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-dev: 'Noto Sans Devanagari', var(--font-body);
+  --font-script: 'Allura', cursive;
+  --font-flourish: 'Alex Brush', cursive;
 
   --maxw: 1280px;
 }
+
+/* A flowing script accent, used sparingly for one word or phrase per section. */
+.flow { font-family: var(--font-script); font-weight: 400; color: var(--gold); }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -228,6 +233,14 @@ p { line-height: 1.7; color: var(--earth); }
     radial-gradient(ellipse 900px 500px at 82% 8%, rgba(169, 130, 56, 0.16), transparent 60%),
     linear-gradient(155deg, var(--olive-black) 0%, var(--olive-deep) 46%, #2e3719 100%);
 }
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 26px;
+  border: 1px solid rgba(247, 240, 228, 0.22);
+  pointer-events: none;
+  z-index: 1;
+}
 .hero-inner {
   max-width: var(--maxw);
   margin: 0 auto;
@@ -237,8 +250,18 @@ p { line-height: 1.7; color: var(--earth); }
   z-index: 2;
 }
 .hero .eyebrow { color: var(--gold-light); }
-.hero h1 { color: var(--ivory); font-size: clamp(40px, 6vw, 74px); letter-spacing: -0.3px; }
-.hero h1 em { font-style: italic; color: var(--gold-light); font-weight: 420; }
+.hero h1 { color: var(--ivory); font-size: clamp(38px, 5.6vw, 68px); font-weight: 500; letter-spacing: -0.3px; }
+.hero h1 em {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-flourish);
+  font-weight: 400;
+  font-size: 2.05em;
+  line-height: 1;
+  color: var(--gold-pale);
+  margin-top: 10px;
+  text-shadow: 0 2px 22px rgba(169, 130, 56, 0.35);
+}
 .hero p.lede { color: var(--sand); margin: 0 auto 30px; opacity: 0.9; }
 .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .hero-tagline-dev { font-size: 15px; letter-spacing: 2px; opacity: 0.85; margin-bottom: 6px; }
@@ -333,14 +356,29 @@ p { line-height: 1.7; color: var(--earth); }
   background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; border: none; color: var(--olive);
 }
 .product-card .wishlist-btn.active { color: #a5333a; }
-.product-card .quick-add { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2; opacity: 0; transform: translateY(6px); transition: 0.25s; }
-.product-card:hover .quick-add { opacity: 1; transform: translateY(0); }
 .product-card .p-cat { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); }
-.product-card .p-name { font-family: var(--font-display); color: var(--olive); font-size: 17px; margin: 3px 0 5px; }
-.product-card .p-price { font-size: 13.5px; color: var(--earth); font-weight: 600; }
-.product-card .p-price .strike { text-decoration: line-through; opacity: 0.5; font-weight: 400; margin-left: 6px; }
+.product-card .p-name { font-family: var(--font-display); color: var(--olive); font-size: 19px; font-weight: 600; margin: 3px 0 5px; }
+.product-card .p-price { font-family: var(--font-display); font-size: 17px; color: var(--olive); font-weight: 600; }
+.product-card .p-price .strike { font-family: var(--font-body); text-decoration: line-through; opacity: 0.5; font-weight: 400; margin-left: 6px; }
 .product-card .swatches { display: flex; gap: 5px; margin-top: 8px; }
 .product-card .swatch-dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+.product-card .add-link {
+  display: inline-block;
+  margin-top: 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--olive);
+  padding: 0 0 3px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--olive);
+  border-radius: 0;
+}
+.product-card .add-link:hover { color: var(--gold); border-color: var(--gold); }
+.product-card .add-link:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--line); color: var(--sage); }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--sage); }
 

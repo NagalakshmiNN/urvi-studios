@@ -23,7 +23,7 @@ export default function QuickAddButton({
 }) {
   return (
     <button
-      className="btn btn-primary btn-small btn-block quick-add"
+      className="add-link"
       disabled={disabled}
       onClick={(e) => {
         e.preventDefault();
@@ -31,7 +31,7 @@ export default function QuickAddButton({
         addToCart({ productId, slug, name, price, image, size, color, qty: 1 });
       }}
     >
-      {disabled ? "Out of Stock" : "Quick Add"}
+      {disabled ? "Out of Stock" : "Add to Bag"}
     </button>
   );
 }
