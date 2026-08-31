@@ -4,6 +4,7 @@ import { addToCart } from "@/lib/cart";
 
 export default function QuickAddButton({
   productId,
+  sku,
   slug,
   name,
   price,
@@ -13,6 +14,7 @@ export default function QuickAddButton({
   disabled,
 }: {
   productId: string;
+  sku: string;
   slug: string;
   name: string;
   price: number;
@@ -28,7 +30,7 @@ export default function QuickAddButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        addToCart({ productId, slug, name, price, image, size, color, qty: 1 });
+        addToCart({ productId, sku, slug, name, price, image, size, color, qty: 1 });
       }}
     >
       {disabled ? "Out of Stock" : "Add to Bag"}

@@ -5,6 +5,7 @@
 
 export type CartLine = {
   productId: string;
+  sku: string;
   slug: string;
   name: string;
   price: number;

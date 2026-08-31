@@ -40,6 +40,7 @@ export default function CartClient() {
                 <div>
                   <div className="name">{item.name}</div>
                   <div className="meta">Size {item.size} · {item.color}</div>
+                  <div className="meta" style={{ fontFamily: "monospace", fontSize: 11.5 }}>Product ID — {item.sku}</div>
                   <div className="qty-stepper" style={{ width: "fit-content" }}>
                     <button onClick={() => updateQty(key, item.qty - 1)}>–</button>
                     <span>{item.qty}</span>

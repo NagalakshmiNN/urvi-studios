@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getAdminSession } from "@/lib/auth";
 
@@ -92,10 +93,15 @@ export async function POST(request: Request) {
     const key = Object.keys(headers).find((h) => h.includes(name));
     return key ? headers[key] : undefined;
   };
+  const cProductId = col("product id");
   const cCategory = col("category");
   const cName = col("product name");
   const cDescription = col("description");
   const cFabric = col("material");
+  const cPerfectFor = col("perfect for");
+  const cBestWeather = col("best weather");
+  const cStyling = col("ease");
+  const cStyle = col("style");
   const cPrice = col("price");
   const cCompareAt = col("compare-at");
   const cStock = col("stock");
@@ -111,10 +117,12 @@ export async function POST(request: Request) {
   const categories = await db.query.categories.findMany();
   const categoryByName = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c]));
 
-  const existingProducts = await db.query.products.findMany({ columns: { slug: true } });
+  const existingProducts = await db.query.products.findMany({ columns: { id: true, slug: true, sku: true } });
   const existingSlugs = new Set(existingProducts.map((p) => p.slug));
+  const productBySku = new Map(existingProducts.map((p) => [p.sku.toLowerCase().trim(), p]));
 
   let created = 0;
+  let updated = 0;
   let skippedExample = 0;
   const errors: { row: number; reason: string }[] = [];
 
@@ -131,6 +139,13 @@ export async function POST(request: Request) {
 
     if (name.length < 3) {
       errors.push({ row: r, reason: "Product name is too short." });
+      continue;
+    }
+
+    const productIdText = cProductId ? cellText(row.getCell(cProductId)).trim() : "";
+    const existingProduct = productIdText ? productBySku.get(productIdText.toLowerCase()) : undefined;
+    if (productIdText && !existingProduct) {
+      errors.push({ row: r, reason: `Product ID "${productIdText}" doesn't match any existing product — leave it blank to create a new one, or check it's copied correctly from an exported sheet.` });
       continue;
     }
 
@@ -157,6 +172,10 @@ export async function POST(request: Request) {
 
     const description = cDescription ? cellText(row.getCell(cDescription)) : "";
     const fabric = cFabric ? cellText(row.getCell(cFabric)) : "";
+    const perfectFor = cPerfectFor ? cellText(row.getCell(cPerfectFor)) : "";
+    const bestWeather = cBestWeather ? cellText(row.getCell(cBestWeather)) : "";
+    const stylingTips = cStyling ? cellText(row.getCell(cStyling)) : "";
+    const styleNotes = cStyle ? cellText(row.getCell(cStyle)) : "";
     const compareAtText = cCompareAt ? cellText(row.getCell(cCompareAt)).replace(/[^\d.]/g, "") : "";
     const compareAtPrice = compareAtText ? Math.round(parseFloat(compareAtText)) : null;
     const stockText = cStock ? cellText(row.getCell(cStock)).replace(/[^\d.]/g, "") : "";
@@ -164,6 +183,49 @@ export async function POST(request: Request) {
     const badge = cBadge ? cellText(row.getCell(cBadge)) : "";
     const colorsText = cColors ? cellText(row.getCell(cColors)) : "";
     const colorPairs = colorsText.split(",").map((s) => s.trim()).filter(Boolean);
+
+    if (existingProduct) {
+      // Product ID matched an existing row — update it in place rather than
+      // creating a duplicate. Sizes and colors are fully replaced with what
+      // the sheet now says, same as the admin "Edit Product" screen. Photos
+      // are deliberately left untouched: the sheet was never a reliable
+      // source of real photo data, and overwriting real uploaded photos with
+      // a placeholder on every re-import would be actively destructive.
+      await db
+        .update(schema.products)
+        .set({
+          name,
+          description: description || "Details coming soon.",
+          fabric: fabric || "See description",
+          perfectFor: perfectFor || null,
+          bestWeather: bestWeather || null,
+          stylingTips: stylingTips || null,
+          styleNotes: styleNotes || null,
+          price,
+          compareAtPrice,
+          badge: badge || null,
+          stock,
+          categoryId: category.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.products.id, existingProduct.id));
+
+      await db.delete(schema.productSizes).where(eq(schema.productSizes.productId, existingProduct.id));
+      await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: existingProduct.id, label, position: i })));
+
+      await db.delete(schema.productColors).where(eq(schema.productColors.productId, existingProduct.id));
+      if (colorPairs.length) {
+        await db.insert(schema.productColors).values(
+          colorPairs.map((pair, i) => {
+            const [colorName, hex] = pair.split(":").map((s) => s.trim());
+            return { productId: existingProduct.id, name: colorName || pair, hex: hex || "#999999", position: i };
+          })
+        );
+      }
+
+      updated++;
+      continue;
+    }
 
     let slugBase = slugify(name);
     if (!slugBase) slugBase = "product";
@@ -181,6 +243,10 @@ export async function POST(request: Request) {
         name,
         description: description || "Details coming soon.",
         fabric: fabric || "See description",
+        perfectFor: perfectFor || null,
+        bestWeather: bestWeather || null,
+        stylingTips: stylingTips || null,
+        styleNotes: styleNotes || null,
         price,
         compareAtPrice,
         badge: badge || null,
@@ -192,7 +258,7 @@ export async function POST(request: Request) {
     // The template's photos are meant to be pasted directly into the cell —
     // that image data isn't something a spreadsheet library can pull out
     // reliably, so new products import with a category placeholder image
-    // until real photos are sent separately and added via Edit.
+    // until real photos are added afterward (drag-and-drop in Edit).
     const imageUrl = CATEGORY_PLACEHOLDER[category.slug] ?? "/placeholders/casual-wear.svg";
     await db.insert(schema.productImages).values({ productId: product.id, url: imageUrl, position: 0 });
     await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: product.id, label, position: i })));
@@ -208,5 +274,5 @@ export async function POST(request: Request) {
     created++;
   }
 
-  return NextResponse.json({ created, skippedExample, errors });
+  return NextResponse.json({ created, updated, skippedExample, errors });
 }

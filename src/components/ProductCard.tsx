@@ -44,6 +44,7 @@ export default function ProductCard({
       </Link>
       <QuickAddButton
         productId={product.id}
+        sku={product.sku}
         slug={product.slug}
         name={product.name}
         price={product.price}

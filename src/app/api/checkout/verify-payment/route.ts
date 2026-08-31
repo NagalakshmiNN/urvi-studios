@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     await sendOrderNotification(
       { ...order, paymentStatus: "PAID" },
-      order.items.map((i) => ({ productName: i.productName, size: i.size, color: i.color, qty: i.qty, price: i.price }))
+      order.items.map((i) => ({ productName: i.productName, sku: i.sku ?? "", size: i.size, color: i.color, qty: i.qty, price: i.price }))
     );
   }
 

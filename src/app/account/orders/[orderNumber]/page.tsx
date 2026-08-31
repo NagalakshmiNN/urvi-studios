@@ -42,6 +42,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
                 <div>
                   <div className="name">{item.productName}</div>
                   <div className="meta">Size {item.size} · {item.color} · Qty {item.qty}</div>
+                  {item.sku && <div className="meta" style={{ fontFamily: "monospace", fontSize: 11.5 }}>Product ID — {item.sku}</div>}
                 </div>
                 <div className="price">{formatINR(item.price * item.qty)}</div>
               </div>

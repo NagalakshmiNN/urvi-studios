@@ -64,6 +64,10 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   fabric: text("fabric").notNull(),
+  perfectFor: text("perfect_for"), // "Perfect For / Where to Wear"
+  bestWeather: text("best_weather"),
+  stylingTips: text("styling_tips"), // "Ease / Styling"
+  styleNotes: text("style_notes"), // "Style"
   price: integer("price").notNull(), // rupees
   compareAtPrice: integer("compare_at_price"),
   badge: text("badge"),
@@ -79,6 +83,19 @@ export const productImages = pgTable("product_images", {
   productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   position: integer("position").notNull().default(0),
+});
+
+// Uploaded product photos, stored right in the database (base64) and served
+// back out through /api/images/[id]. Netlify's serverless functions have a
+// read-only filesystem, so writing files to disk wouldn't survive a single
+// request in production — this needs nowhere else to live, and reuses the
+// Postgres connection every other feature already has, no new service or
+// credentials required.
+export const productImageAssets = pgTable("product_image_assets", {
+  id: id(),
+  contentType: text("content_type").notNull(),
+  dataBase64: text("data_base64").notNull(),
+  createdAt: createdAt(),
 });
 
 export const productSizes = pgTable("product_sizes", {
@@ -147,6 +164,7 @@ export const orderItems = pgTable("order_items", {
   orderId: text("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   productId: text("product_id").references(() => products.id),
   productName: text("product_name").notNull(),
+  sku: text("sku"),
   size: text("size").notNull(),
   color: text("color").notNull(),
   qty: integer("qty").notNull(),

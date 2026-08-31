@@ -14,6 +14,7 @@ export type CartLineInput = { productId: string; size: string; color: string; qt
 export type PricedLine = {
   productId: string;
   productName: string;
+  sku: string;
   size: string;
   color: string;
   qty: number;
@@ -52,6 +53,7 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
     lines.push({
       productId: product.id,
       productName: product.name,
+      sku: product.sku,
       size: String(item.size || "").slice(0, 20),
       color: String(item.color || "").slice(0, 40),
       qty,

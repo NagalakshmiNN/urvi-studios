@@ -31,6 +31,10 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const fabric = String(formData.get("fabric") || "").trim();
+  const perfectFor = String(formData.get("perfectFor") || "").trim();
+  const bestWeather = String(formData.get("bestWeather") || "").trim();
+  const stylingTips = String(formData.get("stylingTips") || "").trim();
+  const styleNotes = String(formData.get("styleNotes") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
@@ -44,7 +48,7 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   if (!description) return { error: "Please enter a description." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
-  if (imageUrls.length === 0) return { error: "Please add at least one image URL." };
+  if (imageUrls.length === 0) return { error: "Please add at least one photo." };
   if (sizeLabels.length === 0) return { error: "Please add at least one size." };
 
   const slugBase = slugify(name);
@@ -63,6 +67,10 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
       name,
       description,
       fabric: fabric || "See description",
+      perfectFor: perfectFor || null,
+      bestWeather: bestWeather || null,
+      stylingTips: stylingTips || null,
+      styleNotes: styleNotes || null,
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       badge: badge || null,
@@ -127,6 +135,10 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const fabric = String(formData.get("fabric") || "").trim();
+  const perfectFor = String(formData.get("perfectFor") || "").trim();
+  const bestWeather = String(formData.get("bestWeather") || "").trim();
+  const stylingTips = String(formData.get("stylingTips") || "").trim();
+  const styleNotes = String(formData.get("styleNotes") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
@@ -143,7 +155,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!Number.isFinite(stock) || stock < 0) return { error: "Please enter a valid stock count." };
   if (!categoryId) return { error: "Please choose a category." };
-  if (imageUrls.length === 0) return { error: "Please add at least one image URL." };
+  if (imageUrls.length === 0) return { error: "Please add at least one photo." };
   if (sizeLabels.length === 0) return { error: "Please add at least one size." };
 
   await db
@@ -152,6 +164,10 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
       name,
       description,
       fabric: fabric || "See description",
+      perfectFor: perfectFor || null,
+      bestWeather: bestWeather || null,
+      stylingTips: stylingTips || null,
+      styleNotes: styleNotes || null,
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       badge: badge || null,
@@ -324,6 +340,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
       orderId: order.id,
       productId: l.productId,
       productName: l.productName,
+      sku: l.sku,
       size: l.size,
       color: l.color,
       qty: l.qty,

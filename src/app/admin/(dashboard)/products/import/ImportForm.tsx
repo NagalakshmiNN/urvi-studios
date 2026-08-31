@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Result = { created: number; skippedExample: number; errors: { row: number; reason: string }[] } | null;
+type Result = { created: number; updated: number; skippedExample: number; errors: { row: number; reason: string }[] } | null;
 
 export default function ImportForm() {
   const [busy, setBusy] = useState(false);
@@ -47,6 +47,7 @@ export default function ImportForm() {
       {result && (
         <div className="notice-box">
           Added {result.created} product{result.created === 1 ? "" : "s"}.
+          {result.updated > 0 && ` Updated ${result.updated} existing product${result.updated === 1 ? "" : "s"} (matched by Product ID).`}
           {result.skippedExample > 0 && ` Skipped the example row.`}
           {result.errors.length > 0 && ` ${result.errors.length} row(s) had a problem — see below.`}
         </div>
@@ -67,14 +68,24 @@ export default function ImportForm() {
         <input ref={fileRef} type="file" accept=".xlsx" />
         <p className="field-hint">
           Use the same template you were sent — headers must include Category, Product Name, and Price at minimum.
-          Photos pasted into the sheet aren&apos;t pulled in automatically; new products get a placeholder image
-          until real photos are added via Edit.
+          Leave <strong>Product ID</strong> blank to create a new product; fill it in (as exported below) to update
+          an existing one instead of creating a duplicate. Photos pasted into the sheet aren&apos;t pulled in
+          automatically; new products get a placeholder image until real photos are added via Edit.
         </p>
       </div>
 
       <button type="submit" className="btn btn-primary" disabled={busy}>
         {busy ? "Importing…" : "Import Products"}
       </button>
+
+      <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
+        <label style={{ display: "block", marginBottom: 8 }}>Already have products in the catalog?</label>
+        <a href="/api/admin/export-products" className="btn btn-outline btn-small">Export Current Catalog to Excel</a>
+        <p className="field-hint" style={{ marginTop: 10 }}>
+          Downloads every product with its Product ID already filled in — edit any row and re-upload it above to
+          update that product, or add new rows below with Product ID left blank.
+        </p>
+      </div>
     </form>
   );
 }

@@ -8,7 +8,7 @@ import { sendMail } from "./mailer";
 import { SITE } from "./site-config";
 import { formatINR } from "./format";
 
-type NotifyLine = { productName: string; size: string; color: string; qty: number; price: number };
+type NotifyLine = { productName: string; sku: string; size: string; color: string; qty: number; price: number };
 
 type NotifyOrder = {
   orderNumber: string;
@@ -26,7 +26,7 @@ type NotifyOrder = {
 
 export async function sendOrderNotification(order: NotifyOrder, lines: NotifyLine[]) {
   const itemLines = lines
-    .map((l) => `• ${l.productName} (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`)
+    .map((l) => `• ${l.productName} [ID: ${l.sku || "—"}] (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`)
     .join("\n");
 
   const paidLine =

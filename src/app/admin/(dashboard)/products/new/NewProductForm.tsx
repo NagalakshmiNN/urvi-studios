@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { createProductAction } from "@/app/actions/admin";
+import ImageUploader from "@/components/ImageUploader";
 
 export default function NewProductForm({ categories }: { categories: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState(createProductAction, undefined);
@@ -39,6 +40,26 @@ export default function NewProductForm({ categories }: { categories: { id: strin
       </div>
       <div className="form-row">
         <div className="form-group">
+          <label>Perfect for / where to wear</label>
+          <input type="text" name="perfectFor" placeholder="e.g. Weddings, festive evenings" />
+        </div>
+        <div className="form-group">
+          <label>Best weather</label>
+          <input type="text" name="bestWeather" placeholder="e.g. Cool, breezy evenings" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Ease / styling</label>
+          <input type="text" name="stylingTips" placeholder="e.g. Pair with statement jewelry" />
+        </div>
+        <div className="form-group">
+          <label>Style</label>
+          <input type="text" name="styleNotes" placeholder="e.g. Regal, flowing silhouette" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
           <label>Price (₹)</label>
           <input type="number" name="price" required min={1} />
         </div>
@@ -56,9 +77,8 @@ export default function NewProductForm({ categories }: { categories: { id: strin
         <input type="text" name="badge" placeholder="e.g. New In, Bestseller" />
       </div>
       <div className="form-group">
-        <label>Image URLs (one per line)</label>
-        <textarea name="images" rows={3} required placeholder={"https://…/front.jpg\nhttps://…/back.jpg"} />
-        <p className="field-hint">Send us the photos over WhatsApp or email and we&apos;ll host them — paste the links here once ready.</p>
+        <label>Photos</label>
+        <ImageUploader name="images" />
       </div>
       <div className="form-group">
         <label>Sizes (comma separated)</label>

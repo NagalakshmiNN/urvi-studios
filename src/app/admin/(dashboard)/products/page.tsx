@@ -24,6 +24,7 @@ export default async function AdminProductsPage() {
           <thead>
             <tr>
               <th></th>
+              <th>Product ID</th>
               <th>Name</th>
               <th>Category</th>
               <th>Price</th>

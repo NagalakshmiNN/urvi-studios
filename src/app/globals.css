@@ -387,6 +387,7 @@ p { line-height: 1.7; color: var(--earth); }
 .pdp-gallery img { border-radius: 3px; width: 100%; }
 .pdp-info .p-cat { color: var(--gold); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
 .pdp-info h1 { margin: 8px 0 10px; font-size: 34px; }
+.pdp-sku { font-family: monospace; font-size: 11.5px; color: var(--sage); margin: -4px 0 4px; }
 .pdp-price { font-size: 22px; color: var(--olive); font-weight: 600; margin-bottom: 4px; }
 .pdp-price .strike { text-decoration: line-through; color: var(--sage); font-weight: 400; margin-left: 10px; font-size: 16px; }
 .pdp-stock { font-size: 12.5px; color: var(--sage); margin-bottom: 22px; }
@@ -595,6 +596,26 @@ p { line-height: 1.7; color: var(--earth); }
 .tag-input-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .tag-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--sand); padding: 5px 10px; border-radius: 14px; font-size: 12px; }
 .tag-pill button { background: none; border: none; color: var(--earth); font-size: 14px; line-height: 1; }
+
+/* ---------------- Image uploader (admin product forms) ---------------- */
+.image-dropzone {
+  border: 1.5px dashed var(--line);
+  border-radius: 4px;
+  padding: 26px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--ivory);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.image-dropzone:hover, .image-dropzone.over { border-color: var(--gold); background: #fbf5e9; }
+.image-dropzone .dropzone-label { font-size: 13.5px; font-weight: 600; color: var(--olive); margin: 0 0 4px; }
+.image-dropzone .dropzone-hint { font-size: 11.5px; color: var(--sage); margin: 0; }
+.image-preview-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.image-preview-thumb { position: relative; width: 78px; height: 96px; border-radius: 3px; overflow: hidden; border: 1px solid var(--line); background: var(--sand); }
+.image-preview-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.image-preview-primary { position: absolute; left: 4px; bottom: 4px; background: var(--gold); color: var(--ivory); font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; padding: 2px 6px; border-radius: 2px; }
+.image-preview-thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; background: rgba(11,11,9,0.65); color: #fff; border: none; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.image-preview-thumb button:hover { background: #a5333a; }
 
 /* ---------------- Misc ---------------- */
 .page-hero { padding: 60px 0 30px; text-align: center; }

@@ -8,10 +8,15 @@ import WishlistButton from "@/components/WishlistButton";
 
 type Product = {
   id: string;
+  sku: string;
   slug: string;
   name: string;
   description: string;
   fabric: string;
+  perfectFor: string | null;
+  bestWeather: string | null;
+  stylingTips: string | null;
+  styleNotes: string | null;
   price: number;
   compareAtPrice: number | null;
   stock: number;
@@ -40,6 +45,7 @@ export default function ProductDetailClient({
   function handleAdd() {
     addToCart({
       productId: product.id,
+      sku: product.sku,
       slug: product.slug,
       name: product.name,
       price: product.price,
@@ -60,6 +66,7 @@ export default function ProductDetailClient({
           <div>
             <div className="p-cat">{product.category.name}</div>
             <h1>{product.name}</h1>
+            <div className="pdp-sku">Product ID — {product.sku}</div>
           </div>
           <WishlistButton productId={product.id} isLoggedIn={isLoggedIn} initialActive={wishlisted} size="large" />
         </div>
@@ -136,6 +143,30 @@ export default function ProductDetailClient({
         </div>
 
         <dl className="pdp-meta">
+          {product.styleNotes && (
+            <>
+              <dt>Style</dt>
+              <dd>{product.styleNotes}</dd>
+            </>
+          )}
+          {product.perfectFor && (
+            <>
+              <dt>Perfect For</dt>
+              <dd>{product.perfectFor}</dd>
+            </>
+          )}
+          {product.bestWeather && (
+            <>
+              <dt>Best Weather</dt>
+              <dd>{product.bestWeather}</dd>
+            </>
+          )}
+          {product.stylingTips && (
+            <>
+              <dt>Styling Tip</dt>
+              <dd>{product.stylingTips}</dd>
+            </>
+          )}
           <dt>Fabric &amp; Care</dt>
           <dd>{product.fabric}. Dry clean recommended for festive pieces; gentle machine wash for everyday cotton.</dd>
           <dt>Shipping</dt>

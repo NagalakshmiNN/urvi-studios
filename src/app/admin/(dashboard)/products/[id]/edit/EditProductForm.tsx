@@ -2,12 +2,18 @@
 
 import { useActionState } from "react";
 import { updateProductFullAction } from "@/app/actions/admin";
+import ImageUploader from "@/components/ImageUploader";
 
 type Product = {
   id: string;
+  sku: string;
   name: string;
   description: string;
   fabric: string;
+  perfectFor: string | null;
+  bestWeather: string | null;
+  stylingTips: string | null;
+  styleNotes: string | null;
   price: number;
   compareAtPrice: number | null;
   badge: string | null;
@@ -28,6 +34,11 @@ export default function EditProductForm({ product, categories }: { product: Prod
       {state?.error && <div className="notice-box error">{state.error}</div>}
       {state?.success && <div className="notice-box">{state.success}</div>}
 
+      <div className="form-group">
+        <label>Product ID</label>
+        <input type="text" value={product.sku} readOnly disabled style={{ background: "var(--sand)", fontFamily: "monospace" }} />
+        <p className="field-hint">This product&apos;s single identifier everywhere — the site, orders, and the Excel export/import. Doesn&apos;t change.</p>
+      </div>
       <div className="form-group">
         <label>Product name</label>
         <input type="text" name="name" required defaultValue={product.name} />
@@ -50,6 +61,26 @@ export default function EditProductForm({ product, categories }: { product: Prod
       </div>
       <div className="form-row">
         <div className="form-group">
+          <label>Perfect for / where to wear</label>
+          <input type="text" name="perfectFor" placeholder="e.g. Weddings, festive evenings" defaultValue={product.perfectFor ?? ""} />
+        </div>
+        <div className="form-group">
+          <label>Best weather</label>
+          <input type="text" name="bestWeather" placeholder="e.g. Cool, breezy evenings" defaultValue={product.bestWeather ?? ""} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Ease / styling</label>
+          <input type="text" name="stylingTips" placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
+        </div>
+        <div className="form-group">
+          <label>Style</label>
+          <input type="text" name="styleNotes" placeholder="e.g. Regal, flowing silhouette" defaultValue={product.styleNotes ?? ""} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
           <label>Price (₹)</label>
           <input type="number" name="price" required min={1} defaultValue={product.price} />
         </div>
@@ -67,15 +98,8 @@ export default function EditProductForm({ product, categories }: { product: Prod
         <input type="text" name="badge" placeholder="e.g. New In, Bestseller" defaultValue={product.badge ?? ""} />
       </div>
       <div className="form-group">
-        <label>Image URLs (one per line)</label>
-        <textarea
-          name="images"
-          rows={3}
-          required
-          placeholder={"https://…/front.jpg\nhttps://…/back.jpg"}
-          defaultValue={product.images.map((i) => i.url).join("\n")}
-        />
-        <p className="field-hint">Send us the photos over WhatsApp or email and we&apos;ll host them — paste the links here once ready.</p>
+        <label>Photos</label>
+        <ImageUploader name="images" defaultUrls={product.images.map((i) => i.url)} />
       </div>
       <div className="form-group">
         <label>Sizes (comma separated)</label>

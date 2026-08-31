@@ -205,6 +205,7 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
                 <div style={{ flex: 1 }}>
                   <div>{item.name}</div>
                   <div style={{ color: "var(--sage)", fontSize: 11.5 }}>Size {item.size} · {item.color} · Qty {item.qty}</div>
+                  <div style={{ color: "var(--sage)", fontSize: 11, fontFamily: "monospace" }}>ID — {item.sku}</div>
                 </div>
                 <div style={{ fontWeight: 600 }}>{formatINR(item.price * item.qty)}</div>
               </div>

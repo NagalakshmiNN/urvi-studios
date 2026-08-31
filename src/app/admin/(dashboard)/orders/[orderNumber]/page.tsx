@@ -20,11 +20,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       <div className="admin-card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginBottom: 10 }}>Items</h3>
         <table className="admin-table">
-          <thead><tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th></tr></thead>
+          <thead><tr><th>Product</th><th>Product ID</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th></tr></thead>
           <tbody>
             {order.items.map((item) => (
               <tr key={item.id}>
                 <td>{item.productName}</td>
+                <td><code style={{ fontSize: 12 }}>{item.sku || "—"}</code></td>
                 <td>{item.size}</td>
                 <td>{item.color}</td>
                 <td>{item.qty}</td>

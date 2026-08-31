@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       orderId: order.id,
       productId: l.productId,
       productName: l.productName,
+      sku: l.sku,
       size: l.size,
       color: l.color,
       qty: l.qty,
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
   );
 
   if (!razorpayConfigured) {
-    const lines = pricing.lines.map((l) => `• ${l.productName} (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`).join("\n");
+    const lines = pricing.lines.map((l) => `• ${l.productName} [ID: ${l.sku}] (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`).join("\n");
     const msg =
       `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}` +
       (pricing.freeShipping ? " (free shipping)" : " + shipping (confirm with customer based on pincode)") +
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
     // through on WhatsApp.
     await sendOrderNotification(
       { ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" },
-      pricing.lines.map((l) => ({ productName: l.productName, size: l.size, color: l.color, qty: l.qty, price: l.price }))
+      pricing.lines.map((l) => ({ productName: l.productName, sku: l.sku, size: l.size, color: l.color, qty: l.qty, price: l.price }))
     );
 
     return NextResponse.json({ configured: false, orderNumber, whatsappUrl });

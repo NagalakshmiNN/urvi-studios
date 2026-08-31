@@ -8,6 +8,7 @@ import DeleteProductButton from "./DeleteProductButton";
 
 type Product = {
   id: string;
+  sku: string;
   name: string;
   slug: string;
   price: number;
@@ -42,6 +43,7 @@ export default function ProductRow({ product }: { product: Product }) {
         <td>
           <img src={product.images[0]?.url} alt="" style={{ width: 42, height: 52, objectFit: "cover", borderRadius: 2 }} />
         </td>
+        <td><code style={{ fontSize: 12 }}>{product.sku}</code></td>
         <td>
           <Link href={`/product/${product.slug}`} target="_blank" style={{ color: "var(--olive)", fontWeight: 600 }}>
             {product.name}
