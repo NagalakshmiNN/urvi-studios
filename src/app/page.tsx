@@ -5,6 +5,7 @@ import SiteFooter from "@/components/SiteFooter";
 import ProductCard from "@/components/ProductCard";
 import RollingCategoryImage from "@/components/RollingCategoryImage";
 import { getCustomerSession } from "@/lib/auth";
+import { STYLE_GUIDES } from "@/lib/style-guides";
 
 const CATEGORY_IMAGE_LIMIT = 6;
 
@@ -95,16 +96,18 @@ export default async function HomePage() {
       <section className="section" style={{ background: "var(--sand)" }}>
         <div className="container">
           <div className="section-head">
-            <div className="eyebrow">Signature Series</div>
-            <h2>Who Are You Today?</h2>
-            <p className="lede" style={{ margin: "14px auto 0" }}>Different versions of HER — pick the mood, we&apos;ll style the edit.</p>
+            <div className="eyebrow">Style Guides</div>
+            <h2>How Will You Wear It?</h2>
+            <p className="lede" style={{ margin: "14px auto 0" }}>Real occasions, real outfit answers — tap yours, we&apos;ll style the edit.</p>
           </div>
           <div className="mood-grid">
-            <div className="mood-card"><div className="mood-mark">L</div><h4>The Leader</h4><p>Structured &amp; sharp</p></div>
-            <div className="mood-card"><div className="mood-mark">E</div><h4>The Everyday Woman</h4><p>Effortless &amp; easy</p></div>
-            <div className="mood-card"><div className="mood-mark">S</div><h4>The Social Butterfly</h4><p>Festive &amp; radiant</p></div>
-            <div className="mood-card"><div className="mood-mark">M</div><h4>The Minimalist</h4><p>Clean &amp; considered</p></div>
-            <div className="mood-card"><div className="mood-mark">D</div><h4>The Dreamer</h4><p>Soft &amp; fluid</p></div>
+            {STYLE_GUIDES.map((g) => (
+              <Link href={`/style/${g.slug}`} className="mood-card" key={g.slug}>
+                <div className="mood-mark">{g.mark}</div>
+                <h4>{g.cardTitle}</h4>
+                <p>{g.cardSubtitle}</p>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

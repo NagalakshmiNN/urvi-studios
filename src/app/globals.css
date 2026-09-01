@@ -494,6 +494,12 @@ p { line-height: 1.7; color: var(--earth); }
 .value-item { text-align: center; }
 .value-item .num { font-family: var(--font-display); font-size: 34px; color: var(--gold); }
 
+/* ---------------- Style guides ---------------- */
+.guide-tips-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; max-width: 860px; margin: 0 auto; }
+.guide-tip-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 22px 24px; }
+.guide-tip-card h4 { color: var(--olive); font-family: var(--font-display); font-size: 16px; margin: 0 0 6px; }
+.guide-tip-card p { font-size: 13.5px; color: var(--earth); line-height: 1.6; margin: 0; }
+
 /* ---------------- Contact ---------------- */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; padding: 50px 0 90px; }
 .contact-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 30px; margin-bottom: 16px; }
@@ -652,6 +658,7 @@ p { line-height: 1.7; color: var(--earth); }
   .hero-inner { padding: 60px 20px 70px; }
   .summary-card { position: static; }
   .form-grid { grid-template-columns: 1fr; }
+  .guide-tips-grid { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: 1fr 1fr; }
   .admin-main { padding: 24px 18px; }
 }
