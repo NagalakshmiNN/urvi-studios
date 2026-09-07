@@ -8,7 +8,7 @@ import { calculateGst } from "@/lib/gst";
 
 const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
-export default function CartClient() {
+export default function CartClient({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -71,6 +71,11 @@ export default function CartClient() {
           <Link href="/checkout" className="btn btn-primary btn-block" style={{ marginTop: 18 }}>Proceed to Checkout</Link>
         ) : (
           <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} disabled>Proceed to Checkout</button>
+        )}
+        {!isLoggedIn && cart.length > 0 && (
+          <p className="promo-note" style={{ marginTop: 10 }}>
+            You&apos;ll be asked to login or create a free account to complete your order.
+          </p>
         )}
         {!freeShipping && cart.length > 0 && (
           <p className="promo-note" style={{ marginTop: -6 }}>

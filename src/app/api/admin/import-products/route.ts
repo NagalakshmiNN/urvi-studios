@@ -105,6 +105,9 @@ export async function POST(request: Request) {
   const cStyle = col("style");
   const cPrice = col("price");
   const cCompareAt = col("compare-at");
+  const cLandedCost = col("landed cost");
+  const cMinRoundUp = col("minimum round");
+  const cMaxRoundUp = col("maximum round");
   const cStock = col("stock");
   const cSizes = col("sizes");
   const cColors = col("colors");
@@ -157,12 +160,23 @@ export async function POST(request: Request) {
       continue;
     }
 
+    // The "Maximum Round Up To" column, when the sheet has it and this row
+    // has a value in it, is the rule for price going forward — it wins over
+    // whatever the Price column says. Falls back to Price so older sheets
+    // (or a row that just hasn't been costed yet) still work.
+    const maxRoundUpText = cMaxRoundUp ? cellText(row.getCell(cMaxRoundUp)).replace(/[^\d.]/g, "") : "";
+    const maxRoundUpTo = maxRoundUpText ? Math.round(parseFloat(maxRoundUpText)) : null;
     const priceText = cellText(row.getCell(cPrice)).replace(/[^\d.]/g, "");
-    const price = Math.round(parseFloat(priceText));
+    const price = maxRoundUpTo && maxRoundUpTo > 0 ? maxRoundUpTo : Math.round(parseFloat(priceText));
     if (!Number.isFinite(price) || price <= 0) {
-      errors.push({ row: r, reason: "Missing or invalid price." });
+      errors.push({ row: r, reason: "Missing or invalid price (and no Maximum Round Up To value to fall back on)." });
       continue;
     }
+
+    const landedCostText = cLandedCost ? cellText(row.getCell(cLandedCost)).replace(/[^\d.]/g, "") : "";
+    const landedCost = landedCostText ? Math.round(parseFloat(landedCostText)) : null;
+    const minRoundUpText = cMinRoundUp ? cellText(row.getCell(cMinRoundUp)).replace(/[^\d.]/g, "") : "";
+    const minRoundUpTo = minRoundUpText ? Math.round(parseFloat(minRoundUpText)) : null;
 
     const sizesText = cSizes ? cellText(row.getCell(cSizes)) : "";
     const sizeLabels = sizesText.split(",").map((s) => s.trim()).filter(Boolean);
@@ -204,6 +218,9 @@ export async function POST(request: Request) {
           styleNotes: styleNotes || null,
           price,
           compareAtPrice,
+          landedCost,
+          minRoundUpTo,
+          maxRoundUpTo,
           badge: badge || null,
           stock,
           categoryId: category.id,
@@ -255,6 +272,9 @@ export async function POST(request: Request) {
         styleNotes: styleNotes || null,
         price,
         compareAtPrice,
+        landedCost,
+        minRoundUpTo,
+        maxRoundUpTo,
         badge: badge || null,
         stock,
         categoryId: category.id,

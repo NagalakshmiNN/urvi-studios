@@ -37,26 +37,26 @@ export default function NewProductForm({ categories }: { categories: { id: strin
       </div>
       <div className="form-group">
         <label>Fabric</label>
-        <input type="text" name="fabric" placeholder="e.g. Pure silk with zari border" />
+        <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" />
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Perfect for / where to wear</label>
-          <input type="text" name="perfectFor" placeholder="e.g. Weddings, festive evenings" />
+          <textarea name="perfectFor" rows={3} placeholder="e.g. Weddings, festive evenings" />
         </div>
         <div className="form-group">
           <label>Best weather</label>
-          <input type="text" name="bestWeather" placeholder="e.g. Cool, breezy evenings" />
+          <textarea name="bestWeather" rows={3} placeholder="e.g. Cool, breezy evenings" />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Ease / styling</label>
-          <input type="text" name="stylingTips" placeholder="e.g. Pair with statement jewelry" />
+          <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" />
         </div>
         <div className="form-group">
           <label>Style</label>
-          <input type="text" name="styleNotes" placeholder="e.g. Regal, flowing silhouette" />
+          <textarea name="styleNotes" rows={3} placeholder="e.g. Regal, flowing silhouette" />
         </div>
       </div>
       <div className="form-row">

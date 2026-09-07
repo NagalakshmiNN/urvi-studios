@@ -163,16 +163,28 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   }
 
   if (whatsappHandoff) {
+    // One tap opens a WhatsApp chat, pre-filled with the order, to every
+    // number at once (Lakshmi, Shilpa, and Urvi Studio) instead of making
+    // the customer pick just one. WhatsApp itself still requires a person
+    // to tap Send in each chat that opens — there's no way to dispatch a
+    // WhatsApp message with zero further action short of the paid WhatsApp
+    // Business API (see the "Not yet built" list) — so the note below sets
+    // that expectation rather than overpromising a single-tap send.
+    const sendToAll = () => {
+      whatsappHandoff.urls.forEach((w) => window.open(w.url, "_blank", "noopener,noreferrer"));
+    };
     return (
       <div className="empty-state" style={{ padding: "60px 20px" }}>
         <h3>Order {whatsappHandoff.orderNumber} received</h3>
-        <p>Online payment is being finalised for Urvi Studios. Send your order to whichever of us is easiest to reach — we&apos;ll confirm and share a payment link personally.</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", marginTop: 18, width: "100%", maxWidth: 320, marginLeft: "auto", marginRight: "auto" }}>
-          {whatsappHandoff.urls.map((w) => (
-            <a key={w.name} href={w.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-block">
-              Send to {w.name} on WhatsApp
-            </a>
-          ))}
+        <p>Online payment is being finalised for Urvi Studios. One tap sends your order to Lakshmi, Shilpa, and Urvi Studio all at once — we&apos;ll confirm and share a payment link personally.</p>
+        <div style={{ width: "100%", maxWidth: 320, marginTop: 18, marginLeft: "auto", marginRight: "auto" }}>
+          <button type="button" className="btn btn-primary btn-block" onClick={sendToAll}>
+            Send Order on WhatsApp
+          </button>
+          <p className="promo-note" style={{ marginTop: 10 }}>
+            This opens 3 WhatsApp chats, one per number, already filled in with your order — just tap Send in
+            each one (WhatsApp doesn&apos;t allow sending on your behalf without that tap).
+          </p>
         </div>
       </div>
     );

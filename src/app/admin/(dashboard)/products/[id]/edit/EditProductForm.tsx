@@ -58,26 +58,26 @@ export default function EditProductForm({ product, categories }: { product: Prod
       </div>
       <div className="form-group">
         <label>Fabric</label>
-        <input type="text" name="fabric" placeholder="e.g. Pure silk with zari border" defaultValue={product.fabric} />
+        <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" defaultValue={product.fabric} />
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Perfect for / where to wear</label>
-          <input type="text" name="perfectFor" placeholder="e.g. Weddings, festive evenings" defaultValue={product.perfectFor ?? ""} />
+          <textarea name="perfectFor" rows={3} placeholder="e.g. Weddings, festive evenings" defaultValue={product.perfectFor ?? ""} />
         </div>
         <div className="form-group">
           <label>Best weather</label>
-          <input type="text" name="bestWeather" placeholder="e.g. Cool, breezy evenings" defaultValue={product.bestWeather ?? ""} />
+          <textarea name="bestWeather" rows={3} placeholder="e.g. Cool, breezy evenings" defaultValue={product.bestWeather ?? ""} />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Ease / styling</label>
-          <input type="text" name="stylingTips" placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
+          <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
         </div>
         <div className="form-group">
           <label>Style</label>
-          <input type="text" name="styleNotes" placeholder="e.g. Regal, flowing silhouette" defaultValue={product.styleNotes ?? ""} />
+          <textarea name="styleNotes" rows={3} placeholder="e.g. Regal, flowing silhouette" defaultValue={product.styleNotes ?? ""} />
         </div>
       </div>
       <div className="form-row">

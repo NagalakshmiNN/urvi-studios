@@ -210,21 +210,25 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   return { success: `"${name}" was updated.` };
 }
 
-// Products already ordered can't be removed outright — order history keeps a
-// row-level reference to them (order_items.product_id), so a hard delete
-// would fail the database's foreign key check anyway. Untouched products
-// (never ordered) delete cleanly, images/sizes/colors cascade automatically.
-export async function deleteProductAction(productId: string): Promise<{ error?: string }> {
+// order_items already stores a full snapshot of each line (product name,
+// SKU, size, color, qty, price) independent of the live product row, so a
+// product with order history can be deleted safely — order_items.product_id
+// is ON DELETE SET NULL, so past orders keep displaying exactly as they did
+// (via the snapshot), they just lose their now-pointless link to a product
+// that no longer exists. Images/sizes/colors cascade automatically either way.
+export async function deleteProductAction(productId: string): Promise<{ error?: string; success?: string }> {
   await requireAdmin();
 
+  const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId) });
   const orderedBefore = await db.query.orderItems.findFirst({ where: eq(schema.orderItems.productId, productId) });
-  if (orderedBefore) {
-    return { error: "This product has order history, so it can't be deleted — turn off “Active” instead to hide it from the shop." };
-  }
 
   await db.delete(schema.products).where(eq(schema.products.id, productId));
   revalidatePath("/admin/products");
-  return {};
+  revalidatePath("/admin/orders");
+
+  return orderedBefore
+    ? { success: `"${product?.name ?? "Product"}" was deleted. Its past orders still show up fine in Orders — just without a live product link.` }
+    : {};
 }
 
 // --------------------------------------------------------------------- Orders

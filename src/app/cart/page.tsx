@@ -1,8 +1,10 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import CartClient from "./CartClient";
+import { getCustomerSession } from "@/lib/auth";
 
 export default async function CartPage() {
+  const customerId = await getCustomerSession();
   return (
     <>
       <SiteHeader active="Cart" />
@@ -11,7 +13,7 @@ export default async function CartPage() {
         <h1>Your <span className="flow">Bag</span></h1>
       </div>
       <div className="container">
-        <CartClient />
+        <CartClient isLoggedIn={Boolean(customerId)} />
       </div>
       <SiteFooter />
     </>

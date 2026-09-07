@@ -70,6 +70,14 @@ export const products = pgTable("products", {
   styleNotes: text("style_notes"), // "Style"
   price: integer("price").notNull(), // rupees
   compareAtPrice: integer("compare_at_price"),
+  // Costing reference data carried over from Nagalakshmi's product master
+  // Excel sheet on each import — admin-only display (see the admin Products
+  // list), not shown anywhere on the storefront. "Maximum Round Up To" is
+  // the one that actually drives `price` on every import (see
+  // import-products/route.ts); the other two are reference-only.
+  landedCost: integer("landed_cost"), // "Landed Cost (GST + Shipping)"
+  minRoundUpTo: integer("min_round_up_to"), // "Minimum Round Up To"
+  maxRoundUpTo: integer("max_round_up_to"), // "Maximum Round Up To" — sets `price` on import
   badge: text("badge"),
   stock: integer("stock").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
@@ -168,7 +176,7 @@ export const orders = pgTable("orders", {
 export const orderItems = pgTable("order_items", {
   id: id(),
   orderId: text("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
-  productId: text("product_id").references(() => products.id),
+  productId: text("product_id").references(() => products.id, { onDelete: "set null" }),
   productName: text("product_name").notNull(),
   sku: text("sku"),
   size: text("size").notNull(),

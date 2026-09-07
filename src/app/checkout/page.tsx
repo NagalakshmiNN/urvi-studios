@@ -4,10 +4,18 @@ import CheckoutClient from "./CheckoutClient";
 import { getCustomerSession } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
 
 export default async function CheckoutPage() {
   const customerId = await getCustomerSession();
-  const customer = customerId ? await db.query.customers.findFirst({ where: eq(schema.customers.id, customerId) }) : null;
+  // An account is required to place an order — this keeps every order tied
+  // to a real customer record with login access, instead of one-off guest
+  // orders. Sending them to login (not straight to register) covers both
+  // returning and new customers; the login page's own "Create an account"
+  // link handles the rest, and either path returns here via ?next=/checkout.
+  if (!customerId) redirect("/account/login?next=/checkout");
+
+  const customer = await db.query.customers.findFirst({ where: eq(schema.customers.id, customerId) });
   const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "";
 
   return (

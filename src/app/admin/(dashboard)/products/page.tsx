@@ -29,6 +29,9 @@ export default async function AdminProductsPage() {
               <th>Category</th>
               <th>Price</th>
               <th>Compare-at</th>
+              <th>Landed Cost</th>
+              <th>Min Round Up To</th>
+              <th>Max Round Up To</th>
               <th>Badge</th>
               <th>Stock</th>
               <th>Active</th>

@@ -32,10 +32,12 @@ export async function GET() {
   const headers = [
     "Product ID", "Category", "Product Name", "Description", "Material / Fabric",
     "Perfect For / Where to Wear", "Best Weather", "Ease / Styling", "Style",
-    "Price (₹)", "Compare-at Price (₹)", "Stock (pieces)", "Sizes Available", "Colors Available",
+    "Price (₹)", "Compare-at Price (₹)", "Landed Cost (GST + Shipping) (₹)",
+    "Minimum Round Up To (₹)", "Maximum Round Up To (₹)",
+    "Stock (pieces)", "Sizes Available", "Colors Available",
     "Badge (optional)", "Photos",
   ];
-  const widths = [22, 16, 26, 32, 24, 24, 18, 26, 20, 12, 16, 12, 18, 20, 16, 24];
+  const widths = [22, 16, 26, 32, 24, 24, 18, 26, 20, 12, 16, 20, 18, 18, 12, 18, 20, 16, 24];
 
   const headerRow = ws.addRow(headers);
   headerRow.eachCell((cell, colNumber) => {
@@ -58,6 +60,9 @@ export async function GET() {
       p.styleNotes ?? "",
       p.price,
       p.compareAtPrice ?? "",
+      p.landedCost ?? "",
+      p.minRoundUpTo ?? "",
+      p.maxRoundUpTo ?? "",
       p.stock,
       p.sizes.map((s) => s.label).join(", "),
       p.colors.map((c) => `${c.name}:${c.hex}`).join(", "),

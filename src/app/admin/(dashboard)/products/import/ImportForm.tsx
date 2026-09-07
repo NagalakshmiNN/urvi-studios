@@ -72,6 +72,12 @@ export default function ImportForm() {
           an existing one instead of creating a duplicate. Photos pasted into the sheet aren&apos;t pulled in
           automatically; new products get a placeholder image until real photos are added via Edit.
         </p>
+        <p className="field-hint">
+          <strong>Pricing rule:</strong> if the sheet has a <strong>Maximum Round Up To</strong> column with a
+          value in it, that value becomes the product&apos;s live price on every import — it overrides whatever
+          the Price column says. Landed Cost and Minimum Round Up To just come along for the ride as reference
+          numbers, shown on the Products page (admin-only, never on the shop).
+        </p>
       </div>
 
       <button type="submit" className="btn btn-primary" disabled={busy}>

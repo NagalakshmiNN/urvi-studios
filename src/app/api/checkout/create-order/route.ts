@@ -23,10 +23,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please fill in every shipping field correctly." }, { status: 400 });
   }
 
+  // An account is required to place an order (the checkout page itself
+  // redirects logged-out visitors to login/register before they ever reach
+  // this form) — this check is the server-side backstop so the same rule
+  // holds even if this endpoint is hit directly.
+  const customerId = await getCustomerSession();
+  if (!customerId) return NextResponse.json({ error: "Please login or create an account to place an order." }, { status: 401 });
+
   const pricing = await priceCart(items, couponCode);
   if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
 
-  const customerId = await getCustomerSession();
   const orderNumber = await nextOrderNumber();
 
   const keyId = process.env.RAZORPAY_KEY_ID;
