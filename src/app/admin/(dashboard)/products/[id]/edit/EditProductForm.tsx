@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateProductFullAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
+import RichTextEditor from "@/components/RichTextEditor";
 
 type Product = {
   id: string;
@@ -11,12 +12,12 @@ type Product = {
   name: string;
   description: string;
   fabric: string;
-  perfectFor: string | null;
-  bestWeather: string | null;
   stylingTips: string | null;
-  styleNotes: string | null;
   price: number;
   compareAtPrice: number | null;
+  landedCost: number | null;
+  minRoundUpTo: number | null;
+  maxRoundUpTo: number | null;
   badge: string | null;
   stock: number;
   isActive: boolean;
@@ -54,31 +55,15 @@ export default function EditProductForm({ product, categories }: { product: Prod
       </div>
       <div className="form-group">
         <label>Description</label>
-        <textarea name="description" rows={3} required defaultValue={product.description} />
+        <RichTextEditor name="description" defaultValue={product.description} />
       </div>
       <div className="form-group">
         <label>Fabric</label>
         <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" defaultValue={product.fabric} />
       </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Perfect for / where to wear</label>
-          <textarea name="perfectFor" rows={3} placeholder="e.g. Weddings, festive evenings" defaultValue={product.perfectFor ?? ""} />
-        </div>
-        <div className="form-group">
-          <label>Best weather</label>
-          <textarea name="bestWeather" rows={3} placeholder="e.g. Cool, breezy evenings" defaultValue={product.bestWeather ?? ""} />
-        </div>
-      </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Ease / styling</label>
-          <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
-        </div>
-        <div className="form-group">
-          <label>Style</label>
-          <textarea name="styleNotes" rows={3} placeholder="e.g. Regal, flowing silhouette" defaultValue={product.styleNotes ?? ""} />
-        </div>
+      <div className="form-group">
+        <label>Ease / styling</label>
+        <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
       </div>
       <div className="form-row">
         <div className="form-group">
@@ -88,6 +73,20 @@ export default function EditProductForm({ product, categories }: { product: Prod
         <div className="form-group">
           <label>Compare-at price (₹, optional)</label>
           <input type="number" name="compareAtPrice" min={1} defaultValue={product.compareAtPrice ?? ""} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Landed cost (₹, GST + shipping)</label>
+          <input type="number" name="landedCost" min={0} defaultValue={product.landedCost ?? ""} placeholder="Usually set via Excel import" />
+        </div>
+        <div className="form-group">
+          <label>Min round up to (₹)</label>
+          <input type="number" name="minRoundUpTo" min={0} defaultValue={product.minRoundUpTo ?? ""} />
+        </div>
+        <div className="form-group">
+          <label>Max round up to (₹)</label>
+          <input type="number" name="maxRoundUpTo" min={0} defaultValue={product.maxRoundUpTo ?? ""} />
         </div>
       </div>
       <div className="form-group">

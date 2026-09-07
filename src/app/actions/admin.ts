@@ -7,6 +7,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
 import { adjustStockForLine } from "@/lib/stock";
+import { isBlankHtml } from "@/lib/richtext";
+
+// Costing fields (Landed Cost, Min/Max Round Up To) are optional numbers —
+// usually set via Excel import, but editable by hand too. Blank means "not
+// set" (null), not zero.
+function optionalInt(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) || "").trim();
+  if (!raw) return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
+}
 
 export type AdminFormState = { error?: string; success?: string } | undefined;
 
@@ -32,12 +43,12 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const fabric = String(formData.get("fabric") || "").trim();
-  const perfectFor = String(formData.get("perfectFor") || "").trim();
-  const bestWeather = String(formData.get("bestWeather") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
-  const styleNotes = String(formData.get("styleNotes") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
+  const landedCost = optionalInt(formData, "landedCost");
+  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
+  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -49,7 +60,7 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const colorPairs = String(formData.get("colors") || "").split(",").map((s) => s.trim()).filter(Boolean);
 
   if (!name || name.length < 3) return { error: "Please enter a product name." };
-  if (!description) return { error: "Please enter a description." };
+  if (!description || isBlankHtml(description)) return { error: "Please enter a description." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
@@ -73,12 +84,12 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
       name,
       description,
       fabric: fabric || "See description",
-      perfectFor: perfectFor || null,
-      bestWeather: bestWeather || null,
       stylingTips: stylingTips || null,
-      styleNotes: styleNotes || null,
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
+      landedCost,
+      minRoundUpTo,
+      maxRoundUpTo,
       badge: badge || null,
       stock: totalStock,
       categoryId,
@@ -107,6 +118,9 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
   const productId = String(formData.get("productId") || "");
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
+  const landedCost = optionalInt(formData, "landedCost");
+  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
+  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
   const badge = String(formData.get("badge") || "").trim();
   const isActive = formData.get("isActive") === "on";
 
@@ -121,6 +135,9 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
     .set({
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
+      landedCost,
+      minRoundUpTo,
+      maxRoundUpTo,
       badge: badge || null,
       isActive,
       updatedAt: new Date(),
@@ -141,12 +158,12 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const fabric = String(formData.get("fabric") || "").trim();
-  const perfectFor = String(formData.get("perfectFor") || "").trim();
-  const bestWeather = String(formData.get("bestWeather") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
-  const styleNotes = String(formData.get("styleNotes") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);
   const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
+  const landedCost = optionalInt(formData, "landedCost");
+  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
+  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
   const isActive = formData.get("isActive") === "on";
@@ -160,7 +177,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
 
   if (!productId) return { error: "Missing product." };
   if (!name || name.length < 3) return { error: "Please enter a product name." };
-  if (!description) return { error: "Please enter a description." };
+  if (!description || isBlankHtml(description)) return { error: "Please enter a description." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
@@ -168,18 +185,23 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
 
   const totalStock = sizes.reduce((sum, s) => sum + s.stock, 0);
 
+  // Perfect For / Best Weather / Style are deliberately left out of this
+  // `.set()` — they're no longer collected on this form (the rich
+  // Description box replaces them), so any existing values on older
+  // products are left exactly as they are rather than getting silently
+  // blanked out on every save.
   await db
     .update(schema.products)
     .set({
       name,
       description,
       fabric: fabric || "See description",
-      perfectFor: perfectFor || null,
-      bestWeather: bestWeather || null,
       stylingTips: stylingTips || null,
-      styleNotes: styleNotes || null,
       price,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
+      landedCost,
+      minRoundUpTo,
+      maxRoundUpTo,
       badge: badge || null,
       stock: totalStock,
       categoryId,

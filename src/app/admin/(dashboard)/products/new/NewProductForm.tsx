@@ -1,16 +1,25 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { createProductAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
+import RichTextEditor from "@/components/RichTextEditor";
 
 export default function NewProductForm({ categories }: { categories: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState(createProductAction, undefined);
   const formRef = useRef<HTMLFormElement>(null);
+  // Bumped on every successful add so the rich Description editor (which
+  // keeps its own internal state, outside the plain form fields the native
+  // reset() below already clears) also clears back to empty for the next
+  // product instead of silently keeping the last one's text.
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
-    if (state?.success) formRef.current?.reset();
+    if (state?.success) {
+      formRef.current?.reset();
+      setResetKey((k) => k + 1);
+    }
   }, [state]);
 
   return (
@@ -33,31 +42,15 @@ export default function NewProductForm({ categories }: { categories: { id: strin
       </div>
       <div className="form-group">
         <label>Description</label>
-        <textarea name="description" rows={3} required />
+        <RichTextEditor key={resetKey} name="description" />
       </div>
       <div className="form-group">
         <label>Fabric</label>
         <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" />
       </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Perfect for / where to wear</label>
-          <textarea name="perfectFor" rows={3} placeholder="e.g. Weddings, festive evenings" />
-        </div>
-        <div className="form-group">
-          <label>Best weather</label>
-          <textarea name="bestWeather" rows={3} placeholder="e.g. Cool, breezy evenings" />
-        </div>
-      </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Ease / styling</label>
-          <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" />
-        </div>
-        <div className="form-group">
-          <label>Style</label>
-          <textarea name="styleNotes" rows={3} placeholder="e.g. Regal, flowing silhouette" />
-        </div>
+      <div className="form-group">
+        <label>Ease / styling</label>
+        <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" />
       </div>
       <div className="form-row">
         <div className="form-group">
@@ -67,6 +60,20 @@ export default function NewProductForm({ categories }: { categories: { id: strin
         <div className="form-group">
           <label>Compare-at price (₹, optional)</label>
           <input type="number" name="compareAtPrice" min={1} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Landed cost (₹, GST + shipping)</label>
+          <input type="number" name="landedCost" min={0} placeholder="Usually set via Excel import" />
+        </div>
+        <div className="form-group">
+          <label>Min round up to (₹)</label>
+          <input type="number" name="minRoundUpTo" min={0} />
+        </div>
+        <div className="form-group">
+          <label>Max round up to (₹)</label>
+          <input type="number" name="maxRoundUpTo" min={0} />
         </div>
       </div>
       <div className="form-group">

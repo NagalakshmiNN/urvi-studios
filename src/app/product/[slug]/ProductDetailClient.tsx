@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatINR } from "@/lib/format";
 import { addToCart } from "@/lib/cart";
+import { toDisplayHtml } from "@/lib/richtext";
 import WishlistButton from "@/components/WishlistButton";
 
 type Product = {
@@ -95,7 +96,7 @@ export default function ProductDetailClient({
             ? `Only ${sizeStock} left${size ? ` in size ${size}` : ""} — order soon`
             : "In stock · Ships in 3–5 business days"}
         </div>
-        <p className="pdp-desc">{product.description}</p>
+        <div className="pdp-desc" dangerouslySetInnerHTML={{ __html: toDisplayHtml(product.description) }} />
 
         <div className="field-block">
           <div className="field-label"><span>Color — {color}</span></div>
