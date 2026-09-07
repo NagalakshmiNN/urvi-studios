@@ -42,6 +42,12 @@ export default function ProductDetailClient({
   );
   const [color, setColor] = useState(product.colors[0]?.name ?? "");
   const [qty, setQty] = useState(1);
+  // All the photos uploaded for this product were always stored — the page
+  // just never showed more than the first one. Clicking a thumbnail swaps
+  // which one is the big main image; the thumbnail strip only renders when
+  // there's more than one photo to choose from.
+  const [activeImage, setActiveImage] = useState(0);
+  const mainImage = product.images[activeImage] ?? product.images[0];
 
   // Stock is tracked per size — fall back to the product total only for the
   // rare unsized product.
@@ -73,7 +79,22 @@ export default function ProductDetailClient({
   return (
     <div className="pdp">
       <div className="pdp-gallery">
-        <img src={product.images[0]?.url} alt={product.name} />
+        <img src={mainImage?.url} alt={product.name} />
+        {product.images.length > 1 && (
+          <div className="pdp-thumbs">
+            {product.images.map((img, i) => (
+              <button
+                key={img.url + i}
+                type="button"
+                className={`pdp-thumb${i === activeImage ? " selected" : ""}`}
+                onClick={() => setActiveImage(i)}
+                aria-label={`Show photo ${i + 1}`}
+              >
+                <img src={img.url} alt="" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="pdp-info">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
