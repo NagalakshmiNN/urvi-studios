@@ -350,6 +350,12 @@ test.describe("the stock sheet", () => {
     await expect(row).toContainText(tracked.sku);
     await expect(row).toContainText("₹2,000");
 
+    // The product's own photo sits beside the name, so a row can be
+    // recognised at a glance instead of read.
+    const thumb = row.locator("img.stock-thumb");
+    await expect(thumb).toHaveAttribute("src", "/placeholders/casual-wear.svg");
+    await expect(thumb).toBeVisible();
+
     // The sold-out size shows up under "Sold out".
     await page.goto("/admin/stock?show=out");
     const soldOut = page.locator("tbody tr", { hasText: "Stock Sheet Product" });

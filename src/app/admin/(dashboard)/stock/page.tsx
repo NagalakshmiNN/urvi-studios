@@ -12,7 +12,7 @@ export default async function AdminStockPage({
   const { show = "all" } = await searchParams;
 
   const products = await db.query.products.findMany({
-    with: { sizes: true, category: true },
+    with: { sizes: true, category: true, images: true },
     orderBy: (p, { asc }) => [asc(p.name)],
   });
 
@@ -20,6 +20,7 @@ export default async function AdminStockPage({
     productId: string;
     name: string;
     sku: string;
+    image: string | null;
     category: string;
     size: string;
     stock: number;
@@ -31,11 +32,15 @@ export default async function AdminStockPage({
   const rows: Row[] = [];
   for (const p of products) {
     const sizes = [...p.sizes].sort((a, b) => a.position - b.position);
+    // The product's own first photo — the same one the storefront leads with,
+    // so what's on this screen matches what she'd recognise on the rail.
+    const image = [...p.images].sort((a, b) => a.position - b.position)[0]?.url ?? null;
     for (const s of sizes) {
       rows.push({
         productId: p.id,
         name: p.name,
         sku: p.sku,
+        image,
         category: p.category.name,
         size: s.label,
         stock: s.stock,
@@ -129,8 +134,13 @@ export default async function AdminStockPage({
             {visible.map((r) => (
               <tr key={`${r.productId}-${r.size}`}>
                 <td>
-                  <Link href={`/admin/products/${r.productId}/edit`} style={{ color: "var(--olive)", fontWeight: 600 }}>
-                    {r.name}
+                  <Link href={`/admin/products/${r.productId}/edit`} className="stock-product">
+                    {r.image ? (
+                      <img src={r.image} alt="" className="stock-thumb" />
+                    ) : (
+                      <span className="stock-thumb stock-thumb-empty" aria-hidden="true" />
+                    )}
+                    <span>{r.name}</span>
                   </Link>
                 </td>
                 <td><code style={{ fontSize: 12 }}>{r.sku}</code></td>
