@@ -1,5 +1,6 @@
 // Central place for the shop's public contact details.
 export const SITE = {
+  siteUrl: "https://urvi-studios.netlify.app",
   whatsappNumber: "919538559595", // Lakshmi — country code + number, no + or spaces
   whatsappNumberAlt: "919632311118", // Shilpa
   instagramHandle: "urvi.studios",

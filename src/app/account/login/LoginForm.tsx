@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { loginAction } from "@/app/actions/auth";
 
-export default function LoginForm({ next }: { next?: string }) {
+export default function LoginForm({ next, email }: { next?: string; email?: string }) {
   const [state, formAction, pending] = useActionState(loginAction, undefined);
 
   return (
@@ -12,7 +12,7 @@ export default function LoginForm({ next }: { next?: string }) {
       {state?.error && <div className="notice-box error">{state.error}</div>}
       <div className="form-group">
         <label>Email</label>
-        <input type="email" name="email" required autoComplete="email" />
+        <input type="email" name="email" required autoComplete="email" defaultValue={email} />
       </div>
       <div className="form-group">
         <label>Password</label>

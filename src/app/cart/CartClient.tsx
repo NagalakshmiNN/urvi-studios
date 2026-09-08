@@ -74,7 +74,7 @@ export default function CartClient({ isLoggedIn }: { isLoggedIn: boolean }) {
         )}
         {!isLoggedIn && cart.length > 0 && (
           <p className="promo-note" style={{ marginTop: 10 }}>
-            You&apos;ll be asked to login or create a free account to complete your order.
+            You can checkout as a guest, or login for faster checkout next time.
           </p>
         )}
         {!freeShipping && cart.length > 0 && (

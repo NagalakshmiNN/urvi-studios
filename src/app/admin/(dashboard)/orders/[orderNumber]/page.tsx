@@ -4,17 +4,41 @@ import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { notFound } from "next/navigation";
 import OrderStatusForm from "./OrderStatusForm";
+import { whatsappLink } from "@/lib/whatsapp";
+import { STATUS_CUSTOMER_LINES } from "@/lib/order-status-copy";
+import { SITE } from "@/lib/site-config";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
   const order = await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } });
   if (!order) notFound();
 
+  // A true automatic WhatsApp push to the customer needs a WhatsApp
+  // Business API account (not set up — see the project checklist). This is
+  // the honest substitute in the meantime: one tap opens a chat with the
+  // customer's own number, pre-filled with an update matching their current
+  // status, so sending it is a single extra tap rather than typing one out
+  // by hand.
+  const customerStatusLine = STATUS_CUSTOMER_LINES[order.status];
+  const customerWhatsappHref = customerStatusLine
+    ? whatsappLink(
+        order.customerPhone,
+        `Hi ${order.customerName}, an update on your Urvi Studios order ${order.orderNumber}: ${customerStatusLine} Track it any time: ${SITE.siteUrl}/account/orders/${order.orderNumber}`
+      )
+    : null;
+
   return (
     <>
       <div className="admin-header">
         <h1>{order.orderNumber}</h1>
-        <OrderStatusForm orderId={order.id} currentStatus={order.status} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {customerWhatsappHref && (
+            <a href={customerWhatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: "8px 14px", fontSize: 12.5 }}>
+              Message Customer on WhatsApp
+            </a>
+          )}
+          <OrderStatusForm orderId={order.id} currentStatus={order.status} />
+        </div>
       </div>
 
       <div className="admin-card" style={{ marginBottom: 20 }}>

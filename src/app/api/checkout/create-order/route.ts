@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
-import { getCustomerSession } from "@/lib/auth";
+import { getCustomerSession, hashPassword, createCustomerSession } from "@/lib/auth";
 import { SITE } from "@/lib/site-config";
 import { formatINR } from "@/lib/format";
-import { sendOrderNotification } from "@/lib/order-notify";
+import { sendOrderNotification, sendCustomerOrderConfirmation } from "@/lib/order-notify";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,12 +24,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please fill in every shipping field correctly." }, { status: 400 });
   }
 
-  // An account is required to place an order (the checkout page itself
-  // redirects logged-out visitors to login/register before they ever reach
-  // this form) — this check is the server-side backstop so the same rule
-  // holds even if this endpoint is hit directly.
-  const customerId = await getCustomerSession();
-  if (!customerId) return NextResponse.json({ error: "Please login or create an account to place an order." }, { status: 401 });
+  // Checkout no longer requires an account up front — a logged-out visitor
+  // can place an order as a guest. What happens next depends on whether
+  // this email already has an account:
+  //  - Already logged in: use that session's account, same as always.
+  //  - New email, not logged in: a real account is created behind the
+  //    scenes (a random password the customer never needs, since they're
+  //    logged in for this browser right away) so the order — and any
+  //    future one under the same email — is tracked under one account.
+  //  - An email that already belongs to an existing account, but this
+  //    browser isn't logged into it: rather than silently attaching a
+  //    stranger's order to someone else's account (or silently logging
+  //    into it without a password), this is turned back with a clear
+  //    "please login" error — the checkout form surfaces that inline.
+  let customerId = await getCustomerSession();
+  let newAccountEmail: string | null = null;
+
+  if (!customerId) {
+    const emailLower = customer.email.trim().toLowerCase();
+    const existing = await db.query.customers.findFirst({ where: eq(schema.customers.email, emailLower) });
+    if (existing) {
+      return NextResponse.json(
+        { error: "An account already exists with this email. Please login to continue with checkout.", accountExists: true },
+        { status: 409 }
+      );
+    }
+
+    const passwordHash = await hashPassword(randomBytes(24).toString("hex"));
+    const [newCustomer] = await db
+      .insert(schema.customers)
+      .values({ name: customer.name, email: emailLower, phone: customer.phone, passwordHash })
+      .returning();
+    customerId = newCustomer.id;
+    newAccountEmail = newCustomer.email;
+    await createCustomerSession(customerId);
+  }
 
   const pricing = await priceCart(items, couponCode);
   if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
@@ -98,12 +128,19 @@ export async function POST(request: Request) {
     // message, so this email is the reliable half of the intimation — it
     // fires the moment the order is placed, whether or not they follow
     // through on WhatsApp.
-    await sendOrderNotification(
+    const notifyLines = pricing.lines.map((l) => ({ productName: l.productName, sku: l.sku, size: l.size, color: l.color, qty: l.qty, price: l.price }));
+    await sendOrderNotification({ ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" }, notifyLines);
+    // This IS the completed order for the WhatsApp/COD path (no separate
+    // payment-verification step), so the customer's own confirmation goes
+    // out right away too — the Razorpay path sends its equivalent only once
+    // payment actually verifies (see verify-payment).
+    await sendCustomerOrderConfirmation(
       { ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" },
-      pricing.lines.map((l) => ({ productName: l.productName, sku: l.sku, size: l.size, color: l.color, qty: l.qty, price: l.price }))
+      notifyLines,
+      newAccountEmail ? { newAccountEmail } : undefined
     );
 
-    return NextResponse.json({ configured: false, orderNumber, whatsappUrls });
+    return NextResponse.json({ configured: false, orderNumber, whatsappUrls, accountCreated: Boolean(newAccountEmail), customerEmail: order.customerEmail });
   }
 
   const amountPaise = Math.round(pricing.total * 100);
@@ -128,5 +165,7 @@ export async function POST(request: Request) {
     amount: rzpOrder.amount,
     key_id: keyId,
     orderNumber,
+    accountCreated: Boolean(newAccountEmail),
+    customerEmail: order.customerEmail,
   });
 }

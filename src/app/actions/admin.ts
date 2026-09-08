@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
 import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
+import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 
 // Costing fields (Landed Cost, Min/Max Round Up To) are optional numbers —
 // usually set via Excel import, but editable by hand too. Blank means "not
@@ -291,7 +292,16 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
     await db.update(schema.orders).set({ status, updatedAt: new Date() }).where(eq(schema.orders.id, orderId));
   }
 
+  // Best-effort email to the customer about the new status — never lets a
+  // failed/skipped send block the status change itself (sendMail swallows
+  // its own errors; sendCustomerStatusUpdate no-ops for a status with no
+  // customer-facing copy, e.g. an order with no email on file).
+  if (order.status !== status) {
+    await sendCustomerStatusUpdate(order, status);
+  }
+
   revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${order.orderNumber}`);
   revalidatePath("/admin/products");
   revalidatePath("/admin");
 }

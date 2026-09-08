@@ -11,7 +11,15 @@ const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
 type Prefill = { name: string; email: string; phone: string } | null;
 
-export default function CheckoutClient({ prefill, razorpayConfigured }: { prefill: Prefill; razorpayConfigured: boolean }) {
+export default function CheckoutClient({
+  prefill,
+  razorpayConfigured,
+  loggedIn,
+}: {
+  prefill: Prefill;
+  razorpayConfigured: boolean;
+  loggedIn: boolean;
+}) {
   const router = useRouter();
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -20,7 +28,13 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   const [discount, setDiscount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [whatsappHandoff, setWhatsappHandoff] = useState<{ urls: { name: string; url: string }[]; orderNumber: string } | null>(null);
+  const [accountExistsEmail, setAccountExistsEmail] = useState<string | null>(null);
+  const [whatsappHandoff, setWhatsappHandoff] = useState<{ urls: { name: string; url: string }[]; orderNumber: string; accountCreated?: boolean; customerEmail?: string } | null>(null);
+  // Not logged in yet: show the guest-vs-account choice first. Picking
+  // "Continue as Guest" reveals the same shipping form below — nothing else
+  // changes about it. An already-logged-in visitor skips this screen
+  // entirely.
+  const [guestMode, setGuestMode] = useState(false);
 
   useEffect(() => {
     setCart(getCart());
@@ -35,6 +49,25 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
         <h3>Your bag is empty</h3>
         <p>Add something you love before checking out.</p>
         <a href="/shop" className="btn btn-outline" style={{ marginTop: 16 }}>Continue Shopping</a>
+      </div>
+    );
+  }
+
+  if (!loggedIn && !guestMode && !whatsappHandoff) {
+    return (
+      <div className="checkout-choice" style={{ maxWidth: 460, margin: "40px auto", textAlign: "center" }}>
+        <h3 style={{ marginBottom: 8 }}>How would you like to checkout?</h3>
+        <p className="lede" style={{ margin: "0 auto 26px", fontSize: 14 }}>
+          You&apos;re welcome to order as a guest — we&apos;ll keep your details on file so you can track this order
+          and any future ones.
+        </p>
+        <button type="button" className="btn btn-primary btn-block" onClick={() => setGuestMode(true)}>
+          Continue as Guest
+        </button>
+        <p style={{ margin: "16px 0 10px", fontSize: 12.5, color: "var(--sage)" }}>or</p>
+        <a href={`/account/login?next=${encodeURIComponent("/checkout")}`} className="btn btn-outline btn-block">
+          Login or Create an Account
+        </a>
       </div>
     );
   }
@@ -84,6 +117,7 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setAccountExistsEmail(null);
     setBusy(true);
 
     const fd = new FormData(e.currentTarget);
@@ -111,14 +145,18 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong. Please try again.");
+        if (data.accountExists) {
+          setAccountExistsEmail(customer.email);
+        } else {
+          setError(data.error || "Something went wrong. Please try again.");
+        }
         setBusy(false);
         return;
       }
 
       if (!data.configured) {
         clearCart();
-        setWhatsappHandoff({ urls: data.whatsappUrls, orderNumber: data.orderNumber });
+        setWhatsappHandoff({ urls: data.whatsappUrls, orderNumber: data.orderNumber, accountCreated: data.accountCreated, customerEmail: data.customerEmail });
         setBusy(false);
         return;
       }
@@ -185,6 +223,16 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
             This opens 3 WhatsApp chats, one per number, already filled in with your order — just tap Send in
             each one (WhatsApp doesn&apos;t allow sending on your behalf without that tap).
           </p>
+          {whatsappHandoff.accountCreated && (
+            <p className="promo-note" style={{ marginTop: 10 }}>
+              We&apos;ve saved your details under {whatsappHandoff.customerEmail} so you can track this order —
+              you&apos;re already signed in on this device under &quot;My Account&quot;.
+            </p>
+          )}
+          <p className="promo-note" style={{ marginTop: 10 }}>
+            We&apos;ll also email you (and update you here on the site) as your order is confirmed, shipped, and
+            delivered.
+          </p>
         </div>
       </div>
     );
@@ -196,6 +244,12 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
       <form className="checkout-layout" onSubmit={submit}>
         <div>
           <h3 style={{ marginBottom: 16 }}>Shipping Details</h3>
+          {!loggedIn && guestMode && (
+            <p className="promo-note" style={{ marginTop: -8, marginBottom: 16 }}>
+              Checking out as a guest — we&apos;ll keep your details on file to track this order.{" "}
+              <a href={`/account/login?next=${encodeURIComponent("/checkout")}`}>Have an account? Login</a>
+            </p>
+          )}
           <div className="form-group">
             <label>Full name</label>
             <input type="text" name="name" required defaultValue={prefill?.name} />
@@ -203,13 +257,22 @@ export default function CheckoutClient({ prefill, razorpayConfigured }: { prefil
           <div className="form-row">
             <div className="form-group">
               <label>Email</label>
-              <input type="email" name="email" required defaultValue={prefill?.email} />
+              <input type="email" name="email" required defaultValue={prefill?.email} onChange={() => setAccountExistsEmail(null)} />
             </div>
             <div className="form-group">
               <label>Phone</label>
               <input type="tel" name="phone" required defaultValue={prefill?.phone} />
             </div>
           </div>
+          <p className="promo-note" style={{ marginTop: -10, marginBottom: 14 }}>
+            We&apos;ll use these to email and WhatsApp you updates about this order.
+          </p>
+          {accountExistsEmail && (
+            <div className="notice-box error" style={{ marginBottom: 14 }}>
+              An account already exists for {accountExistsEmail}.{" "}
+              <a href={`/account/login?next=${encodeURIComponent("/checkout")}&email=${encodeURIComponent(accountExistsEmail)}`}>Login to continue</a>.
+            </div>
+          )}
           <div className="form-group">
             <label>Address</label>
             <input type="text" name="address" required placeholder="House no, street, area" />

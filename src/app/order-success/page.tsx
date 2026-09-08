@@ -4,10 +4,16 @@ import Link from "next/link";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { formatINR } from "@/lib/format";
+import { getCustomerSession } from "@/lib/auth";
 
 export default async function OrderSuccessPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { order: orderNumber } = await searchParams;
   const order = orderNumber ? await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } }) : null;
+  // True both for a customer who was already logged in, and for a guest
+  // checkout that silently created (and signed them into) a new account —
+  // either way, worth telling them they can track this order right now.
+  const sessionCustomerId = await getCustomerSession();
+  const isSignedInHere = Boolean(order && sessionCustomerId && sessionCustomerId === order.customerId);
 
   return (
     <>
@@ -19,8 +25,15 @@ export default async function OrderSuccessPage({ searchParams }: { searchParams:
           <>
             <p className="lede" style={{ margin: "0 auto 30px" }}>
               Order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — is on its way to being packed. A
-              confirmation has been noted against {order.customerEmail}.
+              confirmation email is on its way to {order.customerEmail}, and we&apos;ll email (and WhatsApp, where we
+              can) further updates as it&apos;s confirmed, shipped, and delivered.
             </p>
+            {isSignedInHere && (
+              <p className="lede" style={{ margin: "-20px auto 30px", fontSize: 13.5 }}>
+                You&apos;re signed in — track this and future orders any time under{" "}
+                <Link href="/account/orders">My Account</Link>.
+              </p>
+            )}
             <div style={{ maxWidth: 420, margin: "0 auto", textAlign: "left" }} className="order-items-list">
               {order.items.map((item) => (
                 <div className="order-item-row" key={item.id}>
