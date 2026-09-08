@@ -12,6 +12,7 @@ const SUB_LABELS: Record<string, string> = {
   "short-tops": "Short Tops",
   kurta: "Kurta",
   "fusion-edit": "Fusion Edit",
+  "co-ords": "Co-ords",
 };
 
 const SORTS = [

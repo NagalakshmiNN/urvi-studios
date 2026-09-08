@@ -423,3 +423,58 @@ test("rejects a file that isn't a workbook at all", async ({ page }) => {
   expect(res.status()).toBe(400);
   expect((await res.json()).error).toContain("valid .xlsx file");
 });
+
+test("a Co-ords row imports into the new Co-ords category and reaches the shop", async ({ page }) => {
+  await loginAsAdmin(page);
+  const { workbook, sheet } = await downloadCatalog(page);
+
+  // Co-ord sets are a real category in the product master workbook; before
+  // migration 012 the website had no category by that name and every co-ord
+  // row was refused as "Unrecognised category".
+  const name = `Excel Co-ord Set ${Date.now().toString(36)}`;
+  const row = sheet.addRow([]);
+  row.getCell(1).value = "";
+  row.getCell(2).value = "Co-ords";
+  row.getCell(3).value = name;
+  row.getCell(4).value = "A two-piece co-ord set imported from the master sheet.";
+  row.getCell(5).value = "Muslin · Floral Print";
+  row.getCell(12).value = 1142;
+  row.getCell(13).value = 1660;
+  row.getCell(14).value = 1890;
+  row.getCell(15).value = 4;
+  row.getCell(16).value = "M, L, XL, XXL";
+  row.getCell(17).value = "Cream:#F3E9D8";
+  row.commit();
+
+  const res = await page.request.post("/api/admin/import-products", {
+    multipart: {
+      file: {
+        name: "catalog.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: await toBuffer(workbook),
+      },
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  const body = await res.json();
+  expect(body.errors).toHaveLength(0);
+  expect(body.created).toBe(1);
+
+  const created = await queryOne<{ id: string; slug: string; price: number; category_slug: string }>(
+    `select p.id, p.slug, p.price, c.slug as category_slug
+       from products p join categories c on c.id = p.category_id
+      where p.name = $1`,
+    [name]
+  );
+  expect(created).not.toBeNull();
+  expect(created!.category_slug).toBe("co-ords");
+  // No photo in the sheet, so the co-ords placeholder stands in.
+  const image = await queryOne<{ url: string }>("select url from product_images where product_id = $1", [created!.id]);
+  expect(image!.url).toBe("/placeholders/co-ords.svg");
+
+  // And it is shoppable: Co-ords sits under the Everyday parent group.
+  await page.goto("/shop?sub=co-ords");
+  await expect(page.locator(".product-card", { hasText: name })).toHaveCount(1);
+
+  await deleteTestProduct(created!.id);
+});

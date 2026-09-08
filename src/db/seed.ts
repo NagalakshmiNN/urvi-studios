@@ -17,6 +17,7 @@ const CATEGORIES = [
   { slug: "short-tops", name: "Short Tops", parent: "Everyday", position: 4 },
   { slug: "kurta", name: "Kurta", parent: "Everyday", position: 5 },
   { slug: "fusion-edit", name: "Fusion Edit", parent: "Occasion", position: 6 },
+  { slug: "co-ords", name: "Co-ords", parent: "Everyday", position: 7 },
 ];
 
 const PRODUCTS: Array<{
