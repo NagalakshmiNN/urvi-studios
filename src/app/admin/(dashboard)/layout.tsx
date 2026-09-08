@@ -8,7 +8,9 @@ import { redirect } from "next/navigation";
 const NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/products", label: "Products" },
+  { href: "/admin/stock", label: "Stock" },
   { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/customers", label: "Customers" },
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/messages", label: "Messages" },
   { href: "/admin/data-export", label: "Data Export" },

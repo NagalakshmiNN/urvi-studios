@@ -7,7 +7,7 @@
 import { sendMail } from "./mailer";
 import { SITE } from "./site-config";
 import { formatINR } from "./format";
-import { STATUS_LABELS, STATUS_CUSTOMER_LINES } from "./order-status-copy";
+import { statusLabel, statusCustomerLine } from "./order-status-copy";
 
 type NotifyLine = { productName: string; sku: string; size: string; color: string; qty: number; price: number };
 
@@ -23,6 +23,7 @@ type NotifyOrder = {
   total: number;
   paymentMethod: string;
   paymentStatus: string;
+  fulfilmentMethod?: string | null;
 };
 
 export async function sendOrderNotification(order: NotifyOrder, lines: NotifyLine[]) {
@@ -68,15 +69,25 @@ export async function sendCustomerOrderConfirmation(order: NotifyOrder, lines: N
 
   const address = [order.addressLine1, order.city, order.state, order.pincode].filter(Boolean).join(", ");
 
+  // A collected-in-person order has no address to deliver to, and its next
+  // steps are "ready to collect", not "shipped".
+  const pickup = order.fulfilmentMethod === "pickup";
+  const deliveryLine = pickup
+    ? "You're collecting this one in person — we'll let you know as soon as it's packed and ready."
+    : `Delivering to: ${address}`;
+  const nextStepsLine = pickup
+    ? "We'll email you again when it's ready to collect."
+    : "We'll email you again as your order is confirmed, shipped, and delivered.";
+
   const accountNote = opts?.newAccountEmail
     ? `\n\nWe've saved your details under an account so you can track this (and any future orders) any time — you're already signed in on this device under ${opts.newAccountEmail}. Look for "My Account" on the site.\n`
     : "";
 
   const text =
     `Hi ${order.customerName},\n\nThanks for shopping with Urvi Studios! We've received your order ${order.orderNumber}.\n\n` +
-    `${itemLines}\n\nTotal: ${formatINR(order.total)}\n\nDelivering to: ${address}\n` +
+    `${itemLines}\n\nTotal: ${formatINR(order.total)}\n\n${deliveryLine}\n` +
     accountNote +
-    `\nWe'll email you again as your order is confirmed, shipped, and delivered.\n\n` +
+    `\n${nextStepsLine}\n\n` +
     `Track it any time: ${SITE.siteUrl}/account/orders/${order.orderNumber}\n\n— Urvi Studios`;
 
   await sendMail({
@@ -93,8 +104,8 @@ export async function sendCustomerOrderConfirmation(order: NotifyOrder, lines: N
 // above already covers that moment.
 export async function sendCustomerStatusUpdate(order: NotifyOrder, status: string) {
   if (!order.customerEmail) return;
-  const line = STATUS_CUSTOMER_LINES[status];
-  const label = STATUS_LABELS[status];
+  const line = statusCustomerLine(status, order.fulfilmentMethod);
+  const label = statusLabel(status, order.fulfilmentMethod);
   if (!line || !label) return;
 
   const text =

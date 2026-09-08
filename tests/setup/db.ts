@@ -63,8 +63,11 @@ export async function getOrderByNumber(orderNumber: string) {
     status: string;
     payment_status: string;
     payment_method: string;
+    payment_mode: string | null;
+    fulfilment_method: string;
     stock_deducted: boolean;
     source: string;
+    address_line1: string;
     subtotal: number;
     discount: number;
     total: number;

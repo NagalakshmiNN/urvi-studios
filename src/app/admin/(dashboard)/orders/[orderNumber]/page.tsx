@@ -5,7 +5,8 @@ import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { notFound } from "next/navigation";
 import OrderStatusForm from "./OrderStatusForm";
 import { whatsappLink } from "@/lib/whatsapp";
-import { STATUS_CUSTOMER_LINES } from "@/lib/order-status-copy";
+import { statusCustomerLine } from "@/lib/order-status-copy";
+import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
 import { SITE } from "@/lib/site-config";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
@@ -19,7 +20,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   // customer's own number, pre-filled with an update matching their current
   // status, so sending it is a single extra tap rather than typing one out
   // by hand.
-  const customerStatusLine = STATUS_CUSTOMER_LINES[order.status];
+  const customerStatusLine = statusCustomerLine(order.status, order.fulfilmentMethod);
   const customerWhatsappHref = customerStatusLine
     ? whatsappLink(
         order.customerPhone,
@@ -37,7 +38,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               Message Customer on WhatsApp
             </a>
           )}
-          <OrderStatusForm orderId={order.id} currentStatus={order.status} />
+          <OrderStatusForm orderId={order.id} currentStatus={order.status} fulfilmentMethod={order.fulfilmentMethod} />
         </div>
       </div>
 
@@ -77,10 +78,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </p>
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 10 }}>
           Payment: {order.paymentMethod === "razorpay" ? "Razorpay" : order.paymentMethod === "manual" ? "Recorded manually" : "WhatsApp / COD handoff"} · {order.paymentStatus}
+          {order.paymentMode && <> · {PAYMENT_MODE_LABELS[order.paymentMode] ?? order.paymentMode}</>}
           {order.razorpayPaymentId && <> · {order.razorpayPaymentId}</>}
         </p>
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>
-          Source: {{ online: "Website", whatsapp: "WhatsApp", phone: "Phone call", word_of_mouth: "Word of mouth", other: "Other" }[order.source] ?? order.source}
+          Channel: {SOURCE_LABELS[order.source] ?? order.source} ·{" "}
+          {FULFILMENT_LABELS[order.fulfilmentMethod] ?? order.fulfilmentMethod}
         </p>
       </div>
     </>

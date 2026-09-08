@@ -55,13 +55,14 @@ test("the orders list shows website orders and filters by status", async ({ page
   const row = page.locator("tbody tr", { hasText: orderNumber });
   await expect(row).toContainText("Ravi Kumar");
   await expect(row).toContainText("Website");
-  await expect(row.locator(".order-status-badge")).toHaveText("PLACED");
+  // The badge reads in plain words rather than the raw status code.
+  await expect(row.locator(".order-status-badge")).toHaveText("Order Received");
 
   // Filtering to a status the order isn't in hides it.
   await page.locator(".filter-bar a.chip", { hasText: "DELIVERED" }).click();
   await expect(page.locator("tbody tr", { hasText: orderNumber })).toHaveCount(0);
 
-  await page.locator(".filter-bar a.chip", { hasText: "All" }).click();
+  await page.locator(".filter-bar a.chip", { hasText: "All statuses" }).click();
   await expect(page.locator("tbody tr", { hasText: orderNumber })).toHaveCount(1);
 
   await deleteOrderByNumber(orderNumber);

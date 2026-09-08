@@ -343,6 +343,18 @@ p { line-height: 1.7; color: var(--earth); }
 .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
 .toolbar select { padding: 8px 12px; border: 1px solid var(--line); border-radius: 2px; font-size: 12.5px; background: #fff; color: var(--earth); }
 
+/* ---------------- Checkout: delivery or collect in person ---------------- */
+.fulfilment-choice { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.fulfilment-option {
+  flex: 1; min-width: 160px; text-align: left; padding: 12px 16px; background: #fff;
+  border: 1px solid var(--line); border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+}
+.fulfilment-option:hover { border-color: var(--gold); }
+.fulfilment-option.selected { border-color: var(--olive); box-shadow: inset 0 0 0 1px var(--olive); background: var(--sand); }
+.fulfilment-title { font-size: 13.5px; font-weight: 600; color: var(--earth); }
+.fulfilment-option.selected .fulfilment-title { color: var(--olive); }
+.fulfilment-note { font-size: 11.5px; color: var(--sage); }
+
 /* ---------------- Shop refine (fabric / color / size) ---------------- */
 .refine-bar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 28px; padding: 18px 20px; margin-bottom: 24px; background: var(--sand); border-radius: 4px; }
 .refine-group { display: flex; flex-direction: column; gap: 8px; }

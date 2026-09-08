@@ -14,13 +14,21 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
-  const { items, customer, couponCode } = body as {
+  const { items, customer, couponCode, fulfilmentMethod } = body as {
     items: CartLineInput[];
     customer: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string; notes?: string };
     couponCode?: string;
+    fulfilmentMethod?: string;
   };
 
-  if (!customer?.name || !EMAIL_RE.test(customer?.email || "") || !customer?.phone || !customer?.address || !customer?.city || !customer?.state || !/^\d{6}$/.test(customer?.pincode || "")) {
+  // Collecting in person needs no address — only who you are and how to
+  // reach you when it's ready.
+  const isPickup = fulfilmentMethod === "pickup";
+
+  if (!customer?.name || !EMAIL_RE.test(customer?.email || "") || !customer?.phone) {
+    return NextResponse.json({ error: "Please fill in every shipping field correctly." }, { status: 400 });
+  }
+  if (!isPickup && (!customer?.address || !customer?.city || !customer?.state || !/^\d{6}$/.test(customer?.pincode || ""))) {
     return NextResponse.json({ error: "Please fill in every shipping field correctly." }, { status: 400 });
   }
 
@@ -85,13 +93,14 @@ export async function POST(request: Request) {
       discount: pricing.discount,
       total: pricing.total,
       couponCode: pricing.couponCode,
+      fulfilmentMethod: isPickup ? "pickup" : "delivery",
       customerName: customer.name,
       customerEmail: customer.email,
       customerPhone: customer.phone,
-      addressLine1: customer.address,
-      city: customer.city,
-      state: customer.state,
-      pincode: customer.pincode,
+      addressLine1: isPickup ? "" : customer.address,
+      city: isPickup ? "" : customer.city,
+      state: isPickup ? "" : customer.state,
+      pincode: isPickup ? "" : customer.pincode,
       notes: customer.notes || null,
     })
     .returning();
@@ -114,7 +123,10 @@ export async function POST(request: Request) {
     const msg =
       `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}` +
       (pricing.freeShipping ? " (free delivery)" : " + delivery charges (additional, confirmed with customer based on pincode)") +
-      `\n\nPhone: ${customer.phone}\nEmail: ${customer.email}\nAddress: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}` +
+      `\n\nPhone: ${customer.phone}\nEmail: ${customer.email}\n` +
+      (isPickup
+        ? "Collecting in person — no delivery needed"
+        : `Address: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}`) +
       (customer.notes ? `\nNotes: ${customer.notes}` : "");
     // Offer every number a customer could reach the shop on — whichever's
     // easiest for them, since all three go to someone who can confirm the

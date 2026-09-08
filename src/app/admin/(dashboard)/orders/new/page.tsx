@@ -11,12 +11,13 @@ export default async function NewManualOrderPage() {
   return (
     <>
       <div className="admin-header">
-        <h1>Record an Order</h1>
+        <h1>Record a Sale</h1>
       </div>
       <div className="admin-card admin-form-card" style={{ maxWidth: 760 }}>
         <p style={{ fontSize: 13, color: "var(--sage)", marginBottom: 20 }}>
-          For a sale that came in over WhatsApp, a phone call, or in person — this logs it the same way a website
-          checkout would: it counts toward revenue, shows up in Orders, and takes the stock out of the catalog.
+          For someone who came here in person, or a sale that came in over WhatsApp or a phone call — this logs it
+          the same way a website checkout would: it counts toward revenue, shows up in Orders, takes the stock out
+          of the catalog, and builds up that customer&apos;s history under their phone number.
         </p>
         <ManualOrderForm
           products={products.map((p) => ({

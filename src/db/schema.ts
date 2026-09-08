@@ -150,7 +150,16 @@ export const orders = pgTable("orders", {
   // How the order actually came in — the website itself, or Shilpa/Nagalakshmi
   // logging a sale that happened over WhatsApp, a phone call, or in person.
   // Defaults to "online" so every pre-existing row stays accurate.
-  source: text("source").notNull().default("online"), // "online" | "whatsapp" | "phone" | "word_of_mouth" | "other"
+  source: text("source").notNull().default("online"), // "online" | "walk_in" | "whatsapp" | "phone" | "word_of_mouth" | "other"
+  // Whether this order gets couriered out or handed over in person. A pickup
+  // order needs no address and is never charged delivery; its statuses read
+  // as "ready to collect" and "collected" rather than shipped/delivered.
+  // Defaults to "delivery" so every pre-existing order stays accurate.
+  fulfilmentMethod: text("fulfilment_method").notNull().default("delivery"), // "delivery" | "pickup"
+  // How an in-person sale was actually settled, for reconciling cash in hand
+  // against UPI and card receipts. Null for website orders, where the payment
+  // method above already says how it was paid.
+  paymentMode: text("payment_mode"), // "cash" | "upi" | "card" | null
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
 

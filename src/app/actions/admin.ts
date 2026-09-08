@@ -323,10 +323,21 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
   const pincode = String(formData.get("pincode") || "").trim();
   const notes = String(formData.get("notes") || "").trim();
   const paymentStatus = String(formData.get("paymentStatus") || "PENDING") === "PAID" ? "PAID" : "PENDING";
+  // A walk-in is handed over on the spot; anything else defaults to being
+  // delivered unless told otherwise.
+  const fulfilmentMethod =
+    String(formData.get("fulfilmentMethod") || (source === "walk_in" ? "pickup" : "delivery")) === "pickup"
+      ? "pickup"
+      : "delivery";
+  const paymentModeRaw = String(formData.get("paymentMode") || "").trim();
+  const paymentMode = ["cash", "upi", "card"].includes(paymentModeRaw) ? paymentModeRaw : null;
 
   if (!customerName) return { error: "Please enter the customer's name." };
   if (!customerPhone) return { error: "Please enter the customer's phone number." };
   if (pincode && !/^\d{6}$/.test(pincode)) return { error: "Pincode should be 6 digits — or just leave it blank for now." };
+  if (paymentStatus === "PAID" && !paymentMode) {
+    return { error: "Please record how it was paid — cash, UPI or card." };
+  }
 
   const productIds = formData.getAll("lineProductId").map(String);
   const sizes = formData.getAll("lineSize").map(String);
@@ -354,10 +365,14 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
     .insert(schema.orders)
     .values({
       orderNumber,
-      status: "CONFIRMED",
+      // A walk-in already left with the goods, so it goes straight to
+      // collected rather than sitting in "confirmed" waiting to be packed.
+      status: fulfilmentMethod === "pickup" && source === "walk_in" ? "DELIVERED" : "CONFIRMED",
       paymentStatus,
       paymentMethod: "manual",
+      paymentMode,
       source,
+      fulfilmentMethod,
       stockDeducted: true,
       subtotal: pricing.subtotal,
       shipping: pricing.shipping,
