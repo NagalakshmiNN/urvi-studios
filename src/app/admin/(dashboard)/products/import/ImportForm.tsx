@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Result = { created: number; updated: number; skippedExample: number; errors: { row: number; reason: string }[] } | null;
+type Result = {
+  created: number;
+  updated: number;
+  skippedExample: number;
+  untouched?: number;
+  errors: { row: number; reason: string }[];
+} | null;
 
 export default function ImportForm() {
   const [busy, setBusy] = useState(false);
@@ -49,6 +55,8 @@ export default function ImportForm() {
           Added {result.created} product{result.created === 1 ? "" : "s"}.
           {result.updated > 0 && ` Updated ${result.updated} existing product${result.updated === 1 ? "" : "s"} (matched by Product ID).`}
           {result.skippedExample > 0 && ` Skipped the example row.`}
+          {typeof result.untouched === "number" && result.untouched > 0 &&
+            ` ${result.untouched} product${result.untouched === 1 ? " was" : "s were"} not in this sheet and ${result.untouched === 1 ? "was" : "were"} left unchanged.`}
           {result.errors.length > 0 && ` ${result.errors.length} row(s) had a problem — see below.`}
         </div>
       )}

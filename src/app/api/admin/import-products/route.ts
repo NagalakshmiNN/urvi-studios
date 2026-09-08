@@ -121,14 +121,36 @@ export async function POST(request: Request) {
   const categories = await db.query.categories.findMany();
   const categoryByName = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c]));
 
-  const existingProducts = await db.query.products.findMany({ columns: { id: true, slug: true, sku: true } });
+  const existingProducts = await db.query.products.findMany({ columns: { id: true, slug: true, sku: true, name: true } });
   const existingSlugs = new Set(existingProducts.map((p) => p.slug));
   const productBySku = new Map(existingProducts.map((p) => [p.sku.toLowerCase().trim(), p]));
+  // Used to catch a row whose Product ID was accidentally cleared: a "new"
+  // product sharing an existing product's exact name is almost always that,
+  // not a genuinely new piece.
+  const productByName = new Map(existingProducts.map((p) => [p.name.toLowerCase().trim(), p]));
+
+  // First pass, before anything is written: find any Product ID that appears
+  // on more than one row. Applying those would silently let the last row win
+  // and quietly discard the other — so both rows are refused instead.
+  const rowsByProductId = new Map<string, number[]>();
+  for (let r = headerRowNumber + 1; r <= sheet.rowCount; r++) {
+    const row = sheet.getRow(r);
+    if (!cellText(row.getCell(cName))) continue;
+    const id = cProductId ? cellText(row.getCell(cProductId)).trim().toLowerCase() : "";
+    if (!id) continue;
+    rowsByProductId.set(id, [...(rowsByProductId.get(id) ?? []), r]);
+  }
 
   let created = 0;
   let updated = 0;
   let skippedExample = 0;
   const errors: { row: number; reason: string }[] = [];
+  // Which existing products this sheet actually touched, so the result can
+  // say how many were left alone (rather than leaving that a silent unknown).
+  const touchedProductIds = new Set<string>();
+  // Names created during this same import, to catch a sheet that would add
+  // the same new product twice in one go.
+  const namesCreatedThisImport = new Set<string>();
 
   for (let r = headerRowNumber + 1; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
@@ -151,6 +173,38 @@ export async function POST(request: Request) {
     if (productIdText && !existingProduct) {
       errors.push({ row: r, reason: `Product ID "${productIdText}" doesn't match any existing product — leave it blank to create a new one, or check it's copied correctly from an exported sheet.` });
       continue;
+    }
+
+    // The same Product ID on two rows is ambiguous — refuse both rather than
+    // letting one silently overwrite the other.
+    if (productIdText) {
+      const duplicateRows = rowsByProductId.get(productIdText.toLowerCase()) ?? [];
+      if (duplicateRows.length > 1) {
+        errors.push({
+          row: r,
+          reason: `Product ID "${productIdText}" appears on more than one row (rows ${duplicateRows.join(", ")}) — each product may only appear once. Nothing was changed for it.`,
+        });
+        continue;
+      }
+    }
+
+    // A blank Product ID means "create a new product". If a product with this
+    // exact name already exists, that's almost certainly an ID cleared by
+    // accident — creating a duplicate here would be very hard to unpick, so
+    // it's refused with both ways out spelled out.
+    if (!productIdText) {
+      const nameClash = productByName.get(name.toLowerCase().trim());
+      if (nameClash) {
+        errors.push({
+          row: r,
+          reason: `"${name}" already exists but this row has no Product ID — put ${nameClash.sku} back in the Product ID column to update it, or rename this row if it really is a different product. No duplicate was created.`,
+        });
+        continue;
+      }
+      if (namesCreatedThisImport.has(name.toLowerCase().trim())) {
+        errors.push({ row: r, reason: `"${name}" appears twice as a new product in this sheet — only the first was created.` });
+        continue;
+      }
     }
 
     const categoryRaw = cellText(row.getCell(cCategory));
@@ -246,6 +300,7 @@ export async function POST(request: Request) {
         );
       }
 
+      touchedProductIds.add(existingProduct.id);
       updated++;
       continue;
     }
@@ -298,8 +353,15 @@ export async function POST(request: Request) {
       );
     }
 
+    namesCreatedThisImport.add(name.toLowerCase().trim());
     created++;
   }
 
-  return NextResponse.json({ created, updated, skippedExample, errors });
+  // Products already in the catalog that this sheet didn't mention at all.
+  // They are deliberately left exactly as they are — a missing row means
+  // "not in this file", never "delete this" — but the count is reported so a
+  // half-complete sheet doesn't pass unnoticed.
+  const untouched = existingProducts.length - touchedProductIds.size;
+
+  return NextResponse.json({ created, updated, skippedExample, untouched, errors });
 }

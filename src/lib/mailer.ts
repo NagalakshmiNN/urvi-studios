@@ -5,6 +5,20 @@
 // database regardless of whether the alert email goes out).
 
 import nodemailer from "nodemailer";
+import { appendFileSync } from "node:fs";
+
+// Test-only escape hatch: when MAIL_OUTBOX_FILE is set, mail is appended to
+// that file as JSON lines instead of being sent over SMTP, so the automated
+// test suite can assert on what would have gone out. This variable is never
+// set in production (and Netlify's filesystem is read-only anyway) — without
+// it, nothing about the sending path below changes.
+function writeToOutbox(file: string, opts: { to: string; subject: string; text: string; replyTo?: string }) {
+  try {
+    appendFileSync(file, JSON.stringify({ ...opts, at: new Date().toISOString() }) + "\n");
+  } catch (err) {
+    console.error("mail outbox write failed:", err);
+  }
+}
 
 function getTransport() {
   const user = process.env.GMAIL_USER;
@@ -17,6 +31,12 @@ function getTransport() {
 }
 
 export async function sendMail(opts: { to: string; subject: string; text: string; replyTo?: string }) {
+  const outbox = process.env.MAIL_OUTBOX_FILE;
+  if (outbox) {
+    writeToOutbox(outbox, opts);
+    return;
+  }
+
   const transport = getTransport();
   if (!transport) {
     console.warn("sendMail skipped: GMAIL_USER/GMAIL_APP_PASSWORD not configured.");

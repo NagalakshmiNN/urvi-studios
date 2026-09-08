@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:unit": "PW_SKIP_SERVER=1 playwright test --project=unit",
+    "test:api": "playwright test --project=api --no-deps",
+    "test:e2e": "playwright test --project=e2e --no-deps",
+    "test:report": "playwright show-report",
+    "verify": "npm run typecheck && npm run build && npm run test"
   },
   "dependencies": {
     "@netlify/database": "^2.0.0",
@@ -30,6 +37,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
@@ -38,6 +46,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }
