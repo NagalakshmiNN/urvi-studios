@@ -636,6 +636,21 @@ p { line-height: 1.7; color: var(--earth); }
 .stock-thumb { width: 36px; height: 44px; flex: 0 0 36px; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); background: var(--sand); display: block; }
 .stock-thumb-empty { background: var(--sand); }
 .stock-product:hover span { text-decoration: underline; }
+
+/* A costing figure with its markup over landed cost tucked into the top-right
+   corner, e.g. ₹850 tagged "+70%". Shared by the editable inputs on Products
+   and the read-only figures on Stock, so the two screens read the same. */
+.markup-box { position: relative; display: inline-block; }
+.markup-box.has-badge { padding-top: 12px; }
+.markup-badge {
+  position: absolute; top: -2px; right: -4px; z-index: 1;
+  font-size: 9.5px; font-weight: 700; line-height: 13px;
+  padding: 0 3px; border-radius: 3px;
+  background: var(--sand); color: var(--olive);
+}
+.markup-badge.negative { color: #a5333a; }
+.markup-value { font-variant-numeric: tabular-nums; }
+.markup-value.empty { color: var(--sage); }
 .export-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .admin-login-wrap { max-width: 380px; margin: 100px auto; }
 .status-select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 2px; font-size: 12.5px; }

@@ -1,6 +1,25 @@
 import { db } from "@/db";
 import { formatINR } from "@/lib/format";
+import { markupPercent } from "@/lib/markup";
 import Link from "next/link";
+
+// A round-up price with its markup over landed cost as a small corner badge —
+// the read-only twin of the editable version on the Products screen, so a
+// margin can be judged here without switching pages or doing the arithmetic.
+function MarkupFigure({ value, landedCost }: { value: number | null; landedCost: number | null }) {
+  if (value == null) return <span className="markup-value empty">—</span>;
+  const pct = markupPercent(value, landedCost);
+  return (
+    <div className={`markup-box${pct != null ? " has-badge" : ""}`}>
+      {pct != null && (
+        <span className={`markup-badge${pct < 0 ? " negative" : ""}`}>
+          {pct >= 0 ? "+" : ""}{pct}%
+        </span>
+      )}
+      <span className="markup-value">{formatINR(value)}</span>
+    </div>
+  );
+}
 
 // One row per product per size — the plain answer to "how much of what do I
 // actually have", which the dashboard's summary tables only ever hinted at.
@@ -12,7 +31,7 @@ export default async function AdminStockPage({
   const { show = "all" } = await searchParams;
 
   const products = await db.query.products.findMany({
-    with: { sizes: true, category: true, images: true },
+    with: { sizes: true, images: true },
     orderBy: (p, { asc }) => [asc(p.name)],
   });
 
@@ -21,11 +40,12 @@ export default async function AdminStockPage({
     name: string;
     sku: string;
     image: string | null;
-    category: string;
     size: string;
     stock: number;
     price: number;
     landedCost: number | null;
+    minRoundUpTo: number | null;
+    maxRoundUpTo: number | null;
     isActive: boolean;
   };
 
@@ -41,11 +61,12 @@ export default async function AdminStockPage({
         name: p.name,
         sku: p.sku,
         image,
-        category: p.category.name,
         size: s.label,
         stock: s.stock,
         price: p.price,
         landedCost: p.landedCost,
+        minRoundUpTo: p.minRoundUpTo,
+        maxRoundUpTo: p.maxRoundUpTo,
         isActive: p.isActive,
       });
     }
@@ -122,11 +143,11 @@ export default async function AdminStockPage({
             <tr>
               <th>Product</th>
               <th>Product ID</th>
-              <th>Category</th>
               <th>Size</th>
               <th>Pieces</th>
               <th>Selling price</th>
-              <th>Value</th>
+              <th>Min round up</th>
+              <th>Max round up</th>
               <th>Live?</th>
             </tr>
           </thead>
@@ -144,13 +165,13 @@ export default async function AdminStockPage({
                   </Link>
                 </td>
                 <td><code style={{ fontSize: 12 }}>{r.sku}</code></td>
-                <td>{r.category}</td>
                 <td>{r.size}</td>
                 <td style={{ fontWeight: 600, color: r.stock === 0 ? "#a5333a" : r.stock < 5 ? "var(--gold)" : "inherit" }}>
                   {r.stock}
                 </td>
                 <td>{formatINR(r.price)}</td>
-                <td>{formatINR(r.stock * r.price)}</td>
+                <td><MarkupFigure value={r.minRoundUpTo} landedCost={r.landedCost} /></td>
+                <td><MarkupFigure value={r.maxRoundUpTo} landedCost={r.landedCost} /></td>
                 <td style={{ fontSize: 12.5, color: r.isActive ? "var(--olive)" : "var(--sage)" }}>
                   {r.isActive ? "Yes" : "Hidden"}
                 </td>

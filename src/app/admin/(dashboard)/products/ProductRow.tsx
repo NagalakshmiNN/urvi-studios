@@ -3,6 +3,7 @@
 import { useActionState, useId, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { updateProductAction } from "@/app/actions/admin";
+import { markupPercent } from "@/lib/markup";
 import Link from "next/link";
 import DeleteProductButton from "./DeleteProductButton";
 
@@ -41,25 +42,11 @@ function MarkupInput({
   value: number | null;
   landedCost: number | null;
 }) {
-  const pct = value != null && landedCost && landedCost > 0 ? Math.round(((value - landedCost) / landedCost) * 100) : null;
+  const pct = markupPercent(value, landedCost);
   return (
-    <div style={{ position: "relative", display: "inline-block", paddingTop: pct != null ? 12 : 0 }}>
+    <div className={`markup-box${pct != null ? " has-badge" : ""}`}>
       {pct != null && (
-        <span
-          style={{
-            position: "absolute",
-            top: -2,
-            right: -4,
-            fontSize: 9.5,
-            fontWeight: 700,
-            color: pct >= 0 ? "var(--olive)" : "#a5333a",
-            background: "var(--sand)",
-            borderRadius: 3,
-            padding: "0 3px",
-            lineHeight: "13px",
-            zIndex: 1,
-          }}
-        >
+        <span className={`markup-badge${pct < 0 ? " negative" : ""}`}>
           {pct >= 0 ? "+" : ""}{pct}%
         </span>
       )}

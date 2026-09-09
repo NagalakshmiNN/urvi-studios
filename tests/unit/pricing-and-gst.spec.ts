@@ -6,6 +6,7 @@ import { test, expect } from "@playwright/test";
 import { calculateGst, gstRateForUnitPrice } from "../../src/lib/gst";
 import { FREE_SHIPPING_THRESHOLD, freeShippingNote } from "../../src/lib/shipping";
 import { formatINR, generateOrderNumberSeed } from "../../src/lib/format";
+import { markupPercent } from "../../src/lib/markup";
 
 test.describe("GST", () => {
   test("uses 5% at or below ₹2,500 a piece and 18% above", () => {
@@ -65,5 +66,24 @@ test.describe("formatting", () => {
   test("order numbers are zero-padded and year-stamped", () => {
     expect(generateOrderNumberSeed(2026, 42)).toBe("URVI-2026-00042");
     expect(generateOrderNumberSeed(2026, 1)).toMatch(/^URVI-\d{4}-\d{5}$/);
+  });
+});
+
+test.describe("markup badge", () => {
+  test("reports how far a price sits above its landed cost", () => {
+    expect(markupPercent(2000, 1200)).toBe(67);   // 66.67, rounded
+    expect(markupPercent(1800, 1200)).toBe(50);
+    expect(markupPercent(1200, 1200)).toBe(0);
+  });
+
+  test("goes negative when a price is below cost, which is the point of showing it", () => {
+    expect(markupPercent(900, 1200)).toBe(-25);
+  });
+
+  test("shows nothing rather than a wrong or infinite figure", () => {
+    expect(markupPercent(null, 1200)).toBeNull();  // no price recorded
+    expect(markupPercent(2000, null)).toBeNull();  // no landed cost recorded
+    expect(markupPercent(2000, 0)).toBeNull();     // would divide by zero
+    expect(markupPercent(2000, -5)).toBeNull();
   });
 });

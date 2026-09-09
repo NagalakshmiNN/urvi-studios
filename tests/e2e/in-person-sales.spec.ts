@@ -335,6 +335,8 @@ test.describe("the stock sheet", () => {
       name: "Stock Sheet Product",
       price: 2000,
       landedCost: 1200,
+      minRoundUpTo: 1800,
+      maxRoundUpTo: 2000,
       stock: 9,
       sizes: ["S", "M", "L"],
     });
@@ -355,6 +357,17 @@ test.describe("the stock sheet", () => {
     const thumb = row.locator("img.stock-thumb");
     await expect(thumb).toHaveAttribute("src", "/placeholders/casual-wear.svg");
     await expect(thumb).toBeVisible();
+
+    // Both round-up prices show, each tagged with its markup over the landed
+    // cost — ₹1,800 and ₹2,000 against a ₹1,200 cost is +50% and +67%.
+    const badges = row.locator(".markup-badge");
+    await expect(badges).toHaveText(["+50%", "+67%"]);
+    await expect(row).toContainText("₹1,800");
+
+    // Category and the per-row Value column were dropped: the sheet is read
+    // beside the rail, where neither earned its width.
+    await expect(page.locator("thead")).not.toContainText("Category");
+    await expect(page.locator("thead")).not.toContainText("Value");
 
     // The sold-out size shows up under "Sold out".
     await page.goto("/admin/stock?show=out");
