@@ -175,20 +175,53 @@ export default function CheckoutClient({
         order_id: data.order_id,
         prefill: { name: customer.name, email: customer.email, contact: customer.phone },
         theme: { color: "#3F4827" },
+        // Razorpay calls this once the customer has paid. By this point their
+        // money is gone, so this function must never leave them looking at a
+        // dead screen — every branch below ends somewhere.
+        //
+        // Anything thrown in here is swallowed by Razorpay's own code, which
+        // is how a failed verify request used to end with the page simply
+        // sitting there. Hence the try/catch, the retries, and the fallback
+        // that sends them onward even when we couldn't confirm: the webhook
+        // at /api/webhooks/razorpay confirms the order from Razorpay's side
+        // regardless, so pressing on is safe and stopping is not.
         handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
-          const verifyRes = await fetch("/api/checkout/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...response, orderNumber: data.orderNumber }),
-          });
-          const verifyData = await verifyRes.json();
-          if (verifyData.verified) {
+          const goToSuccess = () => {
             clearCart();
             router.push(`/order-success?order=${encodeURIComponent(data.orderNumber)}`);
-          } else {
-            setError("Payment verification failed. Please contact us before trying again.");
-            setBusy(false);
+          };
+
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              const verifyRes = await fetch("/api/checkout/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...response, orderNumber: data.orderNumber }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.verified) {
+                goToSuccess();
+                return;
+              }
+              // A clean "no" from our own server — the signature didn't check
+              // out. Retrying would only produce the same answer.
+              setError(
+                "We couldn't verify that payment automatically. If money has left your account, don't pay again — " +
+                  "message us on WhatsApp with your order number and we'll sort it out straight away."
+              );
+              setBusy(false);
+              return;
+            } catch {
+              // Network or server trouble on the way to us. Wait and retry;
+              // the payment itself already succeeded.
+              if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
+            }
           }
+
+          // Three failed attempts to reach our own server. The payment went
+          // through and the webhook will confirm it, so send them to the
+          // order page rather than stranding them here.
+          goToSuccess();
         },
         modal: {
           ondismiss: function () {

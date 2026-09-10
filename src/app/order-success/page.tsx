@@ -15,19 +15,40 @@ export default async function OrderSuccessPage({ searchParams }: { searchParams:
   const sessionCustomerId = await getCustomerSession();
   const isSignedInHere = Boolean(order && sessionCustomerId && sessionCustomerId === order.customerId);
 
+  // A card/UPI order that hasn't been marked paid yet means the browser's own
+  // confirmation didn't get through and we're waiting on Razorpay's webhook.
+  // That resolves within moments, but until it does this page must not claim
+  // the order is confirmed — the customer has paid and deserves to be told
+  // exactly where things stand, not a reassuring fiction.
+  const awaitingConfirmation = Boolean(
+    order && order.paymentMethod === "razorpay" && order.paymentStatus !== "PAID"
+  );
+
   return (
     <>
       <SiteHeader />
       <div className="container" style={{ padding: "80px 0", textAlign: "center" }}>
         <div className="eyebrow">Thank you</div>
-        <h1 style={{ marginBottom: 10 }}>Your order is confirmed</h1>
+        <h1 style={{ marginBottom: 10 }}>
+          {awaitingConfirmation ? "Payment received" : "Your order is confirmed"}
+        </h1>
         {order ? (
           <>
-            <p className="lede" style={{ margin: "0 auto 30px" }}>
-              Order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — is on its way to being packed. A
-              confirmation email is on its way to {order.customerEmail}, and we&apos;ll email (and WhatsApp, where we
-              can) further updates as it&apos;s confirmed, shipped, and delivered.
-            </p>
+            {awaitingConfirmation ? (
+              <p className="lede" style={{ margin: "0 auto 30px" }}>
+                We have your payment for order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — and
+                we&apos;re finalising the confirmation now. Your confirmation email will arrive at{" "}
+                {order.customerEmail} shortly. <strong>Please don&apos;t pay again.</strong> If you don&apos;t hear
+                from us within the hour, message us on WhatsApp with this order number and we&apos;ll confirm it
+                straight away.
+              </p>
+            ) : (
+              <p className="lede" style={{ margin: "0 auto 30px" }}>
+                Order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — is on its way to being packed. A
+                confirmation email is on its way to {order.customerEmail}, and we&apos;ll email (and WhatsApp, where we
+                can) further updates as it&apos;s confirmed, shipped, and delivered.
+              </p>
+            )}
             {isSignedInHere && (
               <p className="lede" style={{ margin: "-20px auto 30px", fontSize: 13.5 }}>
                 You&apos;re signed in — track this and future orders any time under{" "}

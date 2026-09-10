@@ -1,9 +1,21 @@
+// The fast path: the customer's browser tells us the payment succeeded, and
+// we check Razorpay's signature before believing it.
+//
+// This is no longer the only path. /api/webhooks/razorpay does the same job
+// from Razorpay's own servers and always arrives, so if this request never
+// makes it the order still confirms. Both call confirmPaidOrder, which is
+// idempotent — whichever gets there first does the work.
+
 import { NextResponse } from "next/server";
-import { createHmac } from "node:crypto";
-import { db, schema } from "@/db";
-import { eq } from "drizzle-orm";
-import { sendOrderNotification, sendCustomerOrderConfirmation } from "@/lib/order-notify";
-import { adjustStockForLine } from "@/lib/stock";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { confirmPaidOrder } from "@/lib/confirm-paid-order";
+
+function signatureMatches(expected: string, received: string): boolean {
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(received, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 export async function POST(request: Request) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -17,44 +29,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ verified: false, error: "Missing verification fields." }, { status: 400 });
   }
 
-  const expected = createHmac("sha256", keySecret).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest("hex");
-  const verified = expected === razorpay_signature;
-
-  if (!verified) {
+  const expected = createHmac("sha256", keySecret)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest("hex");
+  if (!signatureMatches(expected, razorpay_signature)) {
     return NextResponse.json({ verified: false });
   }
 
-  const order = await db.query.orders.findFirst({
-    where: eq(schema.orders.orderNumber, orderNumber),
-    with: { items: true },
+  const result = await confirmPaidOrder({
+    orderNumber,
+    razorpayOrderId: razorpay_order_id,
+    razorpayPaymentId: razorpay_payment_id,
   });
 
-  if (!order || order.razorpayOrderId !== razorpay_order_id) {
-    return NextResponse.json({ verified: false, error: "Order mismatch." }, { status: 400 });
+  if (!result.ok) {
+    return NextResponse.json(
+      { verified: false, error: result.reason === "not-found" ? "Order not found." : "Order mismatch." },
+      { status: 400 }
+    );
   }
 
-  // Idempotent: if this order was already confirmed (e.g. a retried
-  // callback), don't decrement stock a second time. stockDeducted is the
-  // real guard — paymentStatus is checked too as a belt-and-braces measure.
-  if (order.paymentStatus !== "PAID" && !order.stockDeducted) {
-    await db
-      .update(schema.orders)
-      .set({ paymentStatus: "PAID", status: "CONFIRMED", razorpayPaymentId: razorpay_payment_id, stockDeducted: true, updatedAt: new Date() })
-      .where(eq(schema.orders.id, order.id));
-
-    for (const item of order.items) {
-      if (item.productId) {
-        await adjustStockForLine(item.productId, item.size, -item.qty);
-      }
-    }
-
-    const notifyLines = order.items.map((i) => ({ productName: i.productName, sku: i.sku ?? "", size: i.size, color: i.color, qty: i.qty, price: i.price }));
-    await sendOrderNotification({ ...order, paymentStatus: "PAID" }, notifyLines);
-    // The customer's own confirmation only goes out once payment actually
-    // verifies (unlike the WhatsApp/COD path, where placing the order IS
-    // the completed step) — this is that moment for a Razorpay order.
-    await sendCustomerOrderConfirmation({ ...order, paymentStatus: "PAID" }, notifyLines);
-  }
-
-  return NextResponse.json({ verified: true, orderNumber: order.orderNumber });
+  return NextResponse.json({ verified: true, orderNumber: result.orderNumber });
 }

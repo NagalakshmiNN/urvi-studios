@@ -369,6 +369,11 @@ test.describe("the stock sheet", () => {
     await expect(page.locator("thead")).not.toContainText("Category");
     await expect(page.locator("thead")).not.toContainText("Value");
 
+    // The seven columns are in the order they're read in.
+    await expect(page.locator("thead th")).toHaveText([
+      "Product", "Product ID", "Size", "Pieces", "Selling price", "Min round up", "Max round up", "Live?",
+    ]);
+
     // The sold-out size shows up under "Sold out".
     await page.goto("/admin/stock?show=out");
     const soldOut = page.locator("tbody tr", { hasText: "Stock Sheet Product" });
@@ -376,6 +381,70 @@ test.describe("the stock sheet", () => {
     await expect(soldOut).toContainText("S");
 
     await deleteTestProduct(tracked.id);
+  });
+
+  test("search narrows to one product, by name or by Product ID", async ({ page }) => {
+    const wanted = await createTestProduct({ name: "Findable Mirror Work Kurti", price: 1400, stock: 3, sizes: ["S", "M", "L"] });
+    const other = await createTestProduct({ name: "Unrelated Everyday Dress", price: 900, stock: 3, sizes: ["S", "M", "L"] });
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/stock");
+    await expect(page.locator("tbody tr", { hasText: other.name })).toHaveCount(3);
+
+    // By name — a fragment is enough.
+    await page.fill('input[name="q"]', "mirror work");
+    await page.locator('button[type="submit"]', { hasText: "Search" }).click();
+    await expect(page).toHaveURL(/q=mirror\+work/);
+    await expect(page.locator("tbody tr", { hasText: wanted.name })).toHaveCount(3);
+    await expect(page.locator("tbody tr", { hasText: other.name })).toHaveCount(0);
+
+    // The totals describe the search, not the whole catalog.
+    await expect(page.locator(".metric-card", { hasText: "Pieces on hand" }).locator(".value")).toHaveText("3");
+
+    // By Product ID, which is what gets copied out of the master sheet.
+    await page.goto(`/admin/stock?q=${encodeURIComponent(wanted.sku)}`);
+    await expect(page.locator("tbody tr")).toHaveCount(3);
+
+    // A search with no matches says so instead of showing a blank table.
+    await page.goto("/admin/stock?q=nothingmatchesthis");
+    await expect(page.locator(".admin-card")).toContainText("Nothing matches");
+
+    // Clearing returns everything.
+    await page.goto("/admin/stock?q=mirror");
+    await page.locator("a", { hasText: "Clear" }).click();
+    await expect(page).toHaveURL(/\/admin\/stock$/);
+    await expect(page.locator("tbody tr", { hasText: other.name })).toHaveCount(3);
+
+    await deleteTestProduct(wanted.id);
+    await deleteTestProduct(other.id);
+  });
+
+  test("pages the table at 100 rows and keeps the search while paging", async ({ page }) => {
+    // 105 size-rows from one product forces a second page on its own.
+    const sizes = Array.from({ length: 105 }, (_, i) => `SZ${i + 1}`);
+    const big = await createTestProduct({ name: "Paged Stock Product", price: 500, stock: 105, sizes });
+
+    await loginAsAdmin(page);
+    await page.goto(`/admin/stock?q=${encodeURIComponent("Paged Stock Product")}`);
+
+    await expect(page.locator("tbody tr")).toHaveCount(100);
+    await expect(page.locator(".stock-pager")).toContainText("Showing 1–100 of 105");
+    await expect(page.locator(".stock-pager-links .chip", { hasText: "Previous" })).toHaveClass(/disabled/);
+
+    await page.locator(".stock-pager-links a.chip", { hasText: "Next" }).click();
+    await expect(page).toHaveURL(/page=2/);
+    // Paging must not drop the search — landing on the unfiltered page 2 would
+    // be a different set of rows entirely.
+    await expect(page).toHaveURL(/q=Paged/);
+    await expect(page.locator("tbody tr")).toHaveCount(5);
+    await expect(page.locator(".stock-pager")).toContainText("Showing 101–105 of 105");
+    await expect(page.locator(".stock-pager-links .chip", { hasText: "Next" })).toHaveClass(/disabled/);
+
+    // A page number past the end lands on the last page rather than an empty one.
+    await page.goto(`/admin/stock?q=${encodeURIComponent("Paged Stock Product")}&page=99`);
+    await expect(page.locator("tbody tr")).toHaveCount(5);
+
+    await deleteTestProduct(big.id);
   });
 
   test("downloads as a real Excel file with a summary", async ({ page }) => {

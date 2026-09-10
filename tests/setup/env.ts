@@ -36,6 +36,11 @@ export const ADMIN_PASSWORD = "TestAdminPass123!";
 // testable with locally-signed payloads.
 export const RAZORPAY_TEST_SECRET = "test-razorpay-secret";
 
+// The webhook is signed with its own separate secret, set independently in
+// the Razorpay Dashboard — deliberately a different value here so a test that
+// accidentally signs with the wrong one fails instead of passing.
+export const RAZORPAY_TEST_WEBHOOK_SECRET = "test-razorpay-webhook-secret";
+
 // The environment the app under test is started with.
 export function appEnv(): Record<string, string> {
   return {
@@ -46,6 +51,7 @@ export function appEnv(): Record<string, string> {
     ADMIN_BOOTSTRAP_PASSWORD: ADMIN_PASSWORD,
     RAZORPAY_KEY_ID: "",
     RAZORPAY_KEY_SECRET: RAZORPAY_TEST_SECRET,
+    RAZORPAY_WEBHOOK_SECRET: RAZORPAY_TEST_WEBHOOK_SECRET,
     MAIL_OUTBOX_FILE: OUTBOX_FILE,
     CONTACT_NOTIFY_EMAIL: "shop@test.urvistudios.in",
     GMAIL_USER: "",

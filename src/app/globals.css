@@ -618,7 +618,10 @@ p { line-height: 1.7; color: var(--earth); }
 .admin-sidebar nav { display: flex; flex-direction: column; gap: 2px; }
 .admin-sidebar a { padding: 10px 12px; border-radius: 3px; font-size: 13px; color: rgba(247,240,228,0.75); }
 .admin-sidebar a.active, .admin-sidebar a:hover { background: rgba(247,240,228,0.08); color: var(--ivory); }
-.admin-main { padding: 36px 40px; background: var(--ivory); min-height: 100vh; }
+/* min-width:0 stops a wide child (the stock table) from blowing the grid
+   column out and scrolling the whole page sideways — it scrolls inside its
+   own .table-scroll box instead. */
+.admin-main { padding: 36px 40px; background: var(--ivory); min-height: 100vh; min-width: 0; }
 .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 36px; }
 .metric-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px; }
@@ -651,6 +654,39 @@ p { line-height: 1.7; color: var(--earth); }
 .markup-badge.negative { color: #a5333a; }
 .markup-value { font-variant-numeric: tabular-nums; }
 .markup-value.empty { color: var(--sage); }
+
+/* Stock screen. Eight columns have to fit without sideways scrolling on a
+   laptop, so the table is fixed-layout (widths come from its colgroup), the
+   padding is tighter than the other admin tables, and only the product name
+   is allowed to take the slack and wrap. On a phone it scrolls inside its own
+   box rather than pushing the page sideways. */
+.stock-card { padding: 0; overflow: hidden; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.stock-table { table-layout: fixed; border: none; border-radius: 0; min-width: 720px; }
+.stock-table th, .stock-table td { padding: 10px 12px; }
+/* Headings wrap onto two lines rather than running into the next column —
+   the columns are sized for their values, not for the words above them. */
+.stock-table th { white-space: normal; line-height: 1.35; vertical-align: bottom; }
+.stock-table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stock-table td:first-child { white-space: normal; }
+.stock-table code { word-break: break-all; }
+
+.stock-toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.stock-search { display: flex; gap: 8px; align-items: center; flex: 1 1 280px; }
+.stock-search input[type="search"] { flex: 1 1 auto; min-width: 0; padding: 8px 11px; font-size: 13px; }
+.stock-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.stock-filters .chip { font-size: 11.5px; padding: 6px 12px; }
+.btn-sm { padding: 8px 16px; font-size: 11px; }
+
+.stock-pager { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 12.5px; color: var(--sage); }
+.stock-pager-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.stock-pager-links .chip { font-size: 11.5px; padding: 6px 11px; }
+.stock-pager-links .chip.disabled { opacity: 0.4; pointer-events: none; }
+
+@media (max-width: 680px) {
+  .stock-product { min-width: 150px; }
+  .stock-toolbar { flex-direction: column; align-items: stretch; }
+}
 .export-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .admin-login-wrap { max-width: 380px; margin: 100px auto; }
 .status-select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 2px; font-size: 12.5px; }
