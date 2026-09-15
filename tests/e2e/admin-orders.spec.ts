@@ -272,3 +272,59 @@ test.describe("Actual Sale Price", () => {
     await deleteCustomerByEmail(email);
   });
 });
+
+test("a recorded Actual Sale Price reaches the orders list and the export", async ({ page }) => {
+  const { orderNumber, email } = await placeOrder(page, 1); // ₹2,700
+  await loginAsAdmin(page);
+
+  // Before it's recorded, the list says so rather than showing a zero.
+  await page.goto("/admin/orders");
+  const row = page.locator("tbody tr", { hasText: orderNumber });
+  await expect(row).toContainText("Not set");
+
+  await page.goto(`/admin/orders/${orderNumber}`);
+  await page.locator('input[name="actualSalePrice"]').fill("2450.75");
+  await page.locator('.sale-price-form button[type="submit"]').click();
+  await expect(page.locator(".sale-price-ok")).toBeVisible();
+
+  await page.goto("/admin/orders");
+  await expect(page.locator("tbody tr", { hasText: orderNumber })).toContainText("₹2,450.75");
+
+  // And in the CSV, as a plain number plus what it gave away against the total.
+  const res = await page.request.get("/api/admin/export/orders");
+  expect(res.ok()).toBeTruthy();
+  const csv = await res.text();
+  const header = csv.split("\n")[0];
+  expect(header).toContain("Actual Sale Price (₹)");
+  expect(header).toContain("Difference vs Total (₹)");
+
+  const line = csv.split("\n").find((l) => l.includes(orderNumber))!;
+  expect(line).toContain("2450.75");
+  expect(line).toContain("-249.25"); // 2450.75 − 2700
+
+  await deleteOrderByNumber(orderNumber);
+  await deleteCustomerByEmail(email);
+});
+
+test("an order with no Actual Sale Price exports as empty, never as zero", async ({ page }) => {
+  // A zero would sum into the month's takings as a real sale of nothing.
+  const { orderNumber, email } = await placeOrder(page, 1);
+  await loginAsAdmin(page);
+
+  const csv = await (await page.request.get("/api/admin/export/orders")).text();
+  const line = csv.split("\r\n").find((l) => l.startsWith(orderNumber))!;
+  expect(line).toBeTruthy();
+
+  // Asserted on the shape rather than by splitting on commas: the Items cell
+  // legitimately contains commas and is quoted, so a naive split puts the
+  // columns out of step (it was reading the Total and calling it the sale
+  // price). Total, then two genuinely empty fields, is the property at issue.
+  // Anchored to the END of the line: Total, then Actual Sale Price, then
+  // Difference, then Notes — the last four fields. Searching anywhere in the
+  // line would also match the Subtotal and Delivery columns, which happen to
+  // read ",2700,0" and would make this pass or fail for the wrong reason.
+  expect(line.endsWith(",2700,,,")).toBe(true);
+
+  await deleteOrderByNumber(orderNumber);
+  await deleteCustomerByEmail(email);
+});

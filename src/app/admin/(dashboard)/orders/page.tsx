@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { formatINR } from "@/lib/format";
+import { formatPaise } from "@/lib/sale-price";
 import { SOURCE_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
 import { statusLabel } from "@/lib/order-status-copy";
 import Link from "next/link";
@@ -83,6 +84,7 @@ export default async function AdminOrdersPage({
               <th>Status</th>
               <th>Payment</th>
               <th>Total</th>
+              <th>Actual sale</th>
               <th>Date</th>
             </tr>
           </thead>
@@ -107,6 +109,16 @@ export default async function AdminOrdersPage({
                   {o.paymentMode && <><br /><span style={{ color: "var(--sage)", fontSize: 11.5 }}>{PAYMENT_MODE_LABELS[o.paymentMode]}</span></>}
                 </td>
                 <td>{formatINR(o.total)}</td>
+                {/* Blank rather than a zero when it hasn't been recorded —
+                    a zero would read as "sold for nothing" and would quietly
+                    drag any total down. "Not set" is the honest word. */}
+                <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {o.actualSalePricePaise != null ? (
+                    formatPaise(o.actualSalePricePaise)
+                  ) : (
+                    <span style={{ color: "var(--sage)", fontSize: 12 }}>Not set</span>
+                  )}
+                </td>
                 <td>{o.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
               </tr>
             ))}

@@ -22,7 +22,8 @@ export async function GET() {
   const headers = [
     "Order Number", "Date", "Status", "Payment Status", "Payment Method", "Source",
     "Customer Name", "Email", "Phone", "Address Line 1", "City", "State", "Pincode",
-    "Items", "Subtotal (₹)", "Delivery (₹)", "Discount (₹)", "Coupon Code", "Total (₹)", "Notes",
+    "Items", "Subtotal (₹)", "Delivery (₹)", "Discount (₹)", "Coupon Code", "Total (₹)",
+    "Actual Sale Price (₹)", "Difference vs Total (₹)", "Notes",
   ];
   const rows = orders.map((o) => [
     o.orderNumber,
@@ -44,6 +45,12 @@ export async function GET() {
     o.discount,
     o.couponCode ?? "",
     o.total,
+    // Left EMPTY, not zero, when no figure has been recorded. A zero would
+    // sum into a month's takings as a real sale of nothing, which is worse
+    // than an obvious gap. Written as a plain number with no symbol so the
+    // spreadsheet treats the column as money rather than text.
+    o.actualSalePricePaise != null ? (o.actualSalePricePaise / 100).toFixed(2) : "",
+    o.actualSalePricePaise != null ? (o.actualSalePricePaise / 100 - o.total).toFixed(2) : "",
     o.notes ?? "",
   ]);
 
