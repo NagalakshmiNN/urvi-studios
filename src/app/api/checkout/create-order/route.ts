@@ -114,6 +114,7 @@ export async function POST(request: Request) {
       size: l.size,
       color: l.color,
       qty: l.qty,
+      landedCostAtSale: l.landedCost,
       price: l.price,
     }))
   );

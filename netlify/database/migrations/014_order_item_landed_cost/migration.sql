@@ -1,0 +1,11 @@
+-- What each piece COST us, recorded on the order line at the moment it sold.
+--
+-- Profit was otherwise only computable by joining back to the product's
+-- CURRENT landed cost — so the day a new invoice changed a product's cost,
+-- every past month's profit would silently change with it. A sale's margin is
+-- a fact about the day it happened, and this pins it there.
+--
+-- Nullable: orders placed before this column existed genuinely have no
+-- recorded cost, and back-filling today's figure onto them would invent a
+-- margin that was never measured.
+ALTER TABLE "order_items" ADD COLUMN "landed_cost_at_sale" integer;

@@ -2,6 +2,9 @@ import { db, schema } from "@/db";
 import { desc, sql, lt } from "drizzle-orm";
 import { formatINR } from "@/lib/format";
 import Link from "next/link";
+import MonthlyRevenueChart from "@/components/admin/MonthlyRevenueChart";
+import { monthlyPerformance, revenueByChannel, countsAsSale, orderRevenue } from "@/lib/monthly-performance";
+import { SOURCE_LABELS } from "@/lib/order-channels";
 
 export default async function AdminDashboardPage() {
   const [{ count: orderCount } = { count: 0 }] = await db.select({ count: sql<number>`count(*)` }).from(schema.orders);
@@ -15,6 +18,19 @@ export default async function AdminDashboardPage() {
     .where(sql`${schema.orders.status} in ('PLACED', 'CONFIRMED')`);
   const lowStock = await db.query.products.findMany({ where: lt(schema.products.stock, 5), orderBy: schema.products.stock });
   const recentOrders = await db.query.orders.findMany({ orderBy: desc(schema.orders.createdAt), limit: 8 });
+
+  // Every order with its lines, for the month-by-month chart and the channel
+  // split. No filter on `source` — a website checkout and a piece handed over
+  // at the door are both sales, and the totals would be wrong without both.
+  const allOrders = await db.query.orders.findMany({ with: { items: true } });
+  const months = monthlyPerformance(allOrders);
+  const channels = revenueByChannel(allOrders);
+  const paidOrders = allOrders.filter(countsAsSale);
+  const allTimeRevenue = Math.round(paidOrders.reduce((sum, o) => sum + orderRevenue(o), 0));
+  const allTimeCost = paidOrders.reduce(
+    (sum, o) => sum + o.items.reduce((s, i) => s + (i.landedCostAtSale ?? 0) * i.qty, 0),
+    0
+  );
 
   // Stock is tracked per size (product_sizes.stock is the source of truth;
   // products.stock is kept as a synced total) — so this is a real
@@ -58,18 +74,58 @@ export default async function AdminDashboardPage() {
           <div className="value">{orderCount}</div>
         </div>
         <div className="metric-card">
-          <div className="label">Revenue (Paid)</div>
-          <div className="value">{formatINR(revenue)}</div>
+          <div className="label">Revenue (all channels)</div>
+          <div className="value">{formatINR(allTimeRevenue)}</div>
+          {allTimeCost > 0 && (
+            <div className="metric-sub">{formatINR(allTimeRevenue - allTimeCost)} profit after cost of goods</div>
+          )}
         </div>
         <div className="metric-card">
           <div className="label">Needs Action</div>
           <div className="value">{pendingCount}</div>
         </div>
         <div className="metric-card">
-          <div className="label">Low Stock</div>
-          <div className="value">{lowStock.length}</div>
+          <div className="label">Stock on hand</div>
+          <div className="value">{totalUnits}</div>
+          <div className="metric-sub">
+            pieces · {lowStock.length} running low · <Link href="/admin/stock">size breakdown</Link>
+          </div>
         </div>
       </div>
+
+      <MonthlyRevenueChart months={months} />
+
+      {channels.length > 0 && (
+        <div className="admin-card" style={{ marginBottom: 28 }}>
+          <h3 style={{ marginBottom: 4 }}>Where the sales came from</h3>
+          <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 14 }}>
+            Every channel, all time. A sale counts the same whoever it came through.
+          </p>
+          <table className="admin-table">
+            <thead>
+              <tr><th>Channel</th><th>Orders</th><th>Revenue</th><th>Share</th></tr>
+            </thead>
+            <tbody>
+              {channels.map((c) => {
+                const share = allTimeRevenue > 0 ? Math.round((c.revenue / allTimeRevenue) * 100) : 0;
+                return (
+                  <tr key={c.source}>
+                    <td>{SOURCE_LABELS[c.source] ?? c.source}</td>
+                    <td>{c.orders}</td>
+                    <td>{formatINR(c.revenue)}</td>
+                    <td>
+                      <div className="share-bar">
+                        <span style={{ "--share": `${share}%` } as React.CSSProperties} />
+                        <em>{share}%</em>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="admin-card" style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>

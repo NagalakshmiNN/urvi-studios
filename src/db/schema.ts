@@ -195,6 +195,9 @@ export const orderItems = pgTable("order_items", {
   color: text("color").notNull(),
   qty: integer("qty").notNull(),
   price: integer("price").notNull(),
+  // What this piece cost us, captured when it sold — so a later change to the
+  // product's landed cost can never rewrite a past month's profit.
+  landedCostAtSale: integer("landed_cost_at_sale"),
 });
 
 export const coupons = pgTable("coupons", {

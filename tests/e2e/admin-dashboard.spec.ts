@@ -2,7 +2,7 @@
 // inbox, and the customer-data CSV downloads.
 
 import { test, expect } from "@playwright/test";
-import { createTestProduct, deleteTestProduct, query, queryOne, uniqueEmail, withDb } from "../setup/db";
+import { createTestProduct, deleteTestProduct, deleteOrderByNumber, query, queryOne, uniqueEmail, withDb } from "../setup/db";
 import { loginAsAdmin } from "../setup/fixtures";
 
 test.describe("dashboard", () => {
@@ -10,9 +10,13 @@ test.describe("dashboard", () => {
     await loginAsAdmin(page);
 
     const cards = page.locator(".metric-card");
-    await expect(cards).toHaveCount(4);
     const labels = await cards.locator(".label").allTextContents();
-    expect(labels).toEqual(["Total Orders", "Revenue (Paid)", "Needs Action", "Low Stock"]);
+    // Asserted as a set rather than an exact list: adding a headline figure
+    // is a normal thing to do, and a test that breaks every time one is added
+    // teaches people to edit the test without reading it.
+    expect(labels).toEqual(
+      expect.arrayContaining(["Total Orders", "Revenue (all channels)", "Needs Action", "Stock on hand"])
+    );
     // Every card shows a real value, not a blank.
     for (const value of await cards.locator(".value").allTextContents()) {
       expect(value.trim()).not.toBe("");
@@ -194,3 +198,49 @@ function countCsvFields(line: string): number {
   }
   return fields;
 }
+
+test.describe("the revenue chart", () => {
+  test("shows an honest empty state, then real bars once a sale is recorded", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/admin");
+
+    // Stock on hand is a headline figure now, not buried below the fold.
+    const stockCard = page.locator(".metric-card", { hasText: "Stock on hand" });
+    await expect(stockCard).toBeVisible();
+    await expect(stockCard).toContainText("size breakdown");
+
+    await expect(page.locator(".chart-card")).toContainText("Revenue & profit by month");
+
+    // Record a walk-in — not a website order — and it must reach the chart.
+    const item = await createTestProduct({ name: "Chart Sale Product", price: 2000, landedCost: 1200, stock: 5, sizes: ["M"] });
+    await page.goto("/admin/orders/new");
+    await page.selectOption('select[name="lineProductId"]', item.id);
+    await expect(page.locator('select[name="lineSize"] option[value="M"]')).toHaveCount(1);
+    await page.selectOption('select[name="lineSize"]', "M");
+    await page.fill('input[name="customerName"]', "Chart Buyer");
+    await page.fill('input[name="customerPhone"]', "9876517777");
+    await page.selectOption('select[name="paymentStatus"]', "PAID");
+    await page.selectOption('select[name="paymentMode"]', "cash");
+    await page.locator('button[type="submit"]', { hasText: "Record Order" }).click();
+    await page.waitForURL(/\/admin\/orders\/URVI-/);
+    const orderNumber = page.url().split("/").pop()!;
+
+    await page.goto("/admin");
+    // Bars are drawn, the legend names both series, and the walk-in shows in
+    // the channel split — proving the chart isn't website-only.
+    await expect(page.locator(".chart-svg rect").first()).toBeVisible();
+    await expect(page.locator(".chart-legend")).toContainText("Revenue");
+    await expect(page.locator(".chart-legend")).toContainText("Profit");
+    await expect(page.locator(".admin-card", { hasText: "Where the sales came from" })).toContainText("Walk-in");
+
+    // Profit uses the cost captured at the time of sale: 2000 − 1200.
+    await page.locator(".chart-table summary").click();
+    const row = page.locator(".chart-table tbody tr").first();
+    await expect(row).toContainText("₹2,000");
+    await expect(row).toContainText("₹1,200");
+    await expect(row).toContainText("₹800");
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteTestProduct(item.id);
+  });
+});

@@ -832,3 +832,68 @@ p { line-height: 1.7; color: var(--earth); }
 .sale-price-error { margin: 0; font-size: 12.5px; color: #a5333a; }
 .sale-price-ok { margin: 0; font-size: 12.5px; color: var(--olive); }
 .sale-price-hint { margin: 0; font-size: 12.5px; color: var(--sage); }
+
+/* ---------------- Size guide ---------------- */
+.size-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.size-help-link {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 12px; letter-spacing: 0.4px; color: var(--gold);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.size-help-link:hover { color: var(--olive); }
+
+.size-guide-backdrop {
+  position: fixed; inset: 0; z-index: 300; background: rgba(11, 11, 9, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.size-guide {
+  background: var(--ivory); border-radius: 4px; border: 1px solid var(--line);
+  width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; padding: 26px 26px 22px;
+  box-shadow: 0 20px 60px rgba(11, 11, 9, 0.28);
+}
+.size-guide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.size-guide-head h3 { margin: 0; }
+.size-guide-close {
+  background: none; border: none; font-size: 26px; line-height: 1; color: var(--sage); padding: 0 4px;
+}
+.size-guide-close:hover { color: var(--olive); }
+.size-guide-lede { font-size: 13.5px; margin: 6px 0 16px; }
+.size-guide-scroll { overflow-x: auto; }
+.size-guide-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.size-guide-table th {
+  text-align: left; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--sage); padding: 9px 12px; background: var(--sand);
+}
+.size-guide-table td { padding: 9px 12px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--earth); }
+.size-guide-table .size-guide-label { font-weight: 700; color: var(--olive); }
+.size-guide-table tr.current td { background: rgba(169, 130, 56, 0.13); }
+.size-guide-notes { margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.size-guide-notes li { font-size: 13px; color: var(--earth); line-height: 1.6; padding-left: 14px; position: relative; }
+.size-guide-notes li::before { content: "·"; position: absolute; left: 3px; color: var(--gold); font-weight: 700; }
+.size-guide-caveat { font-size: 12px; color: var(--sage); margin: 16px 0 0; line-height: 1.6; }
+
+/* ---------------- Admin charts ---------------- */
+.chart-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 22px 24px; margin-bottom: 28px; }
+.chart-head h3 { margin: 0 0 2px; }
+.chart-sub { font-size: 12.5px; color: var(--sage); margin: 0 0 12px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--earth); }
+.chart-legend i { width: 11px; height: 11px; border-radius: 2px; flex: none; }
+.chart-scroll { overflow-x: auto; }
+.chart-svg { width: 100%; min-width: 560px; height: auto; display: block; }
+.chart-axis-text { font-size: 10.5px; fill: var(--sage); font-family: var(--font-body); }
+.chart-value-text { font-size: 11px; font-weight: 700; fill: var(--olive); font-family: var(--font-body); }
+.chart-empty { padding: 30px 4px 10px; }
+.chart-empty p { margin: 0 0 8px; color: var(--sage); font-size: 14px; }
+.chart-empty-note { font-size: 12.5px !important; }
+.chart-note { font-size: 12.5px; color: var(--gold); margin: 12px 0 0; line-height: 1.6; }
+.chart-table { margin-top: 14px; }
+.chart-table summary { font-size: 12.5px; color: var(--sage); cursor: pointer; padding: 6px 0; }
+.chart-table summary:hover { color: var(--olive); }
+.chart-table .admin-table { margin-top: 8px; }
+.metric-sub { font-size: 11.5px; color: var(--sage); margin-top: 5px; line-height: 1.5; }
+.metric-sub a { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
+.share-bar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.share-bar > span { position: relative; flex: 1 1 auto; background: var(--sand); border-radius: 2px; height: 10px; overflow: hidden; }
+.share-bar > span::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0%); background: #00806B; border-radius: 2px; }
+.share-bar em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--earth); font-variant-numeric: tabular-nums; flex: none; }

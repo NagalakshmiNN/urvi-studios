@@ -9,6 +9,7 @@ import { formatINR, generateOrderNumberSeed } from "../../src/lib/format";
 import { markupPercent } from "../../src/lib/markup";
 import { parseActualSalePrice, formatPaise, paiseToInput } from "../../src/lib/sale-price";
 import { parseUnitPriceOverride } from "../../src/lib/order-pricing";
+import { monthlyPerformance, revenueByChannel, type OrderForStats } from "../../src/lib/monthly-performance";
 
 test.describe("GST", () => {
   test("uses 5% at or below ₹2,500 a piece and 18% above", () => {
@@ -176,5 +177,89 @@ test.describe("hand-entered sale price", () => {
     const slip = parseUnitPriceOverride("19400000"); // meant ₹1,940
     expect(slip.ok).toBe(false);
     expect(!slip.ok && slip.error).toContain("looks like a slip");
+  });
+});
+
+test.describe("monthly performance", () => {
+  function order(over: Partial<OrderForStats> = {}): OrderForStats {
+    return {
+      createdAt: new Date(2026, 8, 15),
+      paymentStatus: "PAID",
+      status: "DELIVERED",
+      total: 1000,
+      actualSalePricePaise: null,
+      source: "online",
+      items: [{ qty: 1, price: 1000, landedCostAtSale: 600 }],
+      ...over,
+    };
+  }
+
+  test("counts every channel, not just the website", () => {
+    const orders = [
+      order({ source: "online", total: 1000 }),
+      order({ source: "walk_in", total: 2000, items: [{ qty: 1, price: 2000, landedCostAtSale: 1200 }] }),
+      order({ source: "whatsapp", total: 500, items: [{ qty: 1, price: 500, landedCostAtSale: 300 }] }),
+      order({ source: "phone", total: 700, items: [{ qty: 1, price: 700, landedCostAtSale: 400 }] }),
+    ];
+    const sept = monthlyPerformance(orders, 12, new Date(2026, 8, 20)).find((m) => m.key === "2026-09")!;
+    expect(sept.revenue).toBe(4200);
+    expect(sept.orders).toBe(4);
+    expect(sept.cost).toBe(2500);
+    expect(sept.profit).toBe(1700);
+
+    const channels = revenueByChannel(orders);
+    expect(channels.map((c) => c.source)).toEqual(["walk_in", "online", "phone", "whatsapp"]);
+    expect(channels.reduce((s, c) => s + c.revenue, 0)).toBe(4200);
+  });
+
+  test("unpaid, cancelled and returned orders are not sales", () => {
+    const orders = [
+      order({ paymentStatus: "PENDING" }),
+      order({ status: "CANCELLED" }),
+      order({ status: "RETURNED" }),
+      order({ total: 900, items: [{ qty: 1, price: 900, landedCostAtSale: 500 }] }),
+    ];
+    const sept = monthlyPerformance(orders, 12, new Date(2026, 8, 20)).find((m) => m.key === "2026-09")!;
+    expect(sept.orders).toBe(1);
+    expect(sept.revenue).toBe(900);
+  });
+
+  test("the recorded Actual Sale Price wins over the order total", () => {
+    // Sold at the door for ₹850 against a ₹1,000 order.
+    const sept = monthlyPerformance(
+      [order({ total: 1000, actualSalePricePaise: 85000 })],
+      12,
+      new Date(2026, 8, 20)
+    ).find((m) => m.key === "2026-09")!;
+    expect(sept.revenue).toBe(850);
+    expect(sept.profit).toBe(250); // 850 − 600
+  });
+
+  test("a missing cost flags the month instead of inflating its profit", () => {
+    const sept = monthlyPerformance(
+      [order({ items: [{ qty: 2, price: 1000, landedCostAtSale: null }] })],
+      12,
+      new Date(2026, 8, 20)
+    ).find((m) => m.key === "2026-09")!;
+    expect(sept.costComplete).toBe(false);
+    expect(sept.cost).toBe(0);
+  });
+
+  test("months with no sales still appear, so a quiet month isn't hidden", () => {
+    const rows = monthlyPerformance([order()], 12, new Date(2026, 8, 20));
+    expect(rows).toHaveLength(12);
+    expect(rows[rows.length - 1].key).toBe("2026-09");
+    expect(rows[0].key).toBe("2025-10");
+    expect(rows[0].revenue).toBe(0);
+  });
+
+  test("quantity is counted in the cost", () => {
+    const sept = monthlyPerformance(
+      [order({ total: 3000, items: [{ qty: 3, price: 1000, landedCostAtSale: 600 }] })],
+      12,
+      new Date(2026, 8, 20)
+    ).find((m) => m.key === "2026-09")!;
+    expect(sept.cost).toBe(1800);
+    expect(sept.profit).toBe(1200);
   });
 });

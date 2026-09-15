@@ -7,6 +7,7 @@ import { addToCart } from "@/lib/cart";
 import { toDisplayHtml } from "@/lib/richtext";
 import WishlistButton from "@/components/WishlistButton";
 import ShareButton from "@/components/ShareButton";
+import SizeGuide from "@/components/SizeGuide";
 import { SITE } from "@/lib/site-config";
 
 type Product = {
@@ -44,6 +45,7 @@ export default function ProductDetailClient({
   );
   const [color, setColor] = useState(product.colors[0]?.name ?? "");
   const [qty, setQty] = useState(1);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   // All the photos uploaded for this product were always stored — the page
   // just never showed more than the first one. Clicking a thumbnail swaps
   // which one is the big main image; the thumbnail strip only renders when
@@ -145,7 +147,12 @@ export default function ProductDetailClient({
         </div>
 
         <div className="field-block">
-          <div className="field-label"><span>Size — {size}</span></div>
+          <div className="field-label size-label-row">
+            <span>Size — {size}</span>
+            <button type="button" className="size-help-link" onClick={() => setSizeGuideOpen(true)}>
+              Sizing help
+            </button>
+          </div>
           <div className="size-options">
             {product.sizes.map((s) => {
               const soldOut = s.stock <= 0;
@@ -188,6 +195,8 @@ export default function ProductDetailClient({
             Buy Now
           </button>
         </div>
+
+        <SizeGuide open={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} currentSize={size} />
 
         <div className="trust-row">
           <span className="t">✓ Easy 7-day exchange</span>

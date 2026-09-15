@@ -59,6 +59,10 @@ export type PricedLine = {
   color: string;
   qty: number;
   price: number;
+  // What this piece cost us on the day it sold. Copied onto the order line so
+  // a later invoice changing the product's landed cost cannot rewrite the
+  // margin on a sale that already happened.
+  landedCost: number | null;
   image: string;
 };
 
@@ -127,6 +131,7 @@ export async function priceCart(
         item.unitPriceOverride <= MAX_UNIT_PRICE
           ? item.unitPriceOverride
           : product.price,
+      landedCost: product.landedCost ?? null,
       image: product.images[0]?.url ?? "",
     });
   }

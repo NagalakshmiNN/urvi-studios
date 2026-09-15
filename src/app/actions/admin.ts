@@ -439,6 +439,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
       size: l.size,
       color: l.color,
       qty: l.qty,
+      landedCostAtSale: l.landedCost,
       price: l.price,
     }))
   );
