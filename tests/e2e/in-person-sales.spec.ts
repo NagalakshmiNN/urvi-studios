@@ -545,3 +545,98 @@ test.describe("stock screens stay in step with reality", () => {
     await deleteTestProduct(product.id);
   });
 });
+
+test.describe("pricing a sale by hand", () => {
+  test("an admin can charge something other than the listed price", async ({ page }) => {
+    const item = await createTestProduct({ name: "Hand Priced Product", price: 1940, stock: 6, sizes: ["S", "M", "L"] });
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/orders/new");
+    await page.selectOption('select[name="lineProductId"]', item.id);
+
+    // Choosing the product fills in what it's listed at.
+    await expect(page.locator('input[name="linePrice"]')).toHaveValue("1940");
+
+    await expect(page.locator('select[name="lineSize"] option[value="M"]')).toHaveCount(1);
+    await page.selectOption('select[name="lineSize"]', "M");
+    await page.selectOption('select[name="lineColor"]', item.colors[0].name);
+
+    // Sold at the door for less. Two of them.
+    await page.fill('input[name="linePrice"]', "1500");
+    await page.fill('input[name="lineQty"]', "2");
+    await expect(page.locator(".field-hint", { hasText: "Listed at" })).toContainText("₹1,940");
+
+    // The order value counts quantity, which it previously didn't.
+    const orderValue = page.locator(".form-group", { hasText: "Order value" }).locator("input");
+    await expect(orderValue).toHaveValue("₹3,000");
+
+    await page.fill('input[name="customerName"]', "Hand Price Buyer");
+    await page.fill('input[name="customerPhone"]', "9876514444");
+    await page.selectOption('select[name="paymentStatus"]', "PAID");
+    await page.selectOption('select[name="paymentMode"]', "cash");
+    await page.locator('button[type="submit"]', { hasText: "Record Order" }).click();
+    await page.waitForURL(/\/admin\/orders\/URVI-/);
+    const orderNumber = page.url().split("/").pop()!;
+
+    // The order records what was actually charged, not the catalogue price —
+    // so revenue and the customer's history both read ₹3,000.
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.subtotal).toBe(3000);
+    expect(order!.total).toBe(3000);
+    const [line] = await query<{ price: number; qty: number }>(
+      "select price, qty from order_items where order_id = $1",
+      [order!.id]
+    );
+    expect(line.price).toBe(1500);
+    expect(line.qty).toBe(2);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteTestProduct(item.id);
+  });
+
+  test("a price that isn't a plain number is refused, and nothing is recorded", async ({ page }) => {
+    const item = await createTestProduct({ name: "Bad Price Product", price: 800, stock: 3, sizes: ["M"] });
+    const before = await query<{ id: string }>("select id from orders");
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/orders/new");
+    await page.selectOption('select[name="lineProductId"]', item.id);
+    await page.selectOption('select[name="lineSize"]', "M");
+    await page.fill('input[name="customerName"]', "Typo Customer");
+    await page.fill('input[name="customerPhone"]', "9876515555");
+
+    await page.fill('input[name="linePrice"]', "eight hundred");
+    await page.locator('button[type="submit"]', { hasText: "Record Order" }).click();
+    await expect(page.locator(".notice-box.error")).toContainText("isn't a price");
+
+    expect((await query("select id from orders")).length).toBe(before.length);
+
+    await deleteTestProduct(item.id);
+  });
+
+  test("the storefront still cannot set its own prices", async ({ page }) => {
+    // The override is admin-only. A crafted checkout payload naming its own
+    // price must be ignored entirely, or anyone could buy at whatever they
+    // liked — this is the guarantee the whole pricing module exists for.
+    const item = await createTestProduct({ name: "Tamper Test Product", price: 2500, stock: 4, sizes: ["M"] });
+    const email = uniqueEmail("tamper");
+
+    const res = await page.request.post("/api/checkout/create-order", {
+      data: {
+        items: [{ productId: item.id, size: "M", color: item.colors[0].name, qty: 1, unitPriceOverride: 1 }],
+        customer: {
+          name: "Tamper Tester", email, phone: "9876516666",
+          address: "1 Tamper Lane", city: "Bengaluru", state: "Karnataka", pincode: "560001",
+        },
+      },
+    });
+    const { orderNumber } = await res.json();
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.total).toBe(2500); // the catalogue price, not the ₹1 asked for
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+    await deleteTestProduct(item.id);
+  });
+});

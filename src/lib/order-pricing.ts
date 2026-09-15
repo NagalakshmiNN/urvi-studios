@@ -13,7 +13,43 @@ import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
 // truth, kept client-safe (no db import) so cart/checkout can use it too.
 export const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
-export type CartLineInput = { productId: string; size: string; color: string; qty: number };
+export type CartLineInput = {
+  productId: string;
+  size: string;
+  color: string;
+  qty: number;
+  /**
+   * What the admin actually charged for one piece, in whole rupees.
+   *
+   * IGNORED unless the caller explicitly passes `allowPriceOverride`. The
+   * storefront never passes it, so a tampered cart payload still cannot set
+   * its own prices — that guarantee is the whole point of this module.
+   */
+  unitPriceOverride?: number;
+};
+
+/** The most that can be charged for a single piece — a guard against a slipped
+ *  keystroke turning ₹1,940 into ₹19,40,000, not a limit on the business. */
+export const MAX_UNIT_PRICE = 1_000_000;
+
+/**
+ * Validate a hand-entered unit price. Whole rupees only, because every other
+ * amount on an order is stored as an integer number of rupees; accepting
+ * decimals here would mean silently rounding them away.
+ */
+export function parseUnitPriceOverride(raw: string | null | undefined): { ok: true; price: number } | { ok: false; error: string } {
+  const value = (raw ?? "").trim();
+  if (value === "") return { ok: false, error: "Enter a price for every item." };
+  if (!/^\d+$/.test(value)) {
+    return { ok: false, error: `"${value}" isn't a price — use whole rupees, digits only.` };
+  }
+  const price = Number(value);
+  if (price <= 0) return { ok: false, error: "A price has to be more than zero." };
+  if (price > MAX_UNIT_PRICE) {
+    return { ok: false, error: `That price looks like a slip — the most you can enter per piece is ₹${MAX_UNIT_PRICE.toLocaleString("en-IN")}.` };
+  }
+  return { ok: true, price };
+}
 
 export type PricedLine = {
   productId: string;
@@ -37,7 +73,14 @@ export type PricingResult =
   | { ok: true; lines: PricedLine[]; subtotal: number; shipping: number; freeShipping: boolean; discount: number; total: number; couponCode: string | null }
   | { ok: false; error: string };
 
-export async function priceCart(items: CartLineInput[], couponCode?: string | null): Promise<PricingResult> {
+export async function priceCart(
+  items: CartLineInput[],
+  couponCode?: string | null,
+  // Admin-only. Set by the Record a Sale form, where the person entering the
+  // order is a signed-in admin deciding what was actually charged, and never
+  // by anything reachable from the storefront.
+  opts?: { allowPriceOverride?: boolean }
+): Promise<PricingResult> {
   if (!items || items.length === 0) return { ok: false, error: "Your bag is empty." };
   if (items.length > 50) return { ok: false, error: "Too many items in one order." };
 
@@ -72,7 +115,18 @@ export async function priceCart(items: CartLineInput[], couponCode?: string | nu
       size: String(item.size || "").slice(0, 20),
       color: String(item.color || "").slice(0, 40),
       qty,
-      price: product.price,
+      // The catalogue price unless an admin has said otherwise — a piece sold
+      // at the door for less (or as part of a deal) should record what was
+      // actually paid, because revenue, profit and the customer's own history
+      // all read from this number.
+      price:
+        opts?.allowPriceOverride &&
+        typeof item.unitPriceOverride === "number" &&
+        Number.isInteger(item.unitPriceOverride) &&
+        item.unitPriceOverride > 0 &&
+        item.unitPriceOverride <= MAX_UNIT_PRICE
+          ? item.unitPriceOverride
+          : product.price,
       image: product.images[0]?.url ?? "",
     });
   }

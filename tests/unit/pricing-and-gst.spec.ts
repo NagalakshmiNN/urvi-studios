@@ -8,6 +8,7 @@ import { FREE_SHIPPING_THRESHOLD, freeShippingNote } from "../../src/lib/shippin
 import { formatINR, generateOrderNumberSeed } from "../../src/lib/format";
 import { markupPercent } from "../../src/lib/markup";
 import { parseActualSalePrice, formatPaise, paiseToInput } from "../../src/lib/sale-price";
+import { parseUnitPriceOverride } from "../../src/lib/order-pricing";
 
 test.describe("GST", () => {
   test("uses 5% at or below ₹2,500 a piece and 18% above", () => {
@@ -148,5 +149,32 @@ test.describe("Actual Sale Price", () => {
     expect(formatPaise(123456)).toBe("₹1,234.56");
     expect(paiseToInput(123456)).toBe("1234.56");
     expect(paiseToInput(301000)).toBe("3010.00");
+  });
+});
+
+test.describe("hand-entered sale price", () => {
+  test("accepts a whole-rupee amount", () => {
+    expect(parseUnitPriceOverride("1500")).toEqual({ ok: true, price: 1500 });
+    expect(parseUnitPriceOverride("  2200 ")).toEqual({ ok: true, price: 2200 });
+    expect(parseUnitPriceOverride("1")).toEqual({ ok: true, price: 1 });
+  });
+
+  test("an amount above the listed price is fine — the admin decides", () => {
+    // Nothing caps this to the catalogue price: a bundle, a custom piece or a
+    // festival premium are all legitimate.
+    expect(parseUnitPriceOverride("999999")).toEqual({ ok: true, price: 999999 });
+  });
+
+  test("refuses anything that isn't a plain whole number", () => {
+    for (const bad of ["", "   ", "abc", "1500.50", "-200", "1,500", "₹900", "1e3"]) {
+      expect(parseUnitPriceOverride(bad).ok).toBe(false);
+    }
+  });
+
+  test("refuses zero, and catches a slipped keystroke", () => {
+    expect(parseUnitPriceOverride("0").ok).toBe(false);
+    const slip = parseUnitPriceOverride("19400000"); // meant ₹1,940
+    expect(slip.ok).toBe(false);
+    expect(!slip.ok && slip.error).toContain("looks like a slip");
   });
 });

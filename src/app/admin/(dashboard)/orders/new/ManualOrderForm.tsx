@@ -14,13 +14,16 @@ type Product = {
   colors: { name: string }[];
 };
 
-type Row = { key: number; productId: string };
+// Price and qty live in state, not just in the DOM, so the running total can
+// react to them — and so choosing a product can pre-fill its catalogue price
+// without wiping an amount already typed by hand.
+type Row = { key: number; productId: string; price: string; qty: string };
 
 let rowKeySeq = 1;
 
 export default function ManualOrderForm({ products }: { products: Product[] }) {
   const [state, formAction, pending] = useActionState(createManualOrderAction, undefined);
-  const [rows, setRows] = useState<Row[]>([{ key: rowKeySeq++, productId: "" }]);
+  const [rows, setRows] = useState<Row[]>([{ key: rowKeySeq++, productId: "", price: "", qty: "1" }]);
   const byId = new Map(products.map((p) => [p.id, p]));
   // Someone standing in front of you is the common case, so it leads.
   const [source, setSource] = useState("walk_in");
@@ -34,19 +37,36 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
     setFulfilment(next === "walk_in" ? "pickup" : "delivery");
   }
 
+  // Counts the quantity, which the old version didn't — two of something was
+  // showing as one piece's worth.
   const runningTotal = rows.reduce((sum, row) => {
-    const product = byId.get(row.productId);
-    return product ? sum + product.price : sum;
+    const price = Number(row.price);
+    const qty = Number(row.qty);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+    return sum + price * Math.max(0, qty);
   }, 0);
 
   function addRow() {
-    setRows((r) => [...r, { key: rowKeySeq++, productId: "" }]);
+    setRows((r) => [...r, { key: rowKeySeq++, productId: "", price: "", qty: "1" }]);
   }
   function removeRow(key: number) {
     setRows((r) => (r.length > 1 ? r.filter((row) => row.key !== key) : r));
   }
   function setRowProduct(key: number, productId: string) {
-    setRows((r) => r.map((row) => (row.key === key ? { ...row, productId } : row)));
+    setRows((r) =>
+      r.map((row) => {
+        if (row.key !== key) return row;
+        // Pre-fill the catalogue price, but never overwrite a figure already
+        // typed — someone who set ₹1,500 and then corrected the product would
+        // not expect their price to jump back up.
+        const product = byId.get(productId);
+        const price = row.price.trim() === "" && product ? String(product.price) : row.price;
+        return { ...row, productId, price };
+      })
+    );
+  }
+  function setRowField(key: number, field: "price" | "qty", value: string) {
+    setRows((r) => r.map((row) => (row.key === key ? { ...row, [field]: value } : row)));
   }
 
   return (
@@ -123,7 +143,28 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
             </div>
             <div className="form-group" style={{ maxWidth: 80 }}>
               <label>Qty</label>
-              <input type="number" name="lineQty" min={1} defaultValue={1} />
+              <input
+                type="number"
+                name="lineQty"
+                min={1}
+                value={row.qty}
+                onChange={(e) => setRowField(row.key, "qty", e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ maxWidth: 120 }}>
+              <label>Price each (₹)</label>
+              <input
+                type="text"
+                name="linePrice"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder={product ? String(product.price) : "0"}
+                value={row.price}
+                onChange={(e) => setRowField(row.key, "price", e.target.value)}
+              />
+              {product && Number(row.price) !== product.price && row.price.trim() !== "" && (
+                <span className="field-hint">Listed at {formatINR(product.price)}</span>
+              )}
             </div>
             <div className="form-group" style={{ maxWidth: 80 }}>
               <button type="button" className="link-btn danger" onClick={() => removeRow(row.key)} style={{ marginBottom: 12 }}>
@@ -198,7 +239,10 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
         )}
         <div className="form-group">
           <label>Order value</label>
-          <input type="text" value={runningTotal > 0 ? `${formatINR(runningTotal)} (before quantities)` : "—"} readOnly disabled />
+          {/* Now the real total: price x quantity across every line, updating
+              as the prices are edited. It used to say "before quantities",
+              which meant it was never the number anyone wanted. */}
+          <input type="text" value={runningTotal > 0 ? formatINR(runningTotal) : "—"} readOnly disabled />
         </div>
       </div>
       {paid && (

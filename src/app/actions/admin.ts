@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateStockViews } from "@/lib/revalidate-stock";
 import { parseActualSalePrice } from "@/lib/sale-price";
 import { redirect } from "next/navigation";
-import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
+import { priceCart, nextOrderNumber, parseUnitPriceOverride, type CartLineInput } from "@/lib/order-pricing";
 import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
@@ -372,20 +372,31 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
   const sizes = formData.getAll("lineSize").map(String);
   const colors = formData.getAll("lineColor").map(String);
   const qtys = formData.getAll("lineQty").map(String);
+  // What was actually charged per piece. The form pre-fills the catalogue
+  // price, so this is only different when the admin changed it — a discount
+  // agreed at the door, a bundle, a round-number cash sale.
+  const linePrices = formData.getAll("linePrice").map(String);
 
   const items: CartLineInput[] = [];
   for (let i = 0; i < productIds.length; i++) {
     if (!productIds[i]) continue;
+
+    const priced = parseUnitPriceOverride(linePrices[i]);
+    if (!priced.ok) return { error: priced.error };
+
     items.push({
       productId: productIds[i],
       size: sizes[i] || "",
       color: colors[i] || "",
       qty: Math.max(1, parseInt(qtys[i] || "1", 10) || 1),
+      unitPriceOverride: priced.price,
     });
   }
   if (items.length === 0) return { error: "Add at least one item to the order." };
 
-  const pricing = await priceCart(items);
+  // requireAdmin() ran at the top of this action, so the person setting these
+  // prices is a signed-in admin recording what they actually sold for.
+  const pricing = await priceCart(items, null, { allowPriceOverride: true });
   if (!pricing.ok) return { error: pricing.error };
 
   const orderNumber = await nextOrderNumber();
