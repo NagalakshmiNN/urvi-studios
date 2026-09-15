@@ -4,6 +4,8 @@ import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { notFound } from "next/navigation";
 import OrderStatusForm from "./OrderStatusForm";
+import ActualSalePriceForm from "./ActualSalePriceForm";
+import { formatPaise } from "@/lib/sale-price";
 import { whatsappLink } from "@/lib/whatsapp";
 import { statusCustomerLine } from "@/lib/order-status-copy";
 import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
@@ -64,7 +66,20 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <div>Delivery: {order.subtotal >= FREE_SHIP_THRESHOLD ? "Free" : "Additional — confirm with customer (pincode-based)"}</div>
           {order.discount > 0 && <div>Discount ({order.couponCode}): −{formatINR(order.discount)}</div>}
           <div style={{ fontWeight: 700, marginTop: 6 }}>Total: {formatINR(order.total)}</div>
+          {order.actualSalePricePaise != null && (
+            <div style={{ marginTop: 4, color: "var(--gold)" }}>
+              Actual sale price: {formatPaise(order.actualSalePricePaise)}
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="admin-card" style={{ marginBottom: 20 }}>
+        <ActualSalePriceForm
+          orderId={order.id}
+          orderTotal={order.total}
+          currentPaise={order.actualSalePricePaise}
+        />
       </div>
 
       <div className="admin-card">

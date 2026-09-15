@@ -6,6 +6,8 @@ import { formatINR } from "@/lib/format";
 import { addToCart } from "@/lib/cart";
 import { toDisplayHtml } from "@/lib/richtext";
 import WishlistButton from "@/components/WishlistButton";
+import ShareButton from "@/components/ShareButton";
+import { SITE } from "@/lib/site-config";
 
 type Product = {
   id: string;
@@ -103,7 +105,15 @@ export default function ProductDetailClient({
             <h1>{product.name}</h1>
             <div className="pdp-sku">Product ID — {product.sku}</div>
           </div>
-          <WishlistButton productId={product.id} isLoggedIn={isLoggedIn} initialActive={wishlisted} size="large" />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <ShareButton
+              url={`${SITE.siteUrl}/product/${product.slug}`}
+              title={product.name}
+              price={formatINR(product.price)}
+              size="large"
+            />
+            <WishlistButton productId={product.id} isLoggedIn={isLoggedIn} initialActive={wishlisted} size="large" />
+          </div>
         </div>
 
         <div className="pdp-price">

@@ -160,6 +160,9 @@ export const orders = pgTable("orders", {
   // against UPI and card receipts. Null for website orders, where the payment
   // method above already says how it was paid.
   paymentMode: text("payment_mode"), // "cash" | "upi" | "card" | null
+  // What the order actually sold for, in PAISE (integer, so two decimal places
+  // are exact). Null until an admin records it.
+  actualSalePricePaise: integer("actual_sale_price_paise"),
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
 

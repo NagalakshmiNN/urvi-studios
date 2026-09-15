@@ -4,6 +4,8 @@ import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { revalidateStockViews } from "@/lib/revalidate-stock";
+import { parseActualSalePrice } from "@/lib/sale-price";
 import { redirect } from "next/navigation";
 import { priceCart, nextOrderNumber, type CartLineInput } from "@/lib/order-pricing";
 import { adjustStockForLine } from "@/lib/stock";
@@ -109,7 +111,7 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
     );
   }
 
-  revalidatePath("/admin/products");
+  revalidateStockViews();
   return { success: `"${name}" was added to the catalog.` };
 }
 
@@ -145,7 +147,7 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
     })
     .where(eq(schema.products.id, productId));
 
-  revalidatePath("/admin/products");
+  revalidateStockViews();
   return { success: "Product updated." };
 }
 
@@ -228,7 +230,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   }
 
   const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId) });
-  revalidatePath("/admin/products");
+  revalidateStockViews();
   if (product) revalidatePath(`/product/${product.slug}`);
   return { success: `"${name}" was updated.` };
 }
@@ -246,8 +248,7 @@ export async function deleteProductAction(productId: string): Promise<{ error?: 
   const orderedBefore = await db.query.orderItems.findFirst({ where: eq(schema.orderItems.productId, productId) });
 
   await db.delete(schema.products).where(eq(schema.products.id, productId));
-  revalidatePath("/admin/products");
-  revalidatePath("/admin/orders");
+  revalidateStockViews();
 
   return orderedBefore
     ? { success: `"${product?.name ?? "Product"}" was deleted. Its past orders still show up fine in Orders — just without a live product link.` }
@@ -300,10 +301,38 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
     await sendCustomerStatusUpdate(order, status);
   }
 
-  revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${order.orderNumber}`);
-  revalidatePath("/admin/products");
-  revalidatePath("/admin");
+  revalidateStockViews();
+}
+
+/**
+ * Record what an order actually sold for.
+ *
+ * Validated here rather than only in the browser: the form's own checks are a
+ * courtesy, and anything that reaches a server action can arrive without them.
+ * The rules are in src/lib/sale-price.ts so they are the same on both sides.
+ */
+export async function setActualSalePriceAction(
+  _prev: AdminFormState,
+  formData: FormData
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const orderId = String(formData.get("orderId") || "");
+  const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, orderId) });
+  if (!order) return { error: "That order no longer exists." };
+
+  const result = parseActualSalePrice(formData.get("actualSalePrice") as string | null, order.total);
+  if (!result.ok) return { error: result.error };
+
+  await db
+    .update(schema.orders)
+    .set({ actualSalePricePaise: result.paise, updatedAt: new Date() })
+    .where(eq(schema.orders.id, orderId));
+
+  revalidatePath(`/admin/orders/${order.orderNumber}`);
+  revalidatePath("/admin/orders");
+  return { success: "Actual Sale Price saved." };
 }
 
 // A sale that happened over WhatsApp, a phone call, or in person — logged
@@ -407,9 +436,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
     await adjustStockForLine(line.productId, line.size, -line.qty);
   }
 
-  revalidatePath("/admin/orders");
-  revalidatePath("/admin");
-  revalidatePath("/admin/products");
+  revalidateStockViews();
   redirect(`/admin/orders/${orderNumber}`);
 }
 

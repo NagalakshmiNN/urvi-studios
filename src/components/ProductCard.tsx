@@ -3,6 +3,8 @@ import { formatINR } from "@/lib/format";
 import { ProductCardData } from "@/lib/types";
 import WishlistButton from "./WishlistButton";
 import QuickAddButton from "./QuickAddButton";
+import ShareButton from "./ShareButton";
+import { SITE } from "@/lib/site-config";
 
 export default function ProductCard({
   product,
@@ -30,8 +32,15 @@ export default function ProductCard({
         )}
         <img src={product.images[0]?.url} alt={product.name} />
       </Link>
-      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 3 }}>
+      {/* Share sits under the wishlist heart, so both stay clear of the badge
+          in the top-left and of the image link behind them. */}
+      <div className="card-actions">
         <WishlistButton productId={product.id} isLoggedIn={isLoggedIn} initialActive={wishlisted} />
+        <ShareButton
+          url={`${SITE.siteUrl}/product/${product.slug}`}
+          title={product.name}
+          price={formatINR(product.price)}
+        />
       </div>
       <Link href={`/product/${product.slug}`}>
         <div className="p-cat">{product.category.name}</div>

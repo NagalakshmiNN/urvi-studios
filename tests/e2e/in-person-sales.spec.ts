@@ -489,3 +489,59 @@ test.describe("the stock sheet", () => {
     await expect(pieces).toHaveText(String(Number(sum)));
   });
 });
+
+test.describe("stock screens stay in step with reality", () => {
+  // The Stock screen was added after the actions that move stock, and none of
+  // them revalidated it — so an order could be marked Collected and the stock
+  // sheet would keep serving the count from before. Every path that moves
+  // stock now calls revalidateStockViews(); these check the two that matter
+  // most in daily use.
+
+  test("marking a pickup order Collected moves the stock sheet", async ({ page }) => {
+    const product = await createTestProduct({
+      name: "Pickup Stock Refresh Product",
+      price: 1200,
+      stock: 6,
+      sizes: ["S", "M", "L"],
+    });
+
+    await loginAsAdmin(page);
+
+    // Look at the stock sheet first, so a stale cache would have something to
+    // serve on the second visit.
+    await page.goto(`/admin/stock?q=${encodeURIComponent("Pickup Stock Refresh")}`);
+    const mRow = () => page.locator("tbody tr", { hasText: "Pickup Stock Refresh Product" }).filter({ hasText: "M" }).first();
+    await expect(mRow()).toContainText("2");
+
+    // A collected-in-person order, placed and then handed over.
+    await page.goto("/admin/orders/new");
+    await page.selectOption('select[name="source"]', "walk_in");
+    await page.selectOption('select[name="lineProductId"]', product.id);
+    await expect(page.locator('select[name="lineSize"] option[value="M"]')).toHaveCount(1);
+    await page.selectOption('select[name="lineSize"]', "M");
+    await page.selectOption('select[name="lineColor"]', product.colors[0].name);
+    await page.fill('input[name="lineQty"]', "1");
+    await page.fill('input[name="customerName"]', "Collector");
+    await page.fill('input[name="customerPhone"]', "9876509090");
+    await page.selectOption('select[name="paymentStatus"]', "PAID");
+    await page.selectOption('select[name="paymentMode"]', "cash");
+    await page.locator('button[type="submit"]', { hasText: "Record Order" }).click();
+    await page.waitForURL(/\/admin\/orders\/URVI-/);
+    const orderNumber = page.url().split("/").pop()!;
+
+    // The stock sheet must show the new number, not the cached one.
+    await page.goto(`/admin/stock?q=${encodeURIComponent("Pickup Stock Refresh")}`);
+    await expect(mRow()).toContainText("1");
+
+    // And cancelling puts it back, on the same screen.
+    await page.goto(`/admin/orders/${orderNumber}`);
+    await page.locator("select.status-select").selectOption("CANCELLED");
+    await expect(async () => {
+      await page.goto(`/admin/stock?q=${encodeURIComponent("Pickup Stock Refresh")}`);
+      await expect(mRow()).toContainText("2");
+    }).toPass({ timeout: 10_000 });
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteTestProduct(product.id);
+  });
+});

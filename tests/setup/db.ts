@@ -64,6 +64,7 @@ export async function getOrderByNumber(orderNumber: string) {
     payment_status: string;
     payment_method: string;
     payment_mode: string | null;
+    actual_sale_price_paise: number | null;
     fulfilment_method: string;
     stock_deducted: boolean;
     source: string;

@@ -7,6 +7,7 @@ import { calculateGst, gstRateForUnitPrice } from "../../src/lib/gst";
 import { FREE_SHIPPING_THRESHOLD, freeShippingNote } from "../../src/lib/shipping";
 import { formatINR, generateOrderNumberSeed } from "../../src/lib/format";
 import { markupPercent } from "../../src/lib/markup";
+import { parseActualSalePrice, formatPaise, paiseToInput } from "../../src/lib/sale-price";
 
 test.describe("GST", () => {
   test("uses 5% at or below ₹2,500 a piece and 18% above", () => {
@@ -85,5 +86,67 @@ test.describe("markup badge", () => {
     expect(markupPercent(2000, null)).toBeNull();  // no landed cost recorded
     expect(markupPercent(2000, 0)).toBeNull();     // would divide by zero
     expect(markupPercent(2000, -5)).toBeNull();
+  });
+});
+
+test.describe("Actual Sale Price", () => {
+  const TOTAL = 3010; // rupees
+
+  test("accepts a plain amount and one with up to two decimals", () => {
+    expect(parseActualSalePrice("3010", TOTAL)).toEqual({ ok: true, paise: 301000 });
+    expect(parseActualSalePrice("2999.5", TOTAL)).toEqual({ ok: true, paise: 299950 });
+    expect(parseActualSalePrice("2999.55", TOTAL)).toEqual({ ok: true, paise: 299955 });
+    // Surrounding whitespace is a typing artefact, not a refusal.
+    expect(parseActualSalePrice("  1200.40  ", TOTAL)).toEqual({ ok: true, paise: 120040 });
+  });
+
+  test("scales to paise exactly, where floating point would not", () => {
+    // 1234.56 * 100 is 123455.99999999999 in binary floating point. Storing
+    // that rounded the wrong way loses a paise per order.
+    expect(parseActualSalePrice("1234.56", 2000)).toEqual({ ok: true, paise: 123456 });
+    expect(parseActualSalePrice("0.07", 1)).toEqual({ ok: true, paise: 7 });
+    expect(parseActualSalePrice("70.1", 100)).toEqual({ ok: true, paise: 7010 });
+  });
+
+  test("an empty field gives the exact required message", () => {
+    for (const empty of ["", "   ", null, undefined]) {
+      const r = parseActualSalePrice(empty, TOTAL);
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.error).toBe("Actual Sale Price is required.");
+    }
+  });
+
+  test("refuses letters, symbols and anything that isn't a plain number", () => {
+    for (const bad of ["abc", "12abc", "1,200", "₹500", "12.3.4", "1e3", "12..5", ".", "+500", " 5 0 "]) {
+      expect(parseActualSalePrice(bad, TOTAL).ok).toBe(false);
+    }
+  });
+
+  test("refuses negatives and zero — a sale is a positive amount", () => {
+    expect(parseActualSalePrice("-100", TOTAL).ok).toBe(false);
+    expect(parseActualSalePrice("-0.01", TOTAL).ok).toBe(false);
+    expect(parseActualSalePrice("0", TOTAL).ok).toBe(false);
+    expect(parseActualSalePrice("0.00", TOTAL).ok).toBe(false);
+  });
+
+  test("refuses more than two decimal places rather than rounding them away", () => {
+    expect(parseActualSalePrice("100.456", TOTAL).ok).toBe(false);
+    expect(parseActualSalePrice("100.999", TOTAL).ok).toBe(false);
+  });
+
+  test("cannot exceed the order amount, but may equal it to the paise", () => {
+    expect(parseActualSalePrice("3010", TOTAL)).toEqual({ ok: true, paise: 301000 });
+    expect(parseActualSalePrice("3010.00", TOTAL)).toEqual({ ok: true, paise: 301000 });
+    const over = parseActualSalePrice("3010.01", TOTAL);
+    expect(over.ok).toBe(false);
+    expect(!over.ok && over.error).toContain("cannot be more than the order amount");
+    expect(parseActualSalePrice("5000", TOTAL).ok).toBe(false);
+  });
+
+  test("formats paise back for display and for the form field", () => {
+    expect(formatPaise(301000)).toBe("₹3,010.00");
+    expect(formatPaise(123456)).toBe("₹1,234.56");
+    expect(paiseToInput(123456)).toBe("1234.56");
+    expect(paiseToInput(301000)).toBe("3010.00");
   });
 });

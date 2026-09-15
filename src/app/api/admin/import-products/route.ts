@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getAdminSession } from "@/lib/auth";
 import { distributeStock } from "@/lib/stock";
+import { revalidateStockViews } from "@/lib/revalidate-stock";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -363,6 +364,10 @@ export async function POST(request: Request) {
   // "not in this file", never "delete this" — but the count is reported so a
   // half-complete sheet doesn't pass unnoticed.
   const untouched = existingProducts.length - touchedProductIds.size;
+
+  // An import is the biggest stock change there is — the Stock and Products
+  // screens must not keep showing the counts from before it.
+  if (created > 0 || updated > 0) revalidateStockViews();
 
   return NextResponse.json({ created, updated, skippedExample, untouched, errors });
 }

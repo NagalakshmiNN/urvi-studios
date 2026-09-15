@@ -193,3 +193,82 @@ test("recording an order without a customer name is refused", async ({ page }) =
 
   await expect(page.locator(".notice-box.error")).toContainText("customer");
 });
+
+test.describe("Actual Sale Price", () => {
+  test("is required, is validated, and saves what the order really sold for", async ({ page }) => {
+    const { orderNumber, email } = await placeOrder(page, 1); // ₹2,700 order
+    await loginAsAdmin(page);
+    await page.goto(`/admin/orders/${orderNumber}`);
+
+    const field = page.locator('input[name="actualSalePrice"]');
+    const save = page.locator('.sale-price-form button[type="submit"]');
+    const error = page.locator(".sale-price-error");
+
+    // Starts empty, and says so.
+    await expect(field).toHaveValue("");
+    await expect(page.locator(".sale-price-hint")).toContainText("Actual Sale Price is required.");
+
+    // Empty → the exact wording asked for.
+    await save.click();
+    await expect(error).toHaveText("Actual Sale Price is required.");
+
+    // Letters and symbols are refused.
+    for (const bad of ["abc", "12abc", "₹500", "1,200"]) {
+      await field.fill(bad);
+      await expect(error).toContainText("digits and up to 2 decimal places");
+    }
+
+    // Negative and zero are refused.
+    await field.fill("-500");
+    await expect(error).toContainText("digits and up to 2 decimal places");
+    await field.fill("0");
+    await expect(error).toContainText("more than zero");
+
+    // More than two decimals is refused rather than quietly rounded.
+    await field.fill("100.456");
+    await expect(error).toContainText("2 decimal places");
+
+    // Above the order amount is refused, and the message names the amount.
+    await field.fill("2700.01");
+    await expect(error).toContainText("cannot be more than the order amount");
+    await expect(error).toContainText("2,700.00");
+
+    // A real discounted figure saves, to the paise.
+    await field.fill("2499.50");
+    await expect(error).toHaveCount(0);
+    await save.click();
+    await expect(page.locator(".sale-price-ok")).toContainText("saved");
+
+    const saved = await getOrderByNumber(orderNumber);
+    expect(saved!.actual_sale_price_paise).toBe(249950);
+
+    // It survives a reload, shown in the field and beside the total.
+    await page.reload();
+    await expect(page.locator('input[name="actualSalePrice"]')).toHaveValue("2499.50");
+    await expect(page.locator(".admin-card").first()).toContainText("₹2,499.50");
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("the server refuses a bad value even when the browser's checks are bypassed", async ({ page }) => {
+    const { orderNumber, email } = await placeOrder(page, 1);
+    await loginAsAdmin(page);
+    await page.goto(`/admin/orders/${orderNumber}`);
+
+    // Strip the client-side guards and post an amount well over the total,
+    // the way a crafted request would.
+    await page.locator('input[name="actualSalePrice"]').evaluate((el: HTMLInputElement) => {
+      el.removeAttribute("aria-required");
+      el.value = "999999";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.locator('.sale-price-form button[type="submit"]').click();
+
+    await expect(page.locator(".sale-price-error")).toBeVisible();
+    expect((await getOrderByNumber(orderNumber))!.actual_sale_price_paise).toBeNull();
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+});

@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { adjustStockForLine } from "./stock";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "./order-notify";
+import { revalidateStockViews } from "./revalidate-stock";
 
 export type ConfirmResult =
   | { ok: true; state: "confirmed" | "already"; orderNumber: string }
@@ -89,6 +90,10 @@ export async function confirmPaidOrder(opts: {
   // this ordering means even an unexpected throw here can't roll that back.
   await sendOrderNotification({ ...order, paymentStatus: "PAID" }, lines);
   await sendCustomerOrderConfirmation({ ...order, paymentStatus: "PAID" }, lines);
+
+  // Stock just moved, so the screens that show it must not keep serving the
+  // count from before this payment.
+  revalidateStockViews();
 
   return { ok: true, state: "confirmed", orderNumber: order.orderNumber };
 }
