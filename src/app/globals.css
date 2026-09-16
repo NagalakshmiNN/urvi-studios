@@ -854,6 +854,37 @@ a.prod-label:hover span { text-decoration: underline; }
 .stock-filters .chip { font-size: 11.5px; padding: 6px 12px; }
 .btn-sm { padding: 8px 16px; font-size: 11px; }
 
+/* ---------------- Money Map ----------------
+   Where the money went: one bar per stream, all to the same scale, each with
+   its name and its amount in type beside it — the bar is the shape of the
+   answer, never the whole of it. */
+.flow-chart { display: flex; flex-direction: column; gap: 14px; }
+.flow-row { display: grid; grid-template-columns: 200px 1fr 120px; gap: 16px; align-items: center; }
+.flow-label { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: var(--earth); }
+.flow-label em { font-style: normal; font-size: 11px; color: var(--sage); }
+.flow-track { height: 22px; background: var(--sand); border-radius: 3px; overflow: hidden; }
+.flow-bar { display: block; height: 100%; border-radius: 3px; }
+.flow-amount { text-align: right; font-weight: 600; font-size: 14px; color: var(--olive); font-variant-numeric: tabular-nums; }
+
+/* The running total, read top to bottom like a bank statement. */
+.money-ledger td { font-size: 14px; }
+.money-ledger td:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.money-ledger .pos { color: var(--olive); }
+.money-ledger .neg { color: #a5333a; }
+.money-ledger tr.total td { font-weight: 700; border-top: 2px solid rgba(63, 72, 39, 0.34); }
+.money-ledger tr.grand td { font-size: 16px; color: var(--olive); }
+.money-ledger tr:hover td { background: transparent; }
+.money-caveats { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.money-caveats p { font-size: 12.5px; color: var(--sage); margin: 0; line-height: 1.65; padding-left: 12px; border-left: 2px solid var(--gold); }
+
+/* A spend's kind, as a chip — stock purchases pick up the gold, because they
+   are the one kind that buys an asset rather than being consumed. */
+.spend-tag { display: inline-block; font-size: 11px; letter-spacing: 0.4px; padding: 3px 9px; border-radius: 20px; background: var(--sand); color: var(--earth); white-space: nowrap; }
+.spend-tag.stock { background: rgba(169, 130, 56, 0.18); color: var(--olive); font-weight: 600; }
+
+.form-success { font-size: 12.5px; color: #00806B; margin-top: 8px; font-weight: 600; }
+.money-form { max-width: none; }
+
 .stock-sorts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
 .stock-sorts-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--sage); margin-right: 2px; }
 .stock-pager { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 12.5px; color: var(--sage); }
@@ -987,6 +1018,16 @@ a.prod-label:hover span { text-decoration: underline; }
   .guide-tips-grid { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: 1fr 1fr; }
   .admin-main { padding: 24px 18px; }
+  /* The bar stops being the middle column and becomes a full-width rule under
+     the label, so neither the name nor the amount gets squeezed. */
+  .flow-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .flow-track { grid-column: 1 / -1; order: 3; }
+  .flow-amount { text-align: right; }
+  /* The title and its buttons stop competing for one line — on a phone the
+     buttons were running off the right edge and taking the page with them. */
+  .admin-header { flex-wrap: wrap; gap: 12px; }
+  .admin-header > div { flex-wrap: wrap; }
+  .money-form .form-row { flex-direction: column; gap: 0; }
 }
 
 /* Actual Sale Price — the one required field on an order. */

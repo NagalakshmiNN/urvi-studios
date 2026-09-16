@@ -4,7 +4,7 @@
 // local Postgres instance in dev (see src/db/index.ts for how the
 // connection is chosen).
 
-import { pgTable, text, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, boolean, timestamp, date, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 const id = () =>
@@ -223,6 +223,43 @@ export const wishlistItems = pgTable(
     uniq: uniqueIndex("wishlist_customer_product").on(t.customerId, t.productId),
   })
 );
+
+// ---------------------------------------------------------------- Money out
+//
+// The other half of the business. Orders tell us what came in; these two tell
+// us what was put in to start with and what goes out to keep it running, so
+// profit and cash position can be answered from this database rather than from
+// a spreadsheet that goes stale the moment anything is spent.
+//
+// Amounts are PAISE (integers) — see the migration for why.
+
+export const capitalContributions = pgTable("capital_contributions", {
+  id: id(),
+  /** The day the money moved, not the day it was recorded. */
+  contributedOn: date("contributed_on", { mode: "string" }).notNull(),
+  contributor: text("contributor").notNull(),
+  amountPaise: integer("amount_paise").notNull(),
+  mode: text("mode").notNull(), // upi | cash | bank | card | other
+  reference: text("reference"),
+  notes: text("notes"),
+  createdAt: createdAt(),
+});
+
+export const expenses = pgTable("expenses", {
+  id: id(),
+  spentOn: date("spent_on", { mode: "string" }).notNull(),
+  category: text("category").notNull(), // see EXPENSE_CATEGORIES in src/lib/money.ts
+  description: text("description").notNull(),
+  payee: text("payee"),
+  /** What was actually paid, GST included — the figure on the receipt. */
+  amountPaise: integer("amount_paise").notNull(),
+  /** Basis points: 1800 = 18%. Null where GST doesn't apply or isn't known. */
+  gstRateBp: integer("gst_rate_bp"),
+  paymentMode: text("payment_mode").notNull(),
+  reference: text("reference"),
+  notes: text("notes"),
+  createdAt: createdAt(),
+});
 
 export const contactMessages = pgTable("contact_messages", {
   id: id(),
