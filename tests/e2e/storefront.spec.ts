@@ -19,13 +19,83 @@ test.describe("home page", () => {
     // Each card must render an image, not an empty box.
     await expect(categories.nth(0).locator("img")).toBeVisible();
 
-    // Every style guide is linked from the homepage.
-    await expect(page.locator(".mood-grid .mood-card")).toHaveCount(10);
+    // Every style guide is still reachable from the homepage — six as photo
+    // or typographic tiles, the rest as chips underneath. The lettered
+    // monogram grid they replaced is gone.
+    await expect(page.locator(".mood-grid")).toHaveCount(0);
+    await expect(page.locator(".occasion-grid .occasion-card")).toHaveCount(6);
+    await expect(page.locator(".occasion-more-chips a")).toHaveCount(4);
 
     const featured = page.locator(".product-grid .product-card");
     expect(await featured.count()).toBeGreaterThan(0);
     await expect(featured.first().locator(".p-name")).not.toBeEmpty();
     await expect(featured.first().locator("img")).toBeVisible();
+  });
+
+  test("First Look leads with the newest piece and its real details", async ({ page }) => {
+    await page.goto("/");
+
+    const band = page.locator(".first-look");
+    await expect(band).toBeVisible();
+    await expect(band.locator(".eyebrow")).toHaveText("First Look");
+    await expect(band.locator(".first-look-flag")).toHaveText("Just in");
+
+    // The photo is a link to the piece itself, not a decorative image.
+    const photoLink = band.locator("a.first-look-image");
+    await expect(photoLink).toHaveAttribute("href", /^\/product\//);
+    await expect(photoLink.locator("img")).toBeVisible();
+
+    // A price, and the two ways onward.
+    await expect(band.locator(".first-look-price")).toContainText("₹");
+    await expect(band.locator("a", { hasText: "See this piece" })).toHaveAttribute("href", /^\/product\//);
+    await expect(band.locator("a", { hasText: "Everything new" })).toHaveAttribute("href", "/shop");
+
+    // Clicking through lands on that same product.
+    const href = await photoLink.getAttribute("href");
+    await photoLink.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+  });
+
+  test("the occasion tiles never lay a title over a placeholder illustration", async ({ page }) => {
+    await page.goto("/");
+
+    const cards = page.locator(".occasion-card");
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const img = card.locator("img");
+      if ((await img.count()) === 0) continue;
+      // The category illustrations carry their own baked-in lettering, so a
+      // tile is only allowed a photo when it's a real uploaded one. Anything
+      // else renders as a typographic card with no image at all.
+      await expect(img).toHaveAttribute("src", /^\/api\/images\//);
+    }
+
+    // Every tile goes to a real style guide page.
+    await expect(cards.first()).toHaveAttribute("href", /^\/style\//);
+  });
+
+  test("states the four promises with the same numbers the checkout uses", async ({ page }) => {
+    await page.goto("/");
+    const strip = page.locator(".assurance-grid");
+    await expect(strip.locator(".assurance-item")).toHaveCount(4);
+    await expect(strip).toContainText("Exchange within 7 days");
+    // The free-delivery figure is the shared FREE_SHIP_THRESHOLD, not a
+    // number typed into the page — if the threshold moves, this moves.
+    await expect(strip).toContainText("₹5,000");
+    await expect(strip).toContainText("XS to 4XL");
+  });
+
+  test("does not scroll sideways on a phone", async ({ page }) => {
+    // The closed mobile menu used to sit off the right edge as real layout,
+    // which let the whole site be swiped into empty space on a phone.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const scrolled = await page.evaluate(() => {
+      window.scrollTo(600, 0);
+      return window.scrollX;
+    });
+    expect(scrolled).toBe(0);
   });
 
   test("the header cart badge is hidden until something is in the bag", async ({ page }) => {

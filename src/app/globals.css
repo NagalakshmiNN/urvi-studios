@@ -34,7 +34,9 @@
 .flow { font-family: var(--font-script); font-weight: 400; color: var(--gold); }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* `clip` rather than `hidden`: it stops sideways overflow without turning the
+   root into a scroll container, so sticky positioning elsewhere still works. */
+html { scroll-behavior: smooth; overflow-x: clip; }
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -324,6 +326,94 @@ p { line-height: 1.7; color: var(--earth); }
 .category-card .rule-mini { width: 30px; height: 1px; background: var(--gold-light); margin-top: 12px; transition: width 0.3s ease; }
 .category-card:hover .rule-mini { width: 50px; }
 
+/* ---------------- First Look ----------------
+   The newest piece, shown at the scale of a lookbook page rather than a
+   catalogue thumbnail. The photograph takes the larger column because it is
+   the argument; the type beside it only has to answer what it's made of,
+   what it's for and what's in stock. */
+.first-look-grid { display: grid; grid-template-columns: 5fr 6fr; gap: 56px; align-items: center; }
+.first-look-image { position: relative; display: block; border-radius: 4px; overflow: hidden; background: var(--sand); aspect-ratio: 4/5; }
+.first-look-image img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; transition: transform 0.6s ease; }
+.first-look-image:hover img { transform: scale(1.03); }
+.first-look-flag {
+  position: absolute; top: 18px; left: 18px;
+  background: var(--ivory); color: var(--olive);
+  font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 7px 13px; border-radius: 2px;
+}
+.first-look-body h2 { margin: 10px 0 6px; }
+.first-look-price { font-family: var(--font-display); font-size: 26px; color: var(--gold); margin-bottom: 18px; }
+.first-look-line { font-size: 14px; line-height: 1.75; color: var(--earth); margin: 0 0 8px; max-width: 46ch; }
+.first-look-line strong { color: var(--olive); font-weight: 600; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; margin-right: 8px; }
+.first-look-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.first-look-also { margin-top: 38px; padding-top: 26px; border-top: 1px solid var(--line); }
+.first-look-also-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--sage); }
+.first-look-also-row { display: flex; gap: 16px; margin-top: 14px; }
+.first-look-also-card { display: flex; flex-direction: column; gap: 8px; width: 92px; }
+.first-look-also-card img { width: 92px; height: 112px; object-fit: cover; object-position: center top; border-radius: 3px; border: 1px solid var(--line); background: var(--sand); display: block; }
+.first-look-also-card span { font-size: 11.5px; line-height: 1.4; color: var(--sage); }
+.first-look-also-card:hover span { color: var(--olive); }
+
+/* ---------------- Occasion tiles ----------------
+   What the lettered monogram cards used to be. A photograph of the actual
+   garment says more to a first-time visitor than an initial in a circle. */
+.occasion-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.occasion-card {
+  position: relative; display: flex; align-items: flex-end;
+  aspect-ratio: 4/5; border-radius: 4px; overflow: hidden;
+  background: var(--sand); border: 1px solid var(--line);
+}
+.occasion-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; transition: transform 0.6s ease; }
+.occasion-card:hover img { transform: scale(1.04); }
+.occasion-overlay {
+  position: relative; z-index: 2; width: 100%; padding: 20px;
+  /* A deep scrim rather than a soft fade: the title has to hold against a
+     pale garment as reliably as a dark one. */
+  background: linear-gradient(180deg, rgba(18,21,11,0) 0%, rgba(18,21,11,0.5) 42%, rgba(18,21,11,0.88) 100%);
+}
+.occasion-overlay h3 { color: var(--ivory); margin: 0 0 3px; font-size: 21px; }
+.occasion-overlay p { color: var(--sand); font-size: 12.5px; margin: 0; opacity: 0.92; }
+
+/* A category with no real photo yet: a typographic card, centred, no scrim
+   and no illustration to fight with. It becomes a photograph by itself as
+   soon as one is uploaded for that category. */
+.occasion-card.no-photo {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(169,130,56,0.09) 0%, rgba(169,130,56,0) 62%),
+    var(--ivory);
+  border-color: rgba(169, 130, 56, 0.35);
+}
+/* Three bands top to bottom — category, occasion, action — so the card has a
+   structure instead of one line of type floating in the middle of it. */
+.occasion-card.no-photo .occasion-overlay {
+  background: none; text-align: center; padding: 30px 24px;
+  height: 100%; display: flex; flex-direction: column; justify-content: space-between;
+}
+.occasion-card.no-photo .occasion-overlay h3 { color: var(--olive); font-size: 25px; margin: auto 0 0; }
+.occasion-card.no-photo .occasion-overlay h3::after {
+  content: ""; display: block; width: 34px; height: 1px;
+  background: var(--gold); margin: 14px auto 12px;
+}
+.occasion-card.no-photo .occasion-overlay p { color: var(--sage); opacity: 1; margin: 0 auto auto; max-width: 24ch; }
+.occasion-cat { font-size: 10.5px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); }
+.occasion-go { font-size: 11.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--sage); transition: color 0.2s ease; }
+.occasion-card.no-photo:hover { border-color: var(--gold); box-shadow: var(--shadow); }
+.occasion-card.no-photo:hover .occasion-go { color: var(--gold); }
+.occasion-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 30px; justify-content: center; }
+.occasion-more-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--sage); }
+.occasion-more-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+/* ---------------- Assurance strip ----------------
+   Four plain promises, stated in the middle of the page instead of the
+   footer. A label nobody has heard of has to answer "is this safe to buy
+   from" before it can sell anything. */
+.assurance { padding-top: 0; }
+.assurance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.assurance-item { background: #fff; padding: 28px 24px; }
+.assurance-item h4 { font-family: var(--font-display); font-size: 19px; color: var(--olive); margin: 0 0 8px; }
+.assurance-item p { font-size: 13px; line-height: 1.65; color: var(--sage); margin: 0; }
+
 /* ---------------- Mood tiles ---------------- */
 .mood-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
 .mood-card { text-align: center; padding: 30px 10px 26px; background: var(--ivory); border: 1px solid var(--line); border-radius: 4px; transition: 0.2s; }
@@ -449,6 +539,28 @@ p { line-height: 1.7; color: var(--earth); }
 /* ---------------- Product detail ---------------- */
 .pdp { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; padding: 56px 0 90px; align-items: flex-start; }
 .pdp-gallery img { border-radius: 3px; width: 100%; }
+/* The main photo and its arrows share a stacking context, so the arrows sit
+   over the image rather than pushing it around. */
+.pdp-stage { position: relative; }
+.pdp-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.92);
+  color: var(--olive); font-size: 17px; line-height: 1; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.pdp-arrow:hover { background: #fff; border-color: var(--gold); color: var(--gold); }
+.pdp-arrow:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.pdp-arrow.prev { left: 12px; }
+.pdp-arrow.next { right: 12px; }
+/* Which photo of how many — the arrows are useless without it. */
+.pdp-counter {
+  position: absolute; bottom: 12px; right: 12px;
+  background: rgba(43, 42, 36, 0.62); color: #fff;
+  font-size: 11.5px; letter-spacing: 0.5px; padding: 4px 9px; border-radius: 20px;
+}
 .pdp-thumbs { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .pdp-thumb {
   padding: 0; border: 1.5px solid transparent; border-radius: 3px; overflow: hidden;
@@ -671,12 +783,38 @@ p { line-height: 1.7; color: var(--earth); }
 .admin-table tr:hover td { background: #fbf8f2; }
 .admin-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 26px; }
 
-/* Stock table: the photo sits with the name, so a row is recognisable at a
-   glance rather than having to be read. */
+/* Admin tables: the photo sits with the name, so a row is recognisable at a
+   glance rather than having to be read. Used on Stock, Products, the
+   dashboard tables and inside an order — the same pairing everywhere. */
+.prod-label { display: inline-flex; align-items: center; gap: 11px; min-width: 200px; }
+.prod-thumb {
+  object-fit: cover; object-position: center top; display: block;
+  border-radius: 2px; border: 1px solid var(--line); background: var(--sand);
+}
+.prod-thumb-md { width: 36px; height: 44px; flex: 0 0 36px; }
+.prod-thumb-sm { width: 28px; height: 34px; flex: 0 0 28px; }
+/* No photo yet: a deliberate empty frame, never a broken-image glyph. */
+.prod-thumb-empty { background: var(--sand) center / 14px no-repeat; position: relative; }
+.prod-thumb-empty::after {
+  content: ""; position: absolute; inset: 25% 22%;
+  border: 1px solid var(--line); border-radius: 1px;
+}
 .stock-product { display: flex; align-items: center; gap: 11px; color: var(--olive); font-weight: 600; min-width: 220px; }
-.stock-thumb { width: 36px; height: 44px; flex: 0 0 36px; object-fit: cover; object-position: center top; border-radius: 2px; border: 1px solid var(--line); background: var(--sand); display: block; }
-.stock-thumb-empty { background: var(--sand); }
 .stock-product:hover span { text-decoration: underline; }
+a.prod-label { color: var(--olive); font-weight: 600; }
+a.prod-label:hover span { text-decoration: underline; }
+
+/* What's sitting in one size: a wrapped strip of photos with their names,
+   instead of a run-on comma list that has to be read word by word. */
+.size-items { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.size-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--earth); max-width: 240px; }
+.size-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.size-item em { font-style: normal; font-weight: 700; color: var(--olive); }
+.size-item:hover > span { text-decoration: underline; }
+
+/* Sits in the item row on Record a Sale, level with the select beside it
+   rather than with the label above it. */
+.picker-thumb-slot { flex: 0 0 auto; max-width: 36px; padding-bottom: 12px; }
 
 /* A costing figure with its markup over landed cost tucked into the top-right
    corner, e.g. ₹850 tagged "+70%". Shared by the editable inputs on Products
@@ -716,6 +854,8 @@ p { line-height: 1.7; color: var(--earth); }
 .stock-filters .chip { font-size: 11.5px; padding: 6px 12px; }
 .btn-sm { padding: 8px 16px; font-size: 11px; }
 
+.stock-sorts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.stock-sorts-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--sage); margin-right: 2px; }
 .stock-pager { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 12.5px; color: var(--sage); }
 .stock-pager-links { display: flex; flex-wrap: wrap; gap: 6px; }
 .stock-pager-links .chip { font-size: 11.5px; padding: 6px 11px; }
@@ -796,6 +936,12 @@ p { line-height: 1.7; color: var(--earth); }
   .product-grid { grid-template-columns: repeat(3, 1fr); }
   .category-grid { grid-template-columns: repeat(2, 1fr); }
   .mood-grid { grid-template-columns: repeat(3, 1fr); }
+  .occasion-grid { grid-template-columns: repeat(2, 1fr); }
+  .assurance-grid { grid-template-columns: repeat(2, 1fr); }
+  /* The photo stops leading once it can't be big — stacked, it reads as a
+     header image with the piece's details under it. */
+  .first-look-grid { grid-template-columns: 1fr; gap: 32px; }
+  .first-look-image { aspect-ratio: 3/2; }
   .pdp, .cart-layout, .checkout-layout, .split, .contact-grid, .account-layout { grid-template-columns: 1fr; gap: 34px; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .her-editions { grid-template-columns: repeat(3, 1fr); }
@@ -806,12 +952,33 @@ p { line-height: 1.7; color: var(--earth); }
   .export-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 680px) {
-  .main-nav { position: fixed; top: 0; right: -100%; width: 78%; height: 100vh; background: var(--ivory); flex-direction: column; align-items: flex-start; padding: 90px 30px; gap: 22px; transition: right 0.3s ease; box-shadow: -10px 0 30px rgba(0,0,0,0.1); z-index: 200; }
-  .main-nav.open { right: 0; }
+  /* The closed drawer is parked with a transform rather than `right: -100%`.
+     Offsetting it that way left it sitting outside the viewport as real
+     layout, which made the document 780px wide on a 390px phone — every page
+     could be swiped sideways into empty space. A transform doesn't affect
+     layout, and `visibility` keeps the closed menu out of the tab order. */
+  .main-nav {
+    position: fixed; top: 0; right: 0; width: 78%; height: 100vh;
+    background: var(--ivory); flex-direction: column; align-items: flex-start;
+    padding: 90px 30px; gap: 22px;
+    transform: translateX(100%); visibility: hidden;
+    transition: transform 0.3s ease, visibility 0s linear 0.3s;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1); z-index: 200;
+  }
+  .main-nav.open { transform: translateX(0); visibility: visible; transition: transform 0.3s ease, visibility 0s; }
   .menu-toggle { display: block; }
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 16px 12px; }
   .category-grid { grid-template-columns: 1fr; }
   .mood-grid { grid-template-columns: repeat(2, 1fr); }
+  .occasion-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .occasion-overlay { padding: 14px; }
+  .occasion-overlay h3 { font-size: 17px; }
+  .occasion-overlay p { font-size: 11.5px; }
+  /* One promise per line on a phone: four columns squeezed into 320px is
+     four unreadable columns. */
+  .assurance-grid { grid-template-columns: 1fr; }
+  .first-look-image { aspect-ratio: 4/5; }
+  .first-look-cta .btn { flex: 1; text-align: center; }
   .her-editions { grid-template-columns: repeat(2, 1fr); }
   .footer-grid { grid-template-columns: 1fr; gap: 30px; }
   .hero-inner { padding: 60px 20px 70px; }

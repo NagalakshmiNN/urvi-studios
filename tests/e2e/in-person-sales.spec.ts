@@ -354,7 +354,7 @@ test.describe("the stock sheet", () => {
 
     // The product's own photo sits beside the name, so a row can be
     // recognised at a glance instead of read.
-    const thumb = row.locator("img.stock-thumb");
+    const thumb = row.locator("img.prod-thumb");
     await expect(thumb).toHaveAttribute("src", "/placeholders/casual-wear.svg");
     await expect(thumb).toBeVisible();
 
@@ -417,6 +417,49 @@ test.describe("the stock sheet", () => {
 
     await deleteTestProduct(wanted.id);
     await deleteTestProduct(other.id);
+  });
+
+  test("sorts by price in both directions, and keeps the search while sorting", async ({ page }) => {
+    const tag = `Pricesort${Date.now().toString(36)}`;
+    const cheap = await createTestProduct({ name: `${tag} Cheapest Kurti`, price: 600, stock: 1, sizes: ["M"] });
+    const mid = await createTestProduct({ name: `${tag} Middle Suit`, price: 1800, stock: 1, sizes: ["M"] });
+    const dear = await createTestProduct({ name: `${tag} Dearest Lehenga`, price: 5400, stock: 1, sizes: ["M"] });
+
+    await loginAsAdmin(page);
+    await page.goto(`/admin/stock?q=${encodeURIComponent(tag)}`);
+
+    // Default order is alphabetical, so price sorting is a real change.
+    const names = () => page.locator("tbody tr td:first-child").allTextContents();
+    expect(await names()).toEqual([
+      `${tag} Cheapest Kurti`,
+      `${tag} Dearest Lehenga`,
+      `${tag} Middle Suit`,
+    ]);
+
+    await page.locator(".stock-sorts a", { hasText: "Price: Low to High" }).click();
+    await expect(page).toHaveURL(/sort=price-asc/);
+    // The search survives the sort — sorting must not silently widen the view.
+    await expect(page).toHaveURL(new RegExp(`q=${tag}`));
+    expect(await names()).toEqual([
+      `${tag} Cheapest Kurti`,
+      `${tag} Middle Suit`,
+      `${tag} Dearest Lehenga`,
+    ]);
+
+    await page.locator(".stock-sorts a", { hasText: "Price: High to Low" }).click();
+    await expect(page).toHaveURL(/sort=price-desc/);
+    expect(await names()).toEqual([
+      `${tag} Dearest Lehenga`,
+      `${tag} Middle Suit`,
+      `${tag} Cheapest Kurti`,
+    ]);
+
+    // Clearing the search keeps the order she picked.
+    await page.locator("a", { hasText: "Clear" }).click();
+    await expect(page).toHaveURL(/sort=price-desc/);
+    await expect(page.locator(".stock-sorts a.active")).toHaveText("Price: High to Low");
+
+    for (const p of [cheap, mid, dear]) await deleteTestProduct(p.id);
   });
 
   test("pages the table at 100 rows and keeps the search while paging", async ({ page }) => {

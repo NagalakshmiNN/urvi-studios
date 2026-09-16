@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { updateProductAction } from "@/app/actions/admin";
 import { markupPercent } from "@/lib/markup";
 import Link from "next/link";
+import ProductThumb, { firstImageUrl } from "@/components/admin/ProductThumb";
 import DeleteProductButton from "./DeleteProductButton";
 
 type Product = {
@@ -13,7 +14,6 @@ type Product = {
   name: string;
   slug: string;
   price: number;
-  compareAtPrice: number | null;
   landedCost: number | null;
   minRoundUpTo: number | null;
   maxRoundUpTo: number | null;
@@ -21,7 +21,7 @@ type Product = {
   stock: number;
   isActive: boolean;
   category: { name: string };
-  images: { url: string }[];
+  images: { url: string; position: number }[];
 };
 
 // An editable costing number (Min/Max Round Up To) with its markup over
@@ -76,20 +76,17 @@ export default function ProductRow({ product }: { product: Product }) {
         )}
       <tr>
         <td>
-          <img src={product.images[0]?.url} alt="" style={{ width: 42, height: 52, objectFit: "cover", borderRadius: 2 }} />
-        </td>
-        <td><code style={{ fontSize: 12 }}>{product.sku}</code></td>
-        <td>
-          <Link href={`/product/${product.slug}`} target="_blank" style={{ color: "var(--olive)", fontWeight: 600 }}>
-            {product.name}
+          {/* Photo and name are one target: the thumbnail is the quickest way
+              to find the right row, so clicking it should go somewhere. */}
+          <Link href={`/product/${product.slug}`} target="_blank" className="prod-label">
+            <ProductThumb url={firstImageUrl(product.images)} name={product.name} />
+            <span>{product.name}</span>
           </Link>
         </td>
+        <td><code style={{ fontSize: 12 }}>{product.sku}</code></td>
         <td>{product.category.name}</td>
         <td>
           <input form={formId} type="number" name="price" defaultValue={product.price} style={{ width: 80 }} className="admin-inline-input" />
-        </td>
-        <td>
-          <input form={formId} type="number" name="compareAtPrice" defaultValue={product.compareAtPrice ?? ""} style={{ width: 80 }} className="admin-inline-input" />
         </td>
         <td>
           <input form={formId} type="number" name="landedCost" defaultValue={product.landedCost ?? ""} style={{ width: 80 }} className="admin-inline-input" />

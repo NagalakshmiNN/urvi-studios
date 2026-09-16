@@ -120,7 +120,6 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
 
   const productId = String(formData.get("productId") || "");
   const price = parseInt(String(formData.get("price") || ""), 10);
-  const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
   const landedCost = optionalInt(formData, "landedCost");
   const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
   const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
@@ -133,11 +132,15 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
   // Stock is tracked per size now (see the Edit Product page) — this quick
   // row edit no longer touches it, so a stray save here can never overwrite
   // a real per-size count with a stale total.
+  //
+  // Compare-at price is left out for the same reason: the column was taken
+  // off this screen, and writing a field the form no longer collects would
+  // blank out every product's compare-at on the next Save. It stays editable
+  // on the full Edit Product page.
   await db
     .update(schema.products)
     .set({
       price,
-      compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       landedCost,
       minRoundUpTo,
       maxRoundUpTo,

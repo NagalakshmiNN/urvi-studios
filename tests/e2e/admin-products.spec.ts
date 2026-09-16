@@ -116,6 +116,76 @@ test.describe("products list", () => {
     await deleteTestProduct(product.id);
   });
 
+  test("leads each row with the product's own photo, and no longer carries Compare-at", async ({ page }) => {
+    const product = await createTestProduct({
+      name: "Thumbnail Row Product",
+      price: 1600,
+      images: ["/placeholders/festive-wear.svg", "/placeholders/kurta.svg"],
+    });
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/products");
+
+    const row = page.locator("tbody tr", { hasText: "Thumbnail Row Product" });
+
+    // The photo is the first thing in the row, and it's the product's own
+    // first photo — not the second, and not a broken image.
+    const thumb = row.locator("img.prod-thumb");
+    await expect(thumb).toBeVisible();
+    await expect(thumb).toHaveAttribute("src", "/placeholders/festive-wear.svg");
+
+    // Photo and name are one link, so clicking the picture goes somewhere.
+    await expect(row.locator("a.prod-label")).toContainText("Thumbnail Row Product");
+
+    // Compare-at is gone from this screen entirely — header and input both.
+    await expect(page.locator("table.admin-table thead")).not.toContainText("Compare-at");
+    await expect(row.locator('input[name="compareAtPrice"]')).toHaveCount(0);
+
+    await deleteTestProduct(product.id);
+  });
+
+  test("a product with no photo shows an empty frame, not a broken image", async ({ page }) => {
+    const product = await createTestProduct({ name: "No Photo Product", price: 900, images: [] });
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/products");
+
+    const row = page.locator("tbody tr", { hasText: "No Photo Product" });
+    // Deliberately not an <img>: an <img> with no src renders as a broken
+    // glyph, which is what this whole component exists to avoid.
+    await expect(row.locator("img.prod-thumb")).toHaveCount(0);
+    await expect(row.locator("span.prod-thumb-empty")).toHaveCount(1);
+
+    await deleteTestProduct(product.id);
+  });
+
+  test("an inline save leaves compare-at price alone now the column is gone", async ({ page }) => {
+    const product = await createTestProduct({ name: "Compare At Keeper", price: 1200 });
+    await withDb((client) =>
+      client.query("update products set compare_at_price = 1999 where id = $1", [product.id])
+    );
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/products");
+    const row = page.locator("tbody tr", { hasText: "Compare At Keeper" });
+    const save = row.locator("button", { hasText: "Save" });
+    await expect(save).toBeEnabled();
+
+    await row.locator('input[name="price"]').fill("1350");
+    await save.click();
+
+    // The danger with removing a field from a form is the action still
+    // writing it — every Save would silently blank the compare-at price on
+    // every product. It must survive untouched.
+    await expect(async () => {
+      const saved = await getProductBySlug(product.slug);
+      expect(saved!.price).toBe(1350);
+      expect(saved!.compare_at_price).toBe(1999);
+    }).toPass({ timeout: 10_000 });
+
+    await deleteTestProduct(product.id);
+  });
+
   test("refuses to save an invalid price", async ({ page }) => {
     const product = await createTestProduct({ name: "Bad Price Product", price: 1000 });
     await loginAsAdmin(page);

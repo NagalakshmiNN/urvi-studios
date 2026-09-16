@@ -45,20 +45,59 @@ test.describe("product page", () => {
   test("shows every uploaded photo as a thumbnail and swaps the main image", async ({ page }) => {
     await page.goto(`/product/${multiPhoto.slug}`);
 
-    await expect(page.locator(".pdp-gallery > img")).toBeVisible();
+    await expect(page.locator(".pdp-stage > img")).toBeVisible();
     const thumbs = page.locator(".pdp-thumb");
     await expect(thumbs).toHaveCount(3);
 
-    const mainBefore = await page.locator(".pdp-gallery > img").getAttribute("src");
+    const mainBefore = await page.locator(".pdp-stage > img").getAttribute("src");
     await thumbs.nth(2).click();
-    await expect(page.locator(".pdp-gallery > img")).not.toHaveAttribute("src", mainBefore ?? "");
+    await expect(page.locator(".pdp-stage > img")).not.toHaveAttribute("src", mainBefore ?? "");
     await expect(thumbs.nth(2)).toHaveClass(/selected/);
   });
 
   test("shows no thumbnail strip when there is only one photo", async ({ page }) => {
     await page.goto(`/product/${singlePhoto.slug}`);
-    await expect(page.locator(".pdp-gallery > img")).toBeVisible();
+    await expect(page.locator(".pdp-stage > img")).toBeVisible();
     await expect(page.locator(".pdp-thumbs")).toHaveCount(0);
+  });
+
+  test("arrows move through the photos and wrap around at both ends", async ({ page }) => {
+    await page.goto(`/product/${multiPhoto.slug}`);
+
+    const main = page.locator(".pdp-stage > img");
+    const next = page.getByRole("button", { name: "Next photo" });
+    const prev = page.getByRole("button", { name: "Previous photo" });
+    const counter = page.locator(".pdp-counter");
+
+    await expect(counter).toHaveText("1 / 3");
+    const first = await main.getAttribute("src");
+
+    await next.click();
+    await expect(counter).toHaveText("2 / 3");
+    await expect(main).not.toHaveAttribute("src", first ?? "");
+
+    await next.click();
+    await expect(counter).toHaveText("3 / 3");
+
+    // Neither arrow is ever a dead control: the last photo's Next returns to
+    // the first, the way a phone gallery behaves.
+    await next.click();
+    await expect(counter).toHaveText("1 / 3");
+    await expect(main).toHaveAttribute("src", first ?? "");
+
+    // And backwards from the first, the same way.
+    await prev.click();
+    await expect(counter).toHaveText("3 / 3");
+
+    // The thumbnail strip stays in step with the arrows — they drive one
+    // selection, not two that can drift apart.
+    await expect(page.locator(".pdp-thumb").nth(2)).toHaveClass(/selected/);
+  });
+
+  test("shows no arrows when there is only one photo", async ({ page }) => {
+    await page.goto(`/product/${singlePhoto.slug}`);
+    await expect(page.getByRole("button", { name: "Next photo" })).toHaveCount(0);
+    await expect(page.locator(".pdp-counter")).toHaveCount(0);
   });
 
   test("renders a rich-text description as real formatting, not escaped markup", async ({ page }) => {

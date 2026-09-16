@@ -53,6 +53,29 @@ export default function ProductDetailClient({
   const [activeImage, setActiveImage] = useState(0);
   const mainImage = product.images[activeImage] ?? product.images[0];
 
+  // The arrows wrap, so neither one is ever a dead control — reaching the last
+  // photo and pressing Next goes back to the first, the way a phone gallery
+  // behaves. `% count` guards against a count of zero producing NaN.
+  const imageCount = product.images.length;
+  const showPrev = () => setActiveImage((i) => (imageCount ? (i - 1 + imageCount) % imageCount : 0));
+  const showNext = () => setActiveImage((i) => (imageCount ? (i + 1) % imageCount : 0));
+
+  // Left/right arrow keys move through the photos too, but only once the
+  // gallery has been touched — hijacking them on page load would break normal
+  // scrolling for someone who never looked at the pictures.
+  useEffect(() => {
+    if (imageCount < 2) return;
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement;
+      if (el instanceof HTMLElement && el.closest(".pdp-gallery") == null) return;
+      if (e.key === "ArrowLeft") showPrev();
+      if (e.key === "ArrowRight") showNext();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageCount]);
+
   // Stock is tracked per size — fall back to the product total only for the
   // rare unsized product.
   const selectedSize = product.sizes.find((s) => s.label === size);
@@ -83,7 +106,32 @@ export default function ProductDetailClient({
   return (
     <div className="pdp">
       <div className="pdp-gallery">
-        <img src={mainImage?.url} alt={product.name} />
+        <div className="pdp-stage">
+          <img src={mainImage?.url} alt={product.name} />
+          {product.images.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="pdp-arrow prev"
+                onClick={showPrev}
+                aria-label="Previous photo"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="pdp-arrow next"
+                onClick={showNext}
+                aria-label="Next photo"
+              >
+                ›
+              </button>
+              <span className="pdp-counter">
+                {activeImage + 1} / {product.images.length}
+              </span>
+            </>
+          )}
+        </div>
         {product.images.length > 1 && (
           <div className="pdp-thumbs">
             {product.images.map((img, i) => (

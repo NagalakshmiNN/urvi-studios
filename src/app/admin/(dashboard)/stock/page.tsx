@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { formatINR } from "@/lib/format";
 import { markupPercent } from "@/lib/markup";
 import Link from "next/link";
+import ProductThumb, { firstImageUrl } from "@/components/admin/ProductThumb";
 
 // A round-up price with its markup over landed cost as a small corner badge —
 // the read-only twin of the editable version on the Products screen, so a
@@ -30,9 +31,9 @@ const PAGE_SIZE = 100;
 export default async function AdminStockPage({
   searchParams,
 }: {
-  searchParams: Promise<{ show?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ show?: string; q?: string; page?: string; sort?: string }>;
 }) {
-  const { show = "all", q = "", page: pageParam } = await searchParams;
+  const { show = "all", q = "", page: pageParam, sort = "name" } = await searchParams;
   const search = q.trim();
 
   const products = await db.query.products.findMany({
@@ -59,7 +60,7 @@ export default async function AdminStockPage({
     const sizes = [...p.sizes].sort((a, b) => a.position - b.position);
     // The product's own first photo — the same one the storefront leads with,
     // so what's on this screen matches what she'd recognise on the rail.
-    const image = [...p.images].sort((a, b) => a.position - b.position)[0]?.url ?? null;
+    const image = firstImageUrl(p.images);
     for (const s of sizes) {
       rows.push({
         productId: p.id,
@@ -91,9 +92,23 @@ export default async function AdminStockPage({
       ? searched.filter((r) => r.stock === 0)
       : searched;
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Sorting happens after filtering and before paging, so "cheapest first"
+  // means the cheapest of what's actually being shown — and page 1 really is
+  // the cheapest 100, not the first 100 alphabetically then sorted.
+  //
+  // Every sort falls back to name, then size, so rows of the same price keep
+  // a stable, readable order instead of shuffling between page loads.
+  const byName = (a: Row, b: Row) => a.name.localeCompare(b.name) || a.size.localeCompare(b.size);
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === "price-asc") return a.price - b.price || byName(a, b);
+    if (sort === "price-desc") return b.price - a.price || byName(a, b);
+    if (sort === "stock-asc") return a.stock - b.stock || byName(a, b);
+    return byName(a, b);
+  });
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(Math.max(1, Number(pageParam) || 1), pageCount);
-  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const visible = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // The totals describe what the search is showing, not the whole catalog —
   // searching "co-ord" and reading the whole-catalog value would be worse than
@@ -106,13 +121,17 @@ export default async function AdminStockPage({
   const runningLow = searched.filter((r) => r.stock > 0 && r.stock < 5).length;
 
   /** A link back to this screen keeping whatever isn't being changed. */
-  function href(next: { show?: string; page?: number }) {
+  function href(next: { show?: string; page?: number; sort?: string }) {
     const params = new URLSearchParams();
     const nextShow = next.show ?? show;
     if (nextShow && nextShow !== "all") params.set("show", nextShow);
     if (search) params.set("q", search);
-    // Changing the filter always returns to page one; there may be no page 4.
-    const nextPage = next.page ?? (next.show !== undefined ? 1 : currentPage);
+    const nextSort = next.sort ?? sort;
+    if (nextSort && nextSort !== "name") params.set("sort", nextSort);
+    // Changing the filter or the sort always returns to page one — page 4 of
+    // the old order is meaningless in the new one, and there may be no page 4.
+    const changedView = next.show !== undefined || next.sort !== undefined;
+    const nextPage = next.page ?? (changedView ? 1 : currentPage);
     if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();
     return qs ? `/admin/stock?${qs}` : "/admin/stock";
@@ -124,7 +143,23 @@ export default async function AdminStockPage({
     { value: "out", label: `Sold out (${outOfStock})` },
   ];
 
-  const firstShown = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  /** Same screen, same filter and order, without the search term. */
+  function clearSearchHref() {
+    const params = new URLSearchParams();
+    if (show !== "all") params.set("show", show);
+    if (sort !== "name") params.set("sort", sort);
+    const qs = params.toString();
+    return qs ? `/admin/stock?${qs}` : "/admin/stock";
+  }
+
+  const SORTS = [
+    { value: "name", label: "A–Z" },
+    { value: "price-asc", label: "Price: Low to High" },
+    { value: "price-desc", label: "Price: High to Low" },
+    { value: "stock-asc", label: "Fewest pieces first" },
+  ];
+
+  const firstShown = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastShown = (currentPage - 1) * PAGE_SIZE + visible.length;
 
   return (
@@ -165,6 +200,8 @@ export default async function AdminStockPage({
             bookmarked or shared as a URL. */}
         <form className="stock-search" action="/admin/stock" method="get">
           {show !== "all" && <input type="hidden" name="show" value={show} />}
+          {/* Searching must not silently reset the chosen order. */}
+          {sort !== "name" && <input type="hidden" name="sort" value={sort} />}
           <input
             type="search"
             name="q"
@@ -174,8 +211,10 @@ export default async function AdminStockPage({
             className="admin-inline-input"
           />
           <button type="submit" className="btn btn-outline btn-sm">Search</button>
+          {/* Clearing the search clears only the search — the filter and the
+              chosen order are still what she picked. */}
           {search && (
-            <Link href={show === "all" ? "/admin/stock" : `/admin/stock?show=${show}`} className="link-btn">
+            <Link href={clearSearchHref()} className="link-btn">
               Clear
             </Link>
           )}
@@ -188,6 +227,17 @@ export default async function AdminStockPage({
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Sorting sits under the filters because that's the order it's used in:
+          narrow down to what you're looking at, then decide how to read it. */}
+      <div className="stock-sorts">
+        <span className="stock-sorts-label">Sort by</span>
+        {SORTS.map((s) => (
+          <Link key={s.value} href={href({ sort: s.value })} className={`chip ${sort === s.value ? "active" : ""}`}>
+            {s.label}
+          </Link>
+        ))}
       </div>
 
       {search && (
@@ -226,11 +276,7 @@ export default async function AdminStockPage({
                 <tr key={`${r.productId}-${r.size}`}>
                   <td>
                     <Link href={`/admin/products/${r.productId}/edit`} className="stock-product">
-                      {r.image ? (
-                        <img src={r.image} alt="" className="stock-thumb" />
-                      ) : (
-                        <span className="stock-thumb stock-thumb-empty" aria-hidden="true" />
-                      )}
+                      <ProductThumb url={r.image} name={r.name} />
                       <span>{r.name}</span>
                     </Link>
                   </td>
@@ -261,7 +307,7 @@ export default async function AdminStockPage({
       {pageCount > 1 && (
         <div className="stock-pager">
           <span>
-            Showing {firstShown}–{lastShown} of {filtered.length}
+            Showing {firstShown}–{lastShown} of {sorted.length}
           </span>
           <div className="stock-pager-links">
             <Link

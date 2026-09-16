@@ -23,12 +23,10 @@ export default async function AdminProductsPage() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th></th>
+              <th>Product</th>
               <th>Product ID</th>
-              <th>Name</th>
               <th>Category</th>
               <th>Price</th>
-              <th>Compare-at</th>
               <th>Landed Cost</th>
               <th>Min Round Up To</th>
               <th>Max Round Up To</th>

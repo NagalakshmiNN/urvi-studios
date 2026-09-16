@@ -3,6 +3,7 @@ import { desc, sql, lt } from "drizzle-orm";
 import { formatINR } from "@/lib/format";
 import Link from "next/link";
 import MonthlyRevenueChart from "@/components/admin/MonthlyRevenueChart";
+import ProductThumbInline, { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
 import { monthlyPerformance, revenueByChannel, countsAsSale, orderRevenue } from "@/lib/monthly-performance";
 import { SOURCE_LABELS } from "@/lib/order-channels";
 
@@ -16,7 +17,11 @@ export default async function AdminDashboardPage() {
     .select({ count: sql<number>`count(*)` })
     .from(schema.orders)
     .where(sql`${schema.orders.status} in ('PLACED', 'CONFIRMED')`);
-  const lowStock = await db.query.products.findMany({ where: lt(schema.products.stock, 5), orderBy: schema.products.stock });
+  const lowStock = await db.query.products.findMany({
+    where: lt(schema.products.stock, 5),
+    with: { images: true },
+    orderBy: schema.products.stock,
+  });
   const recentOrders = await db.query.orders.findMany({ orderBy: desc(schema.orders.createdAt), limit: 8 });
 
   // Every order with its lines, for the month-by-month chart and the channel
@@ -35,21 +40,24 @@ export default async function AdminDashboardPage() {
   // Stock is tracked per size (product_sizes.stock is the source of truth;
   // products.stock is kept as a synced total) — so this is a real
   // size-by-size breakdown, not an approximation from the product total.
-  const allProducts = await db.query.products.findMany({ with: { sizes: true } });
+  const allProducts = await db.query.products.findMany({ with: { sizes: true, images: true } });
   const totalUnits = allProducts.reduce((sum, p) => sum + p.stock, 0);
   const activeUnits = allProducts.filter((p) => p.isActive).reduce((sum, p) => sum + p.stock, 0);
 
   const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "ONE SIZE"];
-  const bySize = new Map<string, { units: number; items: { name: string; stock: number }[] }>();
-  const lowStockSizes: { productName: string; size: string; stock: number }[] = [];
+  type SizeItem = { id: string; name: string; image: string | null; stock: number };
+  const bySize = new Map<string, { units: number; items: SizeItem[] }>();
+  const lowStockSizes: { productId: string; productName: string; image: string | null; size: string; stock: number }[] = [];
   for (const p of allProducts) {
+    const image = firstImageUrl(p.images);
     for (const s of p.sizes) {
       const label = s.label.trim();
       if (!bySize.has(label)) bySize.set(label, { units: 0, items: [] });
       const entry = bySize.get(label)!;
       entry.units += s.stock;
-      entry.items.push({ name: p.name, stock: s.stock });
-      if (p.isActive && s.stock < 5) lowStockSizes.push({ productName: p.name, size: label, stock: s.stock });
+      entry.items.push({ id: p.id, name: p.name, image, stock: s.stock });
+      if (p.isActive && s.stock < 5)
+        lowStockSizes.push({ productId: p.id, productName: p.name, image, size: label, stock: s.stock });
     }
   }
   lowStockSizes.sort((a, b) => a.stock - b.stock);
@@ -148,8 +156,19 @@ export default async function AdminDashboardPage() {
                 <td style={{ fontWeight: 600 }}>{label}</td>
                 <td>{data.items.length}</td>
                 <td>{data.units}</td>
-                <td style={{ fontSize: 12.5, color: "var(--earth)" }}>
-                  {data.items.map((it) => `${it.name} (${it.stock})`).join(", ")}
+                <td>
+                  {/* Photo-first, because a row of pictures answers "what's
+                      sitting in XL" faster than a run-on list of names. */}
+                  <div className="size-items">
+                    {data.items.map((it) => (
+                      <Link key={it.id} href={`/admin/products/${it.id}/edit`} className="size-item" title={it.name}>
+                        <ProductThumbInline url={it.image} name={it.name} />
+                        <span>
+                          {it.name} <em>({it.stock})</em>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -173,7 +192,9 @@ export default async function AdminDashboardPage() {
             <tbody>
               {lowStockSizes.map((row, i) => (
                 <tr key={i}>
-                  <td>{row.productName}</td>
+                  <td>
+                    <ProductLabel url={row.image} name={row.productName} href={`/admin/products/${row.productId}/edit`} />
+                  </td>
                   <td style={{ fontWeight: 600 }}>{row.size}</td>
                   <td style={{ color: row.stock === 0 ? "#a5333a" : "inherit" }}>{row.stock}</td>
                 </tr>
@@ -193,7 +214,9 @@ export default async function AdminDashboardPage() {
             <tbody>
               {lowStock.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.name}</td>
+                  <td>
+                    <ProductLabel url={firstImageUrl(p.images)} name={p.name} href={`/admin/products/${p.id}/edit`} />
+                  </td>
                   <td>{p.stock}</td>
                   <td><Link href="/admin/products" className="link-btn">Update</Link></td>
                 </tr>

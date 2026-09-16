@@ -1,10 +1,11 @@
 import { db } from "@/db";
 import ManualOrderForm from "./ManualOrderForm";
+import { firstImageUrl } from "@/components/admin/ProductThumb";
 
 export default async function NewManualOrderPage() {
   const products = await db.query.products.findMany({
     where: (p, { eq }) => eq(p.isActive, true),
-    with: { sizes: true, colors: true },
+    with: { sizes: true, colors: true, images: true },
     orderBy: (p, { asc }) => [asc(p.name)],
   });
 
@@ -25,6 +26,7 @@ export default async function NewManualOrderPage() {
             name: p.name,
             price: p.price,
             stock: p.stock,
+            image: firstImageUrl(p.images),
             sizes: p.sizes.map((s) => ({ label: s.label, stock: s.stock })),
             colors: p.colors.map((c) => ({ name: c.name })),
           }))}

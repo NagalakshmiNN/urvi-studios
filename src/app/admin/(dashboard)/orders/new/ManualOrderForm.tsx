@@ -4,12 +4,14 @@ import { useActionState, useState } from "react";
 import { createManualOrderAction } from "@/app/actions/admin";
 import { formatINR } from "@/lib/format";
 import { MANUAL_SOURCES, PAYMENT_MODES } from "@/lib/order-channels";
+import ProductThumb from "@/components/admin/ProductThumb";
 
 type Product = {
   id: string;
   name: string;
   price: number;
   stock: number;
+  image: string | null;
   sizes: { label: string; stock: number }[];
   colors: { name: string }[];
 };
@@ -106,6 +108,12 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
         const product = byId.get(row.productId);
         return (
           <div key={row.key} className="form-row" style={{ alignItems: "flex-end" }}>
+            {/* A dropdown can't carry a photo, so the chosen product's own
+                photo sits beside it — the quickest check that the right piece
+                was picked before the stock comes out. */}
+            <div className="form-group picker-thumb-slot">
+              <ProductThumb url={product?.image} name={product?.name} />
+            </div>
             <div className="form-group" style={{ flex: 2 }}>
               <label>Product</label>
               <select

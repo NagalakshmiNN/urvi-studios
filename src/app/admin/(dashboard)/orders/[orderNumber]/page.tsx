@@ -10,10 +10,17 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { statusCustomerLine } from "@/lib/order-status-copy";
 import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
 import { SITE } from "@/lib/site-config";
+import { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
-  const order = await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } });
+  // Each line carries its product's photos, so the Items table can show what
+  // was actually sold. A line whose product was later deleted has no product
+  // at all — hence the optional chaining below, not a non-null assertion.
+  const order = await db.query.orders.findFirst({
+    where: eq(schema.orders.orderNumber, orderNumber),
+    with: { items: { with: { product: { with: { images: true } } } } },
+  });
   if (!order) notFound();
 
   // A true automatic WhatsApp push to the customer needs a WhatsApp
@@ -51,7 +58,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <tbody>
             {order.items.map((item) => (
               <tr key={item.id}>
-                <td>{item.productName}</td>
+                <td>
+                  <ProductLabel
+                    url={firstImageUrl(item.product?.images)}
+                    name={item.productName}
+                    href={item.productId ? `/admin/products/${item.productId}/edit` : undefined}
+                  />
+                </td>
                 <td><code style={{ fontSize: 12 }}>{item.sku || "—"}</code></td>
                 <td>{item.size}</td>
                 <td>{item.color}</td>
