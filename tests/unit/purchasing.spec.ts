@@ -26,6 +26,7 @@ import {
   type MarkupBand,
 } from "../../src/lib/markup-bands";
 import { parseInvoiceBrief, parseRupees, reconcile } from "../../src/lib/invoice-brief";
+import { canPreview, checkUpload, humanSize, isDocumentKind, MAX_BYTES, safeFilename } from "../../src/lib/purchase-documents";
 
 function line(over: Partial<PurchaseLineInput> = {}): PurchaseLineInput {
   return { item: "Kurti", size: "M", qty: 1, unitPricePaise: 100_00, gstRatePct: 5, ...over };
@@ -309,5 +310,57 @@ test.describe("reading the invoice block", () => {
     expect(parseRupees("12.345", "x", errors)).toBeNull();
     expect(parseRupees("abc", "x", errors)).toBeNull();
     expect(errors.length).toBe(2);
+  });
+});
+
+test.describe("what may be filed against a purchase", () => {
+  const ok = { name: "GD707.pdf", type: "application/pdf", size: 400_000 };
+
+  test("accepts what a vendor's paperwork actually arrives as", () => {
+    for (const type of ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]) {
+      expect(checkUpload({ ...ok, type }), type).toBeNull();
+    }
+  });
+
+  test("refuses anything else, and names what is allowed", () => {
+    const problem = checkUpload({ ...ok, name: "notes.txt", type: "text/plain" });
+    expect(problem?.message).toContain("notes.txt");
+    expect(problem?.message).toContain("PDF");
+  });
+
+  test("refuses an empty file, which is a failed scan rather than a document", () => {
+    expect(checkUpload({ ...ok, size: 0 })?.message).toContain("empty");
+  });
+
+  test("refuses one over the limit, and says what to do about it", () => {
+    const problem = checkUpload({ ...ok, size: MAX_BYTES + 1 });
+    expect(problem?.message).toContain("10.0 MB");
+    expect(problem?.message).toContain("lower resolution");
+  });
+
+  test("HEIC is accepted but not previewed — iPhones make it, browsers can't show it", () => {
+    expect(checkUpload({ ...ok, type: "image/heic" })).toBeNull();
+    expect(canPreview("image/heic")).toBe(false);
+    expect(canPreview("application/pdf")).toBe(true);
+  });
+
+  test("a filename cannot carry a path or break a header", () => {
+    expect(safeFilename("../../etc/passwd")).toBe(".. .. etc passwd");
+    expect(safeFilename('bad"name.pdf')).toBe("badname.pdf");
+    expect(safeFilename("line\nbreak.pdf")).toBe("linebreak.pdf");
+    expect(safeFilename("   ")).toBe("document");
+    expect(safeFilename(null)).toBe("document");
+  });
+
+  test("sizes read the way a person would say them", () => {
+    expect(humanSize(900)).toBe("900 B");
+    expect(humanSize(2048)).toBe("2 KB");
+    expect(humanSize(3_500_000)).toBe("3.3 MB");
+  });
+
+  test("only the listed kinds of document", () => {
+    expect(isDocumentKind("Invoice")).toBe(true);
+    expect(isDocumentKind("Transport bill")).toBe(true);
+    expect(isDocumentKind("Something else")).toBe(false);
   });
 });

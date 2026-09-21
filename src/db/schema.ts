@@ -344,6 +344,37 @@ export const purchaseLines = pgTable("purchase_lines", {
 });
 
 /**
+ * The paperwork behind a purchase: the vendor's invoice, the transport bill,
+ * the payment screenshot.
+ *
+ * Held as base64 text in Postgres, like product photographs, because a
+ * serverless function has no disk to write to. Served only through an
+ * admin-authenticated route — a vendor invoice shows what the business pays for
+ * its stock, which must never be reachable from the storefront the way a
+ * product photo is.
+ *
+ * Deleted softly. Paperwork removed by mistake is paperwork that may be needed
+ * at the end of the financial year, and a row that can be brought back costs
+ * nothing next to an invoice that cannot.
+ */
+export const purchaseDocuments = pgTable("purchase_documents", {
+  id: id(),
+  purchaseId: text("purchase_id").notNull().references(() => purchases.id, { onDelete: "cascade" }),
+  /** What it is: Invoice, Transport bill, Payment proof — see src/lib/purchase-documents.ts. */
+  kind: text("kind").notNull().default("Invoice"),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  dataBase64: text("data_base64").notNull(),
+  notes: text("notes"),
+  uploadedAt: createdAt(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  /** Null while the document is in use. Set, it is removed but recoverable. */
+  deletedAt: timestamp("deleted_at"),
+  deletedReason: text("deleted_reason"),
+});
+
+/**
  * What to charge, by what it cost to land.
  *
  * A table rather than a constant because a markup is a commercial decision
@@ -450,9 +481,14 @@ export const vendorsRelations = relations(vendors, ({ many }) => ({
 export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   vendor: one(vendors, { fields: [purchases.vendorId], references: [vendors.id] }),
   lines: many(purchaseLines),
+  documents: many(purchaseDocuments),
 }));
 
 export const purchaseLinesRelations = relations(purchaseLines, ({ one }) => ({
   purchase: one(purchases, { fields: [purchaseLines.purchaseId], references: [purchases.id] }),
   product: one(products, { fields: [purchaseLines.productId], references: [products.id] }),
+}));
+
+export const purchaseDocumentsRelations = relations(purchaseDocuments, ({ one }) => ({
+  purchase: one(purchases, { fields: [purchaseDocuments.purchaseId], references: [purchases.id] }),
 }));

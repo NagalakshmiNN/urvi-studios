@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db, schema } from "@/db";
-import { desc } from "drizzle-orm";
+import { desc, isNull, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,18 @@ export default async function PurchasesPage() {
     orderBy: [desc(schema.purchases.invoiceDate), desc(schema.purchases.createdAt)],
     limit: 100,
   });
+
+  // Which invoices have their paper filed, so a missing one is visible from
+  // the list rather than only on the purchase itself.
+  const paperwork = await db
+    .select({
+      purchaseId: schema.purchaseDocuments.purchaseId,
+      files: sql<number>`count(*)::int`,
+    })
+    .from(schema.purchaseDocuments)
+    .where(isNull(schema.purchaseDocuments.deletedAt))
+    .groupBy(schema.purchaseDocuments.purchaseId);
+  const filedFor = new Map(paperwork.map((p) => [p.purchaseId, p.files]));
 
   const pieces = rows.reduce((a, r) => a + r.totalQty, 0);
   const landed = rows.reduce((a, r) => a + r.landedTotalPaise, 0);
@@ -60,6 +72,7 @@ export default async function PurchasesPage() {
                     <th>Date</th>
                     <th style={{ textAlign: "right" }}>Pieces</th>
                     <th style={{ textAlign: "right" }}>Landed</th>
+                    <th>Paperwork</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -72,6 +85,13 @@ export default async function PurchasesPage() {
                       <td style={{ whiteSpace: "nowrap" }}>{readableDate(r.invoiceDate)}</td>
                       <td style={{ textAlign: "right" }}>{r.totalQty}</td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{rupees(r.landedTotalPaise)}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {filedFor.has(r.id) ? (
+                          <>{filedFor.get(r.id)} file{filedFor.get(r.id) === 1 ? "" : "s"}</>
+                        ) : (
+                          <span style={{ color: "var(--sage)" }}>none yet</span>
+                        )}
+                      </td>
                       <td><Link href={`/admin/purchases/${r.id}`} className="link-btn">View</Link></td>
                     </tr>
                   ))}

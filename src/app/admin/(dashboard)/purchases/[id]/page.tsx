@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
+import PurchaseDocuments, { type DocumentRow } from "./PurchaseDocuments";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,24 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
     with: { vendor: true },
   });
   if (!purchase) notFound();
+
+  // Deleted paperwork is fetched too — it is listed separately so it can be
+  // brought back, which is the whole point of removing softly.
+  const documents = await db.query.purchaseDocuments.findMany({
+    where: eq(schema.purchaseDocuments.purchaseId, id),
+    orderBy: [desc(schema.purchaseDocuments.uploadedAt)],
+  });
+  const documentRows: DocumentRow[] = documents.map((d) => ({
+    id: d.id,
+    kind: d.kind,
+    filename: d.filename,
+    contentType: d.contentType,
+    sizeBytes: d.sizeBytes,
+    notes: d.notes,
+    uploadedAt: d.uploadedAt.toISOString(),
+    deletedAt: d.deletedAt ? d.deletedAt.toISOString() : null,
+    deletedReason: d.deletedReason,
+  }));
 
   const lines = await db.query.purchaseLines.findMany({
     where: eq(schema.purchaseLines.purchaseId, id),
@@ -71,6 +90,8 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
           </table>
         </div>
       </div>
+
+      <PurchaseDocuments purchaseId={id} documents={documentRows} />
 
       <div className="admin-card">
         <h3 style={{ marginBottom: 6 }}>{lines.length} line{lines.length === 1 ? "" : "s"}</h3>

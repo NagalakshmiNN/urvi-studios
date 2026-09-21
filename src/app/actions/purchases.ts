@@ -8,6 +8,7 @@ import { parseInvoiceBrief } from "@/lib/invoice-brief";
 import { planPurchase, applyPurchase, type PurchasePlan, type PurchaseResult } from "@/lib/record-purchase";
 import { loadBands, saveBands } from "@/lib/markup-band-store";
 import { suggestPricing, validateBands, type MarkupBand } from "@/lib/markup-bands";
+import { isDocumentKind } from "@/lib/purchase-documents";
 
 async function requireAdmin() {
   const adminId = await getAdminSession();
@@ -218,4 +219,109 @@ export async function saveVendorAction(_prev: PricingFormState, formData: FormDa
 
   revalidatePath("/admin/vendors");
   return { success: id ? "Vendor updated." : "Vendor added." };
+}
+
+// ------------------------------------------------------- Purchase paperwork
+//
+// Uploading is a route (see api/admin/purchase-documents) because a server
+// action's body is too small for a photographed invoice. Everything after the
+// upload — relabelling, removing, bringing back — is an action, because it is
+// small and belongs next to the screen it happens on.
+
+export type DocumentFormState = { error?: string; success?: string } | undefined;
+
+async function documentOnPurchase(documentId: string) {
+  const doc = await db.query.purchaseDocuments.findFirst({
+    where: eq(schema.purchaseDocuments.id, documentId),
+  });
+  return doc ?? null;
+}
+
+function revalidatePurchase(purchaseId: string) {
+  revalidatePath(`/admin/purchases/${purchaseId}`);
+  revalidatePath("/admin/purchases");
+}
+
+/** Change what a document is called, what it is, or the note against it. */
+export async function updateDocumentAction(_prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
+  await requireAdmin();
+
+  const id = String(formData.get("documentId") || "").trim();
+  const doc = await documentOnPurchase(id);
+  if (!doc) return { error: "That document no longer exists." };
+  if (doc.deletedAt) return { error: "That document has been removed. Bring it back first, then edit it." };
+
+  const kindRaw = String(formData.get("kind") || "").trim();
+  if (!isDocumentKind(kindRaw)) return { error: "Choose what this document is." };
+
+  const filename = String(formData.get("filename") || "").trim();
+  if (!filename) return { error: "A document needs a name." };
+
+  await db
+    .update(schema.purchaseDocuments)
+    .set({
+      kind: kindRaw,
+      // Renaming is renaming, not re-typing: the extension is part of what the
+      // file is, so it is kept whatever the box says.
+      filename: keepExtension(doc.filename, filename),
+      notes: String(formData.get("notes") || "").trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.purchaseDocuments.id, id));
+
+  revalidatePurchase(doc.purchaseId);
+  return { success: "Saved." };
+}
+
+function keepExtension(original: string, wanted: string): string {
+  const ext = /\.([A-Za-z0-9]{1,8})$/.exec(original)?.[0] ?? "";
+  if (!ext) return wanted;
+  return wanted.toLowerCase().endsWith(ext.toLowerCase()) ? wanted : wanted + ext;
+}
+
+/**
+ * Remove a document — softly.
+ *
+ * It stops being listed and stops being served, but the row and its contents
+ * stay. Paperwork deleted by mistake is paperwork that may be wanted at the end
+ * of the financial year, and there is no getting an invoice back once the bytes
+ * are gone.
+ */
+export async function deleteDocumentAction(_prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
+  await requireAdmin();
+
+  const id = String(formData.get("documentId") || "").trim();
+  const doc = await documentOnPurchase(id);
+  if (!doc) return { error: "That document no longer exists." };
+  if (doc.deletedAt) return { error: "That document is already removed." };
+
+  await db
+    .update(schema.purchaseDocuments)
+    .set({
+      deletedAt: new Date(),
+      deletedReason: String(formData.get("reason") || "").trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.purchaseDocuments.id, id));
+
+  revalidatePurchase(doc.purchaseId);
+  return { success: `Removed ${doc.filename}. It can be brought back from “Removed paperwork” below.` };
+}
+
+/** Undo a removal. */
+export async function restoreDocumentAction(_prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
+  await requireAdmin();
+
+  const id = String(formData.get("documentId") || "").trim();
+  const doc = await documentOnPurchase(id);
+  if (!doc) return { error: "That document no longer exists." };
+  if (!doc.deletedAt) return { error: "That document is already in use." };
+
+  await db
+    .update(schema.purchaseDocuments)
+    .set({ deletedAt: null, deletedReason: null, updatedAt: new Date() })
+    .where(eq(schema.purchaseDocuments.id, id));
+
+  revalidatePurchase(doc.purchaseId);
+  return { success: `${doc.filename} is back.` };
 }
