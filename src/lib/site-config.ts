@@ -1,6 +1,15 @@
 // Central place for the shop's public contact details.
 export const SITE = {
   siteUrl: "https://urvi-studios.netlify.app",
+  // The name and address the business is actually registered under, shown on
+  // the Terms and Privacy pages. Indian e-commerce rules require a real
+  // address on the site, and Razorpay checks these pages before it will
+  // activate an account — so these two lines must be the registered details,
+  // not the trading name, once the entity is settled with the accountant.
+  legalName: "URVI Studios",
+  registeredAddress: "Bengaluru, Karnataka, India",
+  /** Set once the business has its own GSTIN; hidden while null. */
+  gstin: null as string | null,
   whatsappNumber: "919538559595", // Lakshmi — country code + number, no + or spaces
   whatsappNumberAlt: "919632311118", // Shilpa
   instagramHandle: "urvi.studios",

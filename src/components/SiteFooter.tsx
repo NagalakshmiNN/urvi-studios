@@ -37,6 +37,12 @@ export default function SiteFooter() {
             <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
           </div>
           <div className="footer-col">
+            <h5>Legal</h5>
+            <Link href="/terms">Terms &amp; Conditions</Link>
+            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/shipping-returns#cancellations">Cancellations &amp; Refunds</Link>
+          </div>
+          <div className="footer-col">
             <h5>Account</h5>
             <Link href="/account">My Account</Link>
             <Link href="/account/orders">Track Order</Link>

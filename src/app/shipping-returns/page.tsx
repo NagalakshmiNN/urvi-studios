@@ -49,6 +49,27 @@ export default function ShippingReturnsPage() {
               your order number and we&apos;ll take it from there — we handle every exchange personally.
             </p>
           </div>
+          <div className="contact-card" id="cancellations">
+            <h4>Cancellations &amp; Refunds</h4>
+            <p>
+              <strong>Before dispatch:</strong> message us on WhatsApp or email with your order number and we will
+              cancel it and refund you in full. Nothing has left the studio, so there is nothing to work around.
+            </p>
+            <p>
+              <strong>After dispatch:</strong> we cannot cancel a parcel that is already on its way, but if a piece
+              does not fit, the size exchange above applies.
+            </p>
+            <p>
+              <strong>If we cancel:</strong> occasionally a size sells out between your order and our packing it. We
+              will tell you the same day and refund you in full, or hold the piece for the next batch if you prefer.
+            </p>
+            <p>
+              <strong>How a refund reaches you:</strong> back to the same card, UPI or bank account you paid from —
+              we cannot send it anywhere else. We start the refund within 2 business days of agreeing it, and your
+              bank usually takes a further 5–7 business days to show it. Delivery charges are refunded too where the
+              cancellation was ours.
+            </p>
+          </div>
           <div className="contact-card">
             <h4>Order Issues</h4>
             <p>

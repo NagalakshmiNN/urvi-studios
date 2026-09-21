@@ -173,3 +173,39 @@ test.describe("static pages", () => {
     );
   });
 });
+
+test.describe("the pages a payment gateway checks for", () => {
+  // Razorpay will not activate an account without links to these, and this site
+  // had neither Terms nor Privacy — the most likely reason its website
+  // registration sat pending. Each is asserted to exist, to be reachable from
+  // the footer, and to say the specific thing the gateway is looking for.
+  test("Terms & Conditions exists and says how payment and cancellation work", async ({ page }) => {
+    await page.goto("/terms");
+    await expect(page.locator("h1")).toHaveText("Terms & Conditions");
+    await expect(page.locator("body")).toContainText("Razorpay");
+    await expect(page.locator("body")).toContainText("includes GST");
+    await expect(page.locator("body")).toContainText("Cancellations, exchanges and refunds");
+  });
+
+  test("Privacy Policy exists and is clear that card details never reach the shop", async ({ page }) => {
+    await page.goto("/privacy");
+    await expect(page.locator("h1")).toHaveText("Privacy Policy");
+    await expect(page.locator("body")).toContainText("never reach us");
+    await expect(page.locator("body")).toContainText("do not sell your details");
+  });
+
+  test("the cancellation and refund policy is stated, not implied", async ({ page }) => {
+    await page.goto("/shipping-returns");
+    await expect(page.locator("#cancellations")).toBeVisible();
+    await expect(page.locator("#cancellations")).toContainText("Before dispatch");
+    await expect(page.locator("#cancellations")).toContainText("same card, UPI or bank account");
+  });
+
+  test("all three are reachable from the footer of any page", async ({ page }) => {
+    await page.goto("/");
+    const footer = page.locator(".site-footer");
+    await expect(footer.locator('a[href="/terms"]')).toBeVisible();
+    await expect(footer.locator('a[href="/privacy"]')).toBeVisible();
+    await expect(footer.locator('a[href="/shipping-returns#cancellations"]')).toBeVisible();
+  });
+});
