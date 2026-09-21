@@ -11,6 +11,8 @@ import { priceCart, nextOrderNumber, parseUnitPriceOverride, type CartLineInput 
 import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
+import { fetchOrderPayments, capturedPayment, describePayments } from "@/lib/razorpay-api";
+import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 
 // Costing fields (Landed Cost, Min/Max Round Up To) are optional numbers —
 // usually set via Excel import, but editable by hand too. Blank means "not
@@ -306,6 +308,90 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
 
   revalidatePath(`/admin/orders/${order.orderNumber}`);
   revalidateStockViews();
+}
+
+export type ReconcileResult = { ok: boolean; message: string; confirmed?: boolean };
+
+/**
+ * Ask Razorpay what actually happened to this order's payment, and act on the
+ * answer.
+ *
+ * Both of the paths that normally confirm an order are push: the browser
+ * calls verify-payment, Razorpay calls the webhook. Either can fail to
+ * arrive — a webhook registered in test mode never fires for a live payment,
+ * and a UPI QR paid in another app can leave the browser watching a window
+ * that never updates. When that happens the order sits PENDING while the
+ * customer's money is gone, and the only way to find out has been to compare
+ * two dashboards by hand.
+ *
+ * This pulls instead. If Razorpay says the money was captured, the order is
+ * confirmed here and now through the same idempotent path the webhook uses —
+ * so stock moves once, emails go out once, and running this twice is safe.
+ */
+export async function reconcileWithRazorpayAction(orderId: string): Promise<ReconcileResult> {
+  await requireAdmin();
+
+  const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, orderId) });
+  if (!order) return { ok: false, message: "That order no longer exists." };
+
+  if (!order.razorpayOrderId) {
+    return {
+      ok: false,
+      message:
+        "This order was never sent to Razorpay — it was placed through the WhatsApp handoff, or before payment was configured. There is nothing to check.",
+    };
+  }
+
+  const lookup = await fetchOrderPayments(order.razorpayOrderId);
+
+  if (!lookup.ok) {
+    if (lookup.reason === "not-configured") {
+      return { ok: false, message: "No Razorpay keys are set on the site, so we cannot ask." };
+    }
+    if (lookup.reason === "unauthorized") {
+      // The single most useful thing this whole feature can tell you.
+      return {
+        ok: false,
+        message:
+          "Razorpay refused the keys. The keys on the site are not the ones that created this order — usually test keys against a live order, or a second account's keys.",
+      };
+    }
+    if (lookup.reason === "not-found") {
+      return {
+        ok: false,
+        message: `Razorpay has no record of order ${order.razorpayOrderId}. That normally means the site's keys belong to a different Razorpay account than the one this order was created in.`,
+      };
+    }
+    return { ok: false, message: lookup.detail || "Could not reach Razorpay. Try again in a moment." };
+  }
+
+  const summary = describePayments(lookup.payments);
+  const captured = capturedPayment(lookup.payments);
+
+  if (!captured) return { ok: true, message: summary };
+
+  // Money is with Razorpay. Whatever the order currently says, make it true.
+  const result = await confirmPaidOrder({
+    orderNumber: order.orderNumber,
+    razorpayOrderId: order.razorpayOrderId,
+    razorpayPaymentId: captured.id,
+  });
+
+  revalidatePath(`/admin/orders/${order.orderNumber}`);
+  revalidateStockViews();
+
+  if (!result.ok) {
+    return { ok: false, message: `${summary} We could not mark the order paid: ${result.reason}.` };
+  }
+
+  return {
+    ok: true,
+    confirmed: result.state === "confirmed",
+    message:
+      result.state === "confirmed"
+        ? `${summary} The order is now marked PAID, stock has been taken, and the confirmation emails have gone out.`
+        : `${summary} The order was already marked paid, so nothing needed changing.`,
+  };
 }
 
 /**

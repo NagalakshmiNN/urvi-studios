@@ -5,6 +5,7 @@ import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { notFound } from "next/navigation";
 import OrderStatusForm from "./OrderStatusForm";
 import ActualSalePriceForm from "./ActualSalePriceForm";
+import ReconcileButton from "./ReconcileButton";
 import { formatPaise } from "@/lib/sale-price";
 import { whatsappLink } from "@/lib/whatsapp";
 import { statusCustomerLine } from "@/lib/order-status-copy";
@@ -109,6 +110,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           {order.paymentMode && <> · {PAYMENT_MODE_LABELS[order.paymentMode] ?? order.paymentMode}</>}
           {order.razorpayPaymentId && <> · {order.razorpayPaymentId}</>}
         </p>
+
+        {/* Offered exactly where the doubt is: an order that went to Razorpay
+            but isn't marked paid. Once it is paid there is nothing to settle,
+            and on a WhatsApp order there is nothing to ask. */}
+        {order.razorpayOrderId && order.paymentStatus !== "PAID" && (
+          <ReconcileButton orderId={order.id} />
+        )}
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>
           Channel: {SOURCE_LABELS[order.source] ?? order.source} ·{" "}
           {FULFILMENT_LABELS[order.fulfilmentMethod] ?? order.fulfilmentMethod}
