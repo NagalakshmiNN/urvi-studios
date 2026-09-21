@@ -11,6 +11,21 @@ const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
 
 type Prefill = { name: string; email: string; phone: string } | null;
 
+/**
+ * Resolves once Razorpay's checkout script has defined its global, or false
+ * if it hasn't within roughly five seconds. Polling rather than an onLoad
+ * flag because the script may already have loaded long before the customer
+ * presses Pay, in which case there is nothing left to wait for.
+ */
+async function waitForRazorpay(timeoutMs = 5000): Promise<boolean> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (typeof (window as unknown as { Razorpay?: unknown }).Razorpay !== "undefined") return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return typeof (window as unknown as { Razorpay?: unknown }).Razorpay !== "undefined";
+}
+
 export default function CheckoutClient({
   prefill,
   razorpayConfigured,
@@ -229,6 +244,23 @@ export default function CheckoutClient({
           },
         },
       };
+      // Razorpay's script is loaded from their CDN, and the order is already
+      // in the database by this point. If the script hasn't arrived — a slow
+      // connection, a blocked CDN, an ad blocker that eats third-party
+      // scripts — then constructing it throws, and the customer is left
+      // looking at a page that does nothing. Wait briefly, then say so
+      // plainly. A named failure is worth ten silent ones.
+      const ready = await waitForRazorpay();
+      if (!ready) {
+        setError(
+          "The payment window could not load — this is usually a slow connection or a browser " +
+            "extension blocking it. Nothing has been charged. Please refresh and try again, or " +
+            "message us on WhatsApp and we'll send you a payment link."
+        );
+        setBusy(false);
+        return;
+      }
+
       // @ts-expect-error — Razorpay Checkout is loaded globally via the script tag below
       const rzp = new window.Razorpay(options);
 
@@ -293,7 +325,11 @@ export default function CheckoutClient({
 
   return (
     <>
-      {razorpayConfigured && <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />}
+      {/* afterInteractive, not lazyOnload. lazyOnload waits for the page to
+          finish loading and then for an idle moment, so a customer who fills
+          the form quickly could press Pay before window.Razorpay existed —
+          and the checkout window would simply never appear. */}
+      {razorpayConfigured && <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />}
       <form className="checkout-layout" onSubmit={submit}>
         <div>
           <h3 style={{ marginBottom: 16 }}>{fulfilment === "pickup" ? "Your Details" : "Shipping Details"}</h3>
