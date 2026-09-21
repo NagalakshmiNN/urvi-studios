@@ -231,6 +231,21 @@ export default function CheckoutClient({
       };
       // @ts-expect-error — Razorpay Checkout is loaded globally via the script tag below
       const rzp = new window.Razorpay(options);
+
+      // A declined card, a failed UPI mandate, an expired session: Razorpay
+      // shows its own message inside the modal, but once the customer closes
+      // it that message is gone and the page looks like nothing happened.
+      // Carry the reason out so they know whether to try a different method
+      // or ring their bank — and so they don't assume they've been charged.
+      rzp.on("payment.failed", function (response: { error?: { description?: string; reason?: string } }) {
+        const because = response?.error?.description?.trim();
+        setError(
+          (because ? `That payment didn't go through: ${because}.` : "That payment didn't go through.") +
+            " No money has been taken. You can try again with another card or UPI — or message us on WhatsApp and we'll take it from there."
+        );
+        setBusy(false);
+      });
+
       rzp.open();
     } catch {
       setError("Something went wrong. Please try again or reach us on WhatsApp.");
