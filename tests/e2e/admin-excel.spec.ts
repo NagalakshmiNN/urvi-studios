@@ -478,3 +478,65 @@ test("a Co-ords row imports into the new Co-ords category and reaches the shop",
 
   await deleteTestProduct(created!.id);
 });
+
+test("a re-import never puts sold stock back on the shelf", async ({ page }) => {
+  // The single most expensive way these two systems could disagree.
+  //
+  // The website subtracts stock on every order; the costing workbook only ever
+  // records what was *received*, so its figure never falls. The import used to
+  // write that figure over an existing product — quietly restoring pieces that
+  // had already been sold, and setting up an order for something that is not
+  // there. Stock and sizes on an existing product are now left alone; only a
+  // genuinely new size is added, at zero.
+  await loginAsAdmin(page);
+
+  const product = await createTestProduct({
+    name: `Stock Guard ${Date.now().toString(36)}`,
+    sizes: ["S", "M"],
+    stock: 6,
+  });
+
+  // Three pieces sell.
+  await query("update product_sizes set stock = 1 where product_id = $1 and label = 'S'", [product.id]);
+  await query("update product_sizes set stock = 2 where product_id = $1 and label = 'M'", [product.id]);
+  await query("update products set stock = 3 where id = $1", [product.id]);
+
+  const { workbook, sheet } = await downloadCatalog(page);
+  const row = findRowBySku(sheet, product.sku);
+  expect(row, "the product is in the export").not.toBeNull();
+
+  // The sheet still believes six were bought, and offers a size that has never
+  // been stocked.
+  row!.getCell(15).value = 6;
+  row!.getCell(16).value = "S, M, L";
+  row!.getCell(14).value = 1490; // a real change, so the import does do something
+  row!.commit();
+
+  const res = await page.request.post("/api/admin/import-products", {
+    multipart: {
+      file: {
+        name: "catalog.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: await toBuffer(workbook),
+      },
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+
+  const after = await queryOne<{ stock: number; price: number }>("select stock, price from products where id = $1", [product.id]);
+  expect(after!.price, "the import still updates price").toBe(1490);
+  expect(after!.stock, "stock must not be restored from the sheet").toBe(3);
+
+  const sizes = await query<{ label: string; stock: number }>(
+    "select label, stock from product_sizes where product_id = $1 order by label",
+    [product.id]
+  );
+  expect(sizes).toEqual([
+    // The new size arrives, empty — it can be stocked from Purchases.
+    { label: "L", stock: 0 },
+    { label: "M", stock: 2 },
+    { label: "S", stock: 1 },
+  ]);
+
+  await deleteTestProduct(product.id);
+});

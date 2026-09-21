@@ -261,6 +261,106 @@ export const expenses = pgTable("expenses", {
   createdAt: createdAt(),
 });
 
+// ------------------------------------------------------------- Purchasing
+//
+// Where stock comes from, and what it cost to get here. This replaces the
+// costing workbook's VENDOR MASTER, PROCUREMENT REGISTER and the pricing
+// columns of PRODUCT MASTER — see src/lib/purchasing.ts for the arithmetic and
+// why it is the arithmetic it is.
+//
+// A purchase is a ledger entry: once recorded it is what the invoice said, so
+// every allocated figure is stored on the line rather than recomputed later.
+// Re-deriving them from today's code would silently rewrite last quarter's
+// costs the first time a rounding rule changed.
+
+export const vendors = pgTable("vendors", {
+  id: id(),
+  /** V001, V002 — the workbook's own numbering, continued. */
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  businessName: text("business_name"),
+  city: text("city"),
+  state: text("state"),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  /** Wholesaler, Manufacturer, Agent — free text, as the workbook kept it. */
+  type: text("type"),
+  contactPerson: text("contact_person"),
+  phone: text("phone"),
+  paymentTerms: text("payment_terms"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: createdAt(),
+});
+
+export const purchases = pgTable("purchases", {
+  id: id(),
+  /** PO-00006 — continues the workbook's sequence. */
+  ref: text("ref").notNull().unique(),
+  vendorId: text("vendor_id").notNull().references(() => vendors.id),
+  invoiceNumber: text("invoice_number").notNull(),
+  invoiceDate: date("invoice_date", { mode: "string" }).notNull(),
+
+  // Everything below is in integer paise. A vendor's unit price is ₹212.50 as
+  // often as it is ₹212, and a float cannot hold two decimals exactly.
+  freightPaise: integer("freight_paise").notNull().default(0),
+  discountPaise: integer("discount_paise").notNull().default(0),
+  otherChargesPaise: integer("other_charges_paise").notNull().default(0),
+  grossPaise: integer("gross_paise").notNull(),
+  taxablePaise: integer("taxable_paise").notNull(),
+  gstPaise: integer("gst_paise").notNull(),
+  /** Taxable + GST + freight + other. What the stock cost to get onto the rail. */
+  landedTotalPaise: integer("landed_total_paise").notNull(),
+  totalQty: integer("total_qty").notNull(),
+
+  paymentMode: text("payment_mode"),
+  notes: text("notes"),
+  createdAt: createdAt(),
+});
+
+export const purchaseLines = pgTable("purchase_lines", {
+  id: id(),
+  purchaseId: text("purchase_id").notNull().references(() => purchases.id, { onDelete: "cascade" }),
+  /** Null once a product is deleted — the purchase is still a true record of what was bought. */
+  productId: text("product_id").references(() => products.id, { onDelete: "set null" }),
+
+  /** As the invoice named it, kept verbatim even when the product is later renamed. */
+  item: text("item").notNull(),
+  colour: text("colour"),
+  size: text("size").notNull(),
+  qty: integer("qty").notNull(),
+  unitPricePaise: integer("unit_price_paise").notNull(),
+  /** Whole percent: 5 or 18. */
+  gstRatePct: integer("gst_rate_pct").notNull(),
+
+  discountSharePaise: integer("discount_share_paise").notNull().default(0),
+  gstPaise: integer("gst_paise").notNull().default(0),
+  freightSharePaise: integer("freight_share_paise").notNull().default(0),
+  otherSharePaise: integer("other_share_paise").notNull().default(0),
+  landedPaise: integer("landed_paise").notNull(),
+  landedPerUnitPaise: integer("landed_per_unit_paise").notNull(),
+
+  position: integer("position").notNull().default(0),
+});
+
+/**
+ * What to charge, by what it cost to land.
+ *
+ * A table rather than a constant because a markup is a commercial decision
+ * that changes with the season and the vendor, and a decision that needs a
+ * deploy to change is a decision nobody revisits. Edited on the Pricing
+ * screen; see src/lib/markup-bands.ts.
+ */
+export const markupBands = pgTable("markup_bands", {
+  id: id(),
+  position: integer("position").notNull(),
+  /** Top of the band in paise, inclusive. Null on the last band: no ceiling. */
+  upToPaise: integer("up_to_paise"),
+  targetPct: integer("target_pct").notNull(),
+  minPct: integer("min_pct").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const contactMessages = pgTable("contact_messages", {
   id: id(),
   name: text("name").notNull(),
@@ -341,4 +441,18 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   product: one(products, { fields: [reviews.productId], references: [products.id] }),
   customer: one(customers, { fields: [reviews.customerId], references: [customers.id] }),
+}));
+
+export const vendorsRelations = relations(vendors, ({ many }) => ({
+  purchases: many(purchases),
+}));
+
+export const purchasesRelations = relations(purchases, ({ one, many }) => ({
+  vendor: one(vendors, { fields: [purchases.vendorId], references: [vendors.id] }),
+  lines: many(purchaseLines),
+}));
+
+export const purchaseLinesRelations = relations(purchaseLines, ({ one }) => ({
+  purchase: one(purchases, { fields: [purchaseLines.purchaseId], references: [purchases.id] }),
+  product: one(products, { fields: [purchaseLines.productId], references: [products.id] }),
 }));

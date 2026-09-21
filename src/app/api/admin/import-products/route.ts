@@ -278,19 +278,35 @@ export async function POST(request: Request) {
           minRoundUpTo,
           maxRoundUpTo,
           badge: badge || null,
-          stock,
+          // Stock is deliberately NOT updated here. See below.
           categoryId: category.id,
           updatedAt: new Date(),
         })
         .where(eq(schema.products.id, existingProduct.id));
 
-      // The sheet only has one "Stock" number per row, not a count per
-      // size — split it as evenly as possible across the sizes listed so
-      // it lands somewhere real rather than zero; fine-tune the exact
-      // per-size split afterward from Edit Product.
-      const sizeStocks = distributeStock(stock, sizeLabels.length);
-      await db.delete(schema.productSizes).where(eq(schema.productSizes.productId, existingProduct.id));
-      await db.insert(schema.productSizes).values(sizeLabels.map((label, i) => ({ productId: existingProduct.id, label, stock: sizeStocks[i], position: i })));
+      // Stock is the one thing this app knows and the sheet does not.
+      //
+      // The website subtracts stock on every order and every in-person sale.
+      // The workbook only ever records what was *received*, so its figure
+      // never falls. Writing it over an existing product therefore puts sold
+      // pieces back on the shelf — quietly, and only noticed when something is
+      // sold that is not there. Sizes are left alone for the same reason: the
+      // sheet's size list would drop a size that still has stock against it.
+      //
+      // New sizes on the sheet ARE added, with zero stock, so a size that has
+      // genuinely been introduced shows up and can be stocked from Purchases
+      // or Edit Product.
+      const currentSizes = await db
+        .select({ label: schema.productSizes.label })
+        .from(schema.productSizes)
+        .where(eq(schema.productSizes.productId, existingProduct.id));
+      const known = new Set(currentSizes.map((s) => s.label));
+      const added = sizeLabels.filter((label) => !known.has(label));
+      if (added.length > 0) {
+        await db.insert(schema.productSizes).values(
+          added.map((label, i) => ({ productId: existingProduct.id, label, stock: 0, position: currentSizes.length + i }))
+        );
+      }
 
       await db.delete(schema.productColors).where(eq(schema.productColors.productId, existingProduct.id));
       if (colorPairs.length) {
