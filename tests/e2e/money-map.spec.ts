@@ -76,10 +76,16 @@ test.describe("money out", () => {
     await loginAsAdmin(page);
     await page.goto("/admin/money/expenses");
 
-    // ₹94,888 of stock and ₹2,967 of running costs — the two figures the
-    // workbook's Cash Flow sheet arrives at.
-    await expect(page.locator(".metric-card", { hasText: "Paid to vendors for stock" }).locator(".value")).toContainText("94,888");
-    await expect(page.locator(".metric-card", { hasText: "Running costs" }).locator(".value")).toContainText("2,967");
+    // ₹141,321 of stock and ₹3,467 of running costs.
+    //
+    // These were ₹94,888 and ₹2,967 until migration 019. The earlier import
+    // was written from the Payment Tracker on 16 September and covered four
+    // invoices; G.D. Fabrics' GD707 reached the workbook on the 15th but was
+    // not in that import, so ₹46,433 of stock and ₹500 of VRL freight had been
+    // missing from this app entirely. The figures moved because the data was
+    // wrong, not because the assertion was.
+    await expect(page.locator(".metric-card", { hasText: "Paid to vendors for stock" }).locator(".value")).toContainText("1,41,321");
+    await expect(page.locator(".metric-card", { hasText: "Running costs" }).locator(".value")).toContainText("3,467");
 
     // Stock purchases are tagged differently, because they are the one kind
     // that buys an asset rather than being consumed.
@@ -181,12 +187,17 @@ test.describe("the money map", () => {
 
     const ledger = page.locator(".money-ledger");
     await expect(ledger).toContainText("70,577"); // capital in
-    await expect(ledger).toContainText("94,888"); // paid to vendors
-    await expect(ledger).toContainText("2,967"); // running costs
+    await expect(ledger).toContainText("1,41,321"); // paid to vendors, GD707 included
+    await expect(ledger).toContainText("3,467"); // running costs
 
     // Cash is capital + sales − stock − running costs. With no sales in the
-    // test database that is −₹27,278, exactly what the corrected workbook says.
-    await expect(page.locator(".metric-card", { hasText: "Cash position" }).locator(".value")).toContainText("27,278");
+    // test database: 70,577 − 141,321 − 3,467 = −₹74,211.
+    //
+    // The workbook's Cash Flow sheet said −₹27,278 when the money history was
+    // first imported, and that is still the figure in the project notes. It was
+    // short by exactly GD707: ₹46,433 of stock and ₹500 of freight, which the
+    // 16 September import predated. −27,278 − 46,933 = −74,211.
+    await expect(page.locator(".metric-card", { hasText: "Cash position" }).locator(".value")).toContainText("74,211");
   });
 
   test("explains a negative cash position instead of just showing red", async ({ page }) => {
