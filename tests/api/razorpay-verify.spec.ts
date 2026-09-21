@@ -339,4 +339,140 @@ test.describe("the Razorpay webhook", () => {
     expect(res.ok()).toBeTruthy();
     expect(await res.json()).toMatchObject({ ok: true, ignored: "payment.failed" });
   });
+
+  // Two events are subscribed in the Razorpay dashboard, payment.captured and
+  // order.paid, but every test above this line sends only the first. If the
+  // route ever read the payment entity from a path that order.paid doesn't
+  // carry, the suite would stay green while half the configured events did
+  // nothing — and which of the two arrives first is Razorpay's business, not
+  // ours.
+  test("order.paid confirms the order just as payment.captured does", async ({ request }) => {
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, hookProduct);
+    const stockBefore = (await getSizeStock(hookProduct.id, "M"))!;
+
+    // Shaped as Razorpay sends it: order.paid carries BOTH entities, and the
+    // payment is the one we care about.
+    const raw = JSON.stringify({
+      entity: "event",
+      event: "order.paid",
+      contains: ["payment", "order"],
+      payload: {
+        payment: { entity: { id: "pay_ORDERPAID1", order_id: razorpayOrderId, status: "captured" } },
+        order: { entity: { id: razorpayOrderId, amount: 300000, status: "paid" } },
+      },
+    });
+
+    const res = await post(request, raw, signWebhook(raw));
+    expect(res.ok()).toBeTruthy();
+    expect(await res.json()).toMatchObject({ ok: true, state: "confirmed", orderNumber });
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.payment_status).toBe("PAID");
+    expect(order!.stock_deducted).toBe(true);
+    expect(await getSizeStock(hookProduct.id, "M")).toBe(stockBefore - 1);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  // The real payload is forty-odd fields deep, not the four-field stub the
+  // other tests send. Reading a field from the wrong nesting level is the
+  // classic way an integration passes its own tests and then fails against
+  // the actual gateway, so one test sends the genuine article.
+  test("a full-size payload from Razorpay confirms the order", async ({ request }) => {
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, hookProduct);
+    const stockBefore = (await getSizeStock(hookProduct.id, "M"))!;
+
+    const raw = JSON.stringify({
+      entity: "event",
+      account_id: "acc_TESTACCOUNT",
+      event: "payment.captured",
+      contains: ["payment"],
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_FULLSIZE01",
+            entity: "payment",
+            amount: 300000,
+            currency: "INR",
+            status: "captured",
+            order_id: razorpayOrderId,
+            invoice_id: null,
+            international: false,
+            method: "upi",
+            amount_refunded: 0,
+            refund_status: null,
+            captured: true,
+            description: `Order ${orderNumber}`,
+            card_id: null,
+            bank: null,
+            wallet: null,
+            vpa: "tester@okicici",
+            email: "tester@example.com",
+            contact: "+919876500222",
+            notes: [],
+            fee: 7080,
+            tax: 1080,
+            error_code: null,
+            error_description: null,
+            error_source: null,
+            error_step: null,
+            error_reason: null,
+            acquirer_data: { rrn: "123456789012" },
+            created_at: Math.floor(Date.now() / 1000),
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    });
+
+    const res = await post(request, raw, signWebhook(raw));
+    expect(res.ok()).toBeTruthy();
+    expect(await res.json()).toMatchObject({ ok: true, state: "confirmed", orderNumber });
+    expect((await getOrderByNumber(orderNumber))!.payment_status).toBe("PAID");
+    expect(await getSizeStock(hookProduct.id, "M")).toBe(stockBefore - 1);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("a webhook with no signature header at all is refused", async ({ request }) => {
+    // Not a forged signature — none. Anyone who finds the URL can send this,
+    // and the answer must be the same as for a bad one.
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, hookProduct);
+    const raw = paymentCaptured(razorpayOrderId, "pay_NOSIG");
+
+    const res = await request.post("/api/webhooks/razorpay", {
+      headers: { "Content-Type": "application/json" },
+      data: raw,
+    });
+    expect(res.status()).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, reason: "no-signature" });
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.payment_status).toBe("PENDING");
+    expect(order!.stock_deducted).toBe(false);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("a correctly signed body that isn't JSON is refused", async ({ request }) => {
+    // The signature proves it came from Razorpay; it proves nothing about the
+    // body being parseable. Without the try/catch around JSON.parse this is an
+    // unhandled throw, which Next answers with a 500 — and a 500 makes Razorpay
+    // retry the same broken payload until it gives up and disables the webhook.
+    const raw = "{ this is not json";
+
+    // Sent as a Buffer rather than a string: given a string that doesn't parse
+    // as JSON, Playwright re-encodes it before sending, so the bytes on the
+    // wire stop matching the signature and the route rejects on the signature
+    // instead — the test would pass on a 400 it never meant to assert.
+    const res = await request.post("/api/webhooks/razorpay", {
+      headers: { "Content-Type": "application/json", "x-razorpay-signature": signWebhook(raw) },
+      data: Buffer.from(raw, "utf8"),
+    });
+    expect(res.status()).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, reason: "bad-json" });
+  });
 });
