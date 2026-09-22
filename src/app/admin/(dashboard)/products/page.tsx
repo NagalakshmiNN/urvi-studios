@@ -20,13 +20,18 @@ export default async function AdminProductsPage() {
       </div>
 
       <div className="admin-card">
+        {/* The table is wider than the screen — ten columns, several of them
+            editable. Without this the right-hand columns (Badge, Stock) were
+            simply unreachable: the page itself does not scroll sideways, so
+            there was nothing to drag. */}
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <table className="admin-table">
           <thead>
             <tr>
               <th>Product</th>
               <th>Product ID</th>
               <th>Category</th>
-              <th>Price</th>
+              <th>Selling Price</th>
               <th>Landed Cost</th>
               <th>Min Round Up To</th>
               <th>Max Round Up To</th>
@@ -42,6 +47,7 @@ export default async function AdminProductsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {products.length === 0 && <p style={{ padding: 20, color: "var(--sage)" }}>No products yet.</p>}
       </div>
     </>

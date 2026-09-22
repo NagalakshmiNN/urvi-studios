@@ -76,8 +76,19 @@ test("sorts by price in both directions", async ({ page }) => {
 });
 
 test.describe("refine chips", () => {
+  // The filters are folded away by default so the clothes sit higher on the
+  // page. A visitor arriving with filters already applied finds the panel
+  // open; everyone else opens it. These tests start from a bare /shop, so
+  // they open it the way a shopper would.
+  async function openFilters(page: import("@playwright/test").Page) {
+    const toggle = page.locator(".refine-toggle");
+    if (await page.locator(".refine-bar").isVisible().catch(() => false)) return;
+    await toggle.click();
+    await expect(page.locator(".refine-bar")).toBeVisible();
+  }
   test("offers Size, Color and Fabric options drawn from the catalog", async ({ page }) => {
     await page.goto("/shop");
+    await openFilters(page);
     await expect(page.locator(".refine-bar")).toBeVisible();
     await expect(page.locator(".refine-group", { hasText: "Size" }).first()).toBeVisible();
     await expect(page.locator(".refine-group", { hasText: "Color" }).first()).toBeVisible();
@@ -89,6 +100,7 @@ test.describe("refine chips", () => {
 
   test("a fabric chip narrows the grid, and clicking it again clears it", async ({ page }) => {
     await page.goto("/shop");
+    await openFilters(page);
     const before = await page.locator(".product-card").count();
 
     const chip = page.locator(".refine-group", { hasText: "Fabric" }).locator(".chip-sm", {
@@ -108,6 +120,7 @@ test.describe("refine chips", () => {
 
   test("size and colour combine instead of replacing each other", async ({ page }) => {
     await page.goto("/shop");
+    await openFilters(page);
 
     await page.locator(".refine-group", { hasText: "Size" }).locator(".chip-sm", { hasText: "XL" }).first().click();
     await expect(page).toHaveURL(/size=XL/);
@@ -127,6 +140,7 @@ test.describe("refine chips", () => {
     // The silk piece is filed under Festive Wear, so its fabric should not be
     // on offer while browsing Casual Wear.
     await page.goto("/shop?sub=casual-wear");
+    await openFilters(page);
     const fabricChips = page.locator(".refine-group", { hasText: "Fabric" }).locator(".chip-sm");
     await expect(fabricChips.filter({ hasText: "Zzz Test Linen" })).toHaveCount(1);
     await expect(fabricChips.filter({ hasText: "Zzz Test Silk" })).toHaveCount(0);
@@ -134,6 +148,7 @@ test.describe("refine chips", () => {
 
   test("Clear filters resets the refinements but keeps the category", async ({ page }) => {
     await page.goto("/shop?sub=casual-wear");
+    await openFilters(page);
     await page.locator(".refine-group", { hasText: "Fabric" }).locator(".chip-sm", { hasText: "Zzz Test Linen" }).click();
     await expect(page.locator(".refine-clear")).toBeVisible();
 

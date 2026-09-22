@@ -44,9 +44,8 @@ export default async function OrderSuccessPage({ searchParams }: { searchParams:
               </p>
             ) : (
               <p className="lede" style={{ margin: "0 auto 30px" }}>
-                Order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — is on its way to being packed. A
-                confirmation email is on its way to {order.customerEmail}, and we&apos;ll email (and WhatsApp, where we
-                can) further updates as it&apos;s confirmed, shipped, and delivered.
+                Order <strong>{order.orderNumber}</strong> — {formatINR(order.total)} — is placed. We&apos;ll be in
+                touch personally about it, and we&apos;ve emailed all the details to {order.customerEmail}.
               </p>
             )}
             {isSignedInHere && (

@@ -4,6 +4,7 @@ import ProductCard from "@/components/ProductCard";
 import { db } from "@/db";
 import { getCustomerSession } from "@/lib/auth";
 import Link from "next/link";
+import RefineFilters from "@/components/RefineFilters";
 
 const SUB_LABELS: Record<string, string> = {
   "festive-wear": "Festive Wear",
@@ -176,6 +177,7 @@ export default async function ShopPage({
           </div>
 
           {(fabricOptions.length > 0 || colorOptions.length > 0 || sizeOptions.length > 0) && (
+            <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length}>
             <div className="refine-bar">
               {sizeOptions.length > 0 && (
                 <div className="refine-group">
@@ -224,6 +226,7 @@ export default async function ShopPage({
                 </Link>
               )}
             </div>
+            </RefineFilters>
           )}
 
           <div className="toolbar">

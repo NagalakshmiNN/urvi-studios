@@ -137,10 +137,20 @@ test.describe("style guides", () => {
 });
 
 test.describe("static pages", () => {
-  test("Our Story renders the founders' copy", async ({ page }) => {
+  test("Our Story shows the illustrated strip beside the brand", async ({ page }) => {
     await page.goto("/about");
-    await expect(page.locator("h1")).toContainText("Two women");
-    await expect(page.locator(".her-editions .her-edition")).toHaveCount(5);
+
+    // The strip is the page now. It must actually load — a broken image here
+    // leaves the page with nothing to say, since all the words are inside it.
+    const strip = page.locator(".story-strip-img");
+    await expect(strip).toBeVisible();
+    await expect(strip).toHaveJSProperty("complete", true);
+    expect(await strip.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+
+    // And its alt text carries the story for anyone who cannot see it.
+    await expect(strip).toHaveAttribute("alt", /Shilpa and Nagalakshmi/);
+
+    await expect(page.locator(".story-brand .story-sub")).toHaveText("Confidence, worn.");
   });
 
   test("Shipping & Returns quotes the one shared free-delivery threshold", async ({ page }) => {

@@ -1105,3 +1105,92 @@ a.prod-label:hover span { text-decoration: underline; }
 .share-bar > span { position: relative; flex: 1 1 auto; background: var(--sand); border-radius: 2px; height: 10px; overflow: hidden; }
 .share-bar > span::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0%); background: #00806B; border-radius: 2px; }
 .share-bar em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--earth); font-variant-numeric: tabular-nums; flex: none; }
+
+/* ---------------------------------------------------- Our Story: strip + brand
+
+   Two halves on a wide screen: the illustrated strip on one side at its full
+   length, the brand on the other. The brand half sticks while the strip
+   scrolls past it, so the logo is still there at the last panel.
+
+   Below 900px there are no halves. The brand comes first and the strip runs
+   full width underneath — the illustration is 1024×1536 and every speech
+   bubble carries words, so half a phone screen would make it unreadable. */
+
+.story-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  background: var(--cream, #f7f0e4);
+}
+
+.story-brand {
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 40px;
+}
+
+.story-brand-inner {
+  max-width: 420px;
+  text-align: center;
+}
+
+.story-logo {
+  width: min(320px, 70%);
+  height: auto;
+  mix-blend-mode: multiply; /* the logo file has a white card behind it */
+}
+
+.story-tagline {
+  margin: 18px 0 2px;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--ink, #2a2a24);
+}
+
+.story-sub {
+  margin: 0;
+  font-style: italic;
+  font-size: 19px;
+  color: var(--olive, #3f4827);
+}
+
+.story-line {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sage, #7d7f6a);
+}
+
+.story-blurb {
+  margin: 24px 0 0;
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--sage, #7d7f6a);
+}
+
+.story-strip {
+  padding: 0;
+  font-size: 0; /* kills the inline-image baseline gap under the picture */
+}
+
+.story-strip-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .story-split {
+    grid-template-columns: 1fr;
+  }
+  .story-brand {
+    position: static;
+    min-height: 0;
+    padding: 48px 24px 36px;
+  }
+}

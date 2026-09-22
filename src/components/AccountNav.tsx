@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { logoutAction } from "@/app/actions/auth";
+import LogoutButton from "./LogoutButton";
 
 const LINKS = [
   { href: "/account", label: "Overview" },
@@ -16,9 +16,9 @@ export default function AccountNav({ active }: { active: string }) {
           {l.label}
         </Link>
       ))}
-      <form action={logoutAction} style={{ marginTop: 10 }}>
-        <button type="submit" className="account-nav-logout">Logout</button>
-      </form>
+      <div style={{ marginTop: 10 }}>
+        <LogoutButton className="account-nav-logout" />
+      </div>
     </nav>
   );
 }

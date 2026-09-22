@@ -1,101 +1,68 @@
+import Image from "next/image";
+import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
-const HER_EDITIONS = [
-  { title: "The Leader", desc: "Structured, sharp, in control" },
-  { title: "Everyday Woman", desc: "Effortless, easy, unhurried" },
-  { title: "Social Butterfly", desc: "Festive, radiant, celebratory" },
-  { title: "The Minimalist", desc: "Clean, considered, quiet" },
-  { title: "The Dreamer", desc: "Soft, fluid, romantic" },
-];
+export const metadata = {
+  title: "Our Story — URVI Studios",
+  description: "How Shilpa and Nagalakshmi started URVI Studios, told in their own words.",
+};
 
+// The illustrated strip, told in four panels, is now the whole story.
+//
+// The previous version of this page is kept intact at page.previous.tsx —
+// five "Her Editions" cards, the founders' copy, the atelier section. It is
+// not routed and not built, because Next only treats page.tsx as a route, so
+// it costs nothing while it sits there. Restoring it is a rename.
+//
+// Layout: the strip runs the full height of the page on one half, the brand
+// sits on the other. On a phone there are no halves, so the brand goes first
+// and the strip follows at full width — a 1024×1536 illustration squeezed
+// into half a phone screen would be unreadable, and every word in it matters.
 export default function AboutPage() {
   return (
     <>
       <SiteHeader active="Our Story" />
 
-      <section className="hero" style={{ padding: 0 }}>
-        <div className="hero-inner" style={{ padding: "80px 24px" }}>
-          <div className="eyebrow" style={{ color: "var(--gold-light)" }}>Our Story</div>
-          <h1>Two women.<br />One shared eye for beautiful clothes.</h1>
-        </div>
-      </section>
+      <section className="story-split">
+        <div className="story-brand">
+          <div className="story-brand-inner">
+            <Image
+              src="/brand/logo-full-black.jpg"
+              alt="URVI Studios"
+              width={420}
+              height={420}
+              className="story-logo"
+              priority
+            />
+            <p className="story-tagline">आत्मविश्वासवस्त्रम्</p>
+            <p className="story-sub">Confidence, worn.</p>
+            <p className="story-line">Everyday · Office · Occasion</p>
 
-      <section className="section">
-        <div className="container split">
-          <div>
-            <div className="eyebrow">How it started</div>
-            <h2>Built by Shilpa &amp; Nagalakshmi</h2>
-            <p className="lede">
-              URVI STUDIOS was born from a belief that getting dressed should feel effortless, expressive and
-              entirely your own.
+            <p className="story-blurb">
+              Two women, one shared eye for beautiful clothes — and a belief that getting dressed should feel
+              effortless, expressive and entirely your own.
             </p>
-            <p className="lede">
-              We wanted to create a destination for women who love the richness of Indian fashion but also want
-              pieces that belong naturally in modern life — from a Monday morning at work to a festive evening,
-              a quiet dinner to a celebration that calls for something unforgettable.
-            </p>
-            <p className="lede">
-              We travel through the world of Indian fashion looking for pieces that make us pause — beautiful
-              fabrics, thoughtful details, flattering silhouettes and craftsmanship that deserves to be noticed.
-              Every piece is personally discovered and carefully curated by Shilpa and Nagalakshmi, with one question always in mind.
-            </p>
-          </div>
-          <img src="/logo-ivory.png" alt="Urvi Studios emblem" />
-        </div>
-      </section>
 
-      <section className="section" style={{ background: "var(--sand)" }}>
-        <div className="container">
-          <p className="pull-quote">&ldquo;Would we want to wear this?&rdquo;</p>
-          <p className="lede" style={{ margin: "22px auto 0", textAlign: "center" }}>
-            If the answer is yes, it earns a place at URVI.
-          </p>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container" style={{ textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
-          <div className="eyebrow">What we believe</div>
-          <h2>This feels like me.</h2>
-          <p className="lede" style={{ margin: "0 auto 16px" }}>
-            We believe style isn&apos;t about following every trend. It&apos;s about finding that feeling when you
-            look in the mirror and think, &ldquo;This feels like me.&rdquo;
-          </p>
-          <p className="lede" style={{ margin: "0 auto" }}>
-            That is what we want every URVI piece to give you — confidence without trying too hard, elegance
-            without being expected to dress a certain way, and fashion that moves with the many versions of you.
-          </p>
-        </div>
-      </section>
-
-      <section className="section" style={{ background: "var(--sand)" }}>
-        <div className="container" style={{ textAlign: "center" }}>
-          <div className="eyebrow">The Her Edit</div>
-          <h2>Different versions of HER</h2>
-          <p className="lede" style={{ margin: "0 auto" }}>
-            The two women in our emblem represent this — feminine connection, individuality, and the many moods a
-            single woman moves through in one day.
-          </p>
-          <div className="her-editions">
-            {HER_EDITIONS.map((e) => (
-              <div className="her-edition" key={e.title}>
-                <h4>{e.title}</h4>
-                <p>{e.desc}</p>
-              </div>
-            ))}
+            <Link href="/shop" className="btn btn-primary" style={{ marginTop: 22 }}>
+              Shop the collection
+            </Link>
           </div>
         </div>
-      </section>
 
-      <section className="section">
-        <div className="container" style={{ textAlign: "center", maxWidth: 700, margin: "0 auto" }}>
-          <h2>Welcome to URVI STUDIOS.</h2>
-          <p className="lede" style={{ margin: "0 auto", fontSize: 19 }}>
-            Curated for you. Chosen with intention.
-            <br />
-            Made to make you feel extraordinary.
-          </p>
+        <div className="story-strip">
+          {/* Unoptimised: this is a detailed illustration whose text has to stay
+              legible, and Next's default recompression softens the lettering in
+              the speech bubbles enough to matter. */}
+          <Image
+            src="/brand/our-story-strip.png"
+            alt="An illustrated telling of how URVI Studios began: Shilpa and Nagalakshmi talking about how hard it is to find good traditional and office wear, deciding to curate pieces from their travels across India, and setting out to make beautiful, well-made clothing available at reasonable prices."
+            width={1024}
+            height={1536}
+            className="story-strip-img"
+            unoptimized
+            priority
+          />
         </div>
       </section>
 
