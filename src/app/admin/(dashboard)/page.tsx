@@ -6,6 +6,7 @@ import MonthlyRevenueChart from "@/components/admin/MonthlyRevenueChart";
 import ProductThumbInline, { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
 import { monthlyPerformance, revenueByChannel, countsAsSale, orderRevenue } from "@/lib/monthly-performance";
 import { SOURCE_LABELS } from "@/lib/order-channels";
+import PaymentsHealth from "./PaymentsHealth";
 
 export default async function AdminDashboardPage() {
   const [{ count: orderCount } = { count: 0 }] = await db.select({ count: sql<number>`count(*)` }).from(schema.orders);
@@ -245,6 +246,7 @@ export default async function AdminDashboardPage() {
           </tbody>
         </table>
       </div>
+          <PaymentsHealth />
     </>
   );
 }

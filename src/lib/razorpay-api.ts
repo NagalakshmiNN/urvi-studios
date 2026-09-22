@@ -122,3 +122,85 @@ export function describePayments(payments: RazorpayPayment[]): string {
 
   return `${payments.length} payment attempt${payments.length === 1 ? "" : "s"}, none completed. No money has been taken.`;
 }
+
+// ------------------------------------------------- Is Razorpay reachable at all
+
+export type ConnectionCheck = {
+  ok: boolean;
+  keyId: string | null;
+  keySecretLength: number;
+  webhookSecretSet: boolean;
+  message: string;
+};
+
+/**
+ * Does this site's Razorpay configuration actually work?
+ *
+ * Separate from fetchOrderPayments because the question is different: not
+ * "what happened to this payment" but "can we talk to Razorpay at all". When
+ * checkout fails with "Could not start payment", the real reason is a line in
+ * a server log, and a shop owner should not have to go looking for a hosting
+ * platform's log viewer to find out that a key is wrong.
+ *
+ * Lists one order — the cheapest authenticated call there is — and reports
+ * what came back. The key id is shown in full because it is public: it is
+ * sent to every customer's browser, and seeing it here is how you check it
+ * against the Razorpay dashboard. The secret is never shown; only its length,
+ * which is what catches a truncated paste or a stray space.
+ */
+export async function checkConnection(): Promise<ConnectionCheck> {
+  const keyId = process.env.RAZORPAY_KEY_ID ?? null;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET ?? "";
+  const webhookSecretSet = Boolean(process.env.RAZORPAY_WEBHOOK_SECRET);
+  const base = { keyId, keySecretLength: keySecret.length, webhookSecretSet };
+
+  if (!keyId && !keySecret) {
+    return { ...base, ok: false, message: "No Razorpay keys are set on the site. Checkout falls back to the WhatsApp handoff." };
+  }
+  if (!keyId) return { ...base, ok: false, message: "RAZORPAY_KEY_SECRET is set but RAZORPAY_KEY_ID is missing." };
+  if (!keySecret) return { ...base, ok: false, message: "RAZORPAY_KEY_ID is set but RAZORPAY_KEY_SECRET is missing or empty." };
+
+  // A space or newline on either value survives copy-paste and breaks the
+  // Basic auth header in a way that looks exactly like a wrong key.
+  if (keyId !== keyId.trim() || keySecret !== keySecret.trim()) {
+    return { ...base, ok: false, message: "One of the keys has a space or line break around it. Re-paste both values in Netlify without trailing whitespace." };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API}/orders?count=1`, {
+      headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}` },
+      cache: "no-store",
+    });
+  } catch (err) {
+    return { ...base, ok: false, message: `Could not reach Razorpay: ${err instanceof Error ? err.message : "network error"}.` };
+  }
+
+  if (res.ok) {
+    const mode = keyId.startsWith("rzp_live_") ? "live" : keyId.startsWith("rzp_test_") ? "test" : "unrecognised";
+    return {
+      ...base,
+      ok: true,
+      message: `Razorpay accepted these keys (${mode} mode).${webhookSecretSet ? "" : " The webhook secret is not set, so webhooks will be ignored."}`,
+    };
+  }
+
+  const detail = await res.text().catch(() => "");
+  let described = detail.slice(0, 300);
+  try {
+    const parsed = JSON.parse(detail) as { error?: { description?: string } };
+    if (parsed.error?.description) described = parsed.error.description;
+  } catch {
+    // Not JSON; the raw text is better than nothing.
+  }
+
+  if (res.status === 401) {
+    return {
+      ...base,
+      ok: false,
+      message: `Razorpay rejected these keys (401). The key id and secret do not go together — usually a secret from a regenerated or different key pair. Regenerate the key in Razorpay and paste both halves into Netlify. Razorpay said: ${described}`,
+    };
+  }
+
+  return { ...base, ok: false, message: `Razorpay refused the request (${res.status}). ${described}` };
+}

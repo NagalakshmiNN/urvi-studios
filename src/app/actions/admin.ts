@@ -11,7 +11,7 @@ import { priceCart, nextOrderNumber, parseUnitPriceOverride, type CartLineInput 
 import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
-import { fetchOrderPayments, capturedPayment, describePayments } from "@/lib/razorpay-api";
+import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 import { canDeleteOrder } from "@/lib/order-cleanup";
 
@@ -363,6 +363,14 @@ export async function deleteUnpaidOrdersAction(orderIds: string[]): Promise<Dele
   if (!parts.length) parts.push("Nothing to delete.");
 
   return { deleted, refused, message: parts.join(" ") };
+}
+
+export type { ConnectionCheck };
+
+/** Admin-only: is Razorpay reachable with the keys this site is running on? */
+export async function checkRazorpayAction(): Promise<ConnectionCheck> {
+  await requireAdmin();
+  return checkConnection();
 }
 
 export type ReconcileResult = { ok: boolean; message: string; confirmed?: boolean };
