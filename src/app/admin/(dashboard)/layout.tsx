@@ -4,6 +4,7 @@ import { getAdminSession, clearAdminSession } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { BUILD_STAMP } from "@/lib/build-stamp";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
@@ -52,6 +53,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Logout {admin ? `(${admin.name})` : ""}
           </button>
         </form>
+        {/* So "is my deploy live?" is answered by looking, not by hunting for
+            a feature that was added and wondering whether it is missing or
+            the build is old. */}
+        <p style={{ marginTop: 14, padding: "0 12px", fontSize: 11, color: "rgba(247,240,228,0.35)", lineHeight: 1.6 }}>
+          {BUILD_STAMP}
+        </p>
       </aside>
       <main className="admin-main">{children}</main>
     </div>
