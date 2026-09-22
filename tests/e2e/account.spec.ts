@@ -57,12 +57,16 @@ test.describe("registering and signing in", () => {
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="password"]', "definitely-wrong");
     await page.click('button[type="submit"]');
-    await expect(page.locator(".notice-box.error")).toHaveText("Incorrect password.");
+    // The same message for a wrong password and an email that isn't
+    // registered. Two different messages would let anyone check which email
+    // addresses have accounts here, one guess at a time.
+    const SAME = "That email and password don't match. Please try again.";
+    await expect(page.locator(".notice-box.error")).toHaveText(SAME);
 
     await page.fill('input[name="email"]', "nobody@test.example.com");
     await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');
-    await expect(page.locator(".notice-box.error")).toHaveText("No account found with that email.");
+    await expect(page.locator(".notice-box.error")).toHaveText(SAME);
 
     await deleteCustomerByEmail(email);
   });

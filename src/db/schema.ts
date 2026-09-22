@@ -44,6 +44,19 @@ export const adminUsers = pgTable("admin_users", {
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("owner"),
+  // Stamped on every password change. Admin tokens issued before this moment
+  // are refused, which is how changing the password ends the sessions that
+  // were opened with the old one.
+  passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+// Failed sign-ins, so a password guesser can be slowed down. Kept in the
+// database rather than in memory: the site runs as serverless functions, and
+// an in-memory counter that resets on every cold start protects nothing.
+export const authAttempts = pgTable("auth_attempts", {
+  id: id(),
+  attemptKey: text("attempt_key").notNull(),
   createdAt: createdAt(),
 });
 

@@ -36,7 +36,8 @@ test.describe("the admin area is locked", () => {
     await page.fill('input[name="email"]', "admin@test.urvistudios.in");
     await page.fill('input[name="password"]', "not-the-password");
     await page.click('button[type="submit"]');
-    await expect(page.locator(".notice-box.error")).toHaveText("Incorrect password.");
+    // Deliberately the same wording as for an unknown email — see below.
+    await expect(page.locator(".notice-box.error")).toHaveText("That email and password don't match. Please try again.");
   });
 
   test("a customer login is not an admin login", async ({ page }) => {
@@ -44,7 +45,9 @@ test.describe("the admin area is locked", () => {
     await page.fill('input[name="email"]', "nobody@test.example.com");
     await page.fill('input[name="password"]', "whatever");
     await page.click('button[type="submit"]');
-    await expect(page.locator(".notice-box.error")).toHaveText("No admin account found with that email.");
+    // An admin login that named which emails are admins would be a list worth
+    // having. It says the same thing either way.
+    await expect(page.locator(".notice-box.error")).toHaveText("That email and password don't match. Please try again.");
   });
 });
 
@@ -384,5 +387,51 @@ test.describe("deleting a product", () => {
 
     await deleteOrderByNumber(orderNumber);
     await deleteCustomerByEmail(email);
+  });
+});
+
+// Search and paging on the products list.
+//
+// The list had neither: every product on one page, and no way to find one
+// except scrolling. These tests exist because both features live in the URL,
+// which is what makes them survive the trip to an edit screen and back.
+test.describe("finding a product in a long list", () => {
+  test("search narrows the table and paging walks it", async ({ page }) => {
+    const made = [];
+    for (let i = 1; i <= 27; i++) {
+      made.push(await createTestProduct({ name: `Zzz Paging Piece ${String(i).padStart(2, "0")}`, price: 900 + i, stock: 2 }));
+    }
+    const odd = await createTestProduct({ name: "Zzz Different Thing", price: 1200, stock: 2 });
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/products");
+
+    // 25 by default, whatever else is in the catalogue.
+    await expect(page.locator("tbody tr")).toHaveCount(25);
+
+    await page.getByLabel("Search products").fill("Zzz Paging Piece");
+    await expect(page.locator("tbody tr")).toHaveCount(25);
+    await expect(page.getByText("Showing 1–25 of 27")).toBeVisible();
+
+    // The remainder is on page two, not lost.
+    await page.getByRole("link", { name: /Next/ }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(2);
+    await expect(page.getByText("Showing 26–27 of 27")).toBeVisible();
+
+    // The search survived the page change — otherwise page 2 would be page 2
+    // of the whole catalogue, which is a different set of rows entirely.
+    await expect(page).toHaveURL(/q=Zzz\+Paging\+Piece/);
+
+    // A larger page size brings them back onto one screen, and resets to the
+    // first page rather than leaving you on a page that no longer exists.
+    await page.getByLabel("Rows per page").selectOption("50");
+    await expect(page.locator("tbody tr")).toHaveCount(27);
+    await expect(page.getByRole("link", { name: /Next/ })).toHaveCount(0);
+
+    // And a search that matches nothing says so plainly.
+    await page.getByLabel("Search products").fill("zzz nothing matches this");
+    await expect(page.getByText(/Nothing matches/)).toBeVisible();
+
+    for (const p of [...made, odd]) await deleteTestProduct(p.id);
   });
 });

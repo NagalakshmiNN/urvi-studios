@@ -8,12 +8,25 @@ import { getCustomerSession } from "@/lib/auth";
 
 export default async function OrderSuccessPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { order: orderNumber } = await searchParams;
-  const order = orderNumber ? await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } }) : null;
-  // True both for a customer who was already logged in, and for a guest
-  // checkout that silently created (and signed them into) a new account —
-  // either way, worth telling them they can track this order right now.
   const sessionCustomerId = await getCustomerSession();
-  const isSignedInHere = Boolean(order && sessionCustomerId && sessionCustomerId === order.customerId);
+
+  const found = orderNumber
+    ? await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } })
+    : null;
+
+  // Order numbers are sequential and guessable — URVI-2026-00001 and upward.
+  // This page used to render whatever order the number named: the customer's
+  // email address, the total, every line item. Anyone who could count could
+  // walk the whole order book.
+  //
+  // So the order is only handed over to someone who owns it. Checkout signs
+  // in even a guest (create-order creates the account and the session before
+  // returning), so the person who just paid always passes this.
+  const owned = Boolean(found && sessionCustomerId && sessionCustomerId === found.customerId);
+  const order = owned ? found : null;
+  // Kept for the wording below: this page is only ever reached by the owner
+  // now, but the "you're signed in" line still reads as its own fact.
+  const isSignedInHere = owned;
 
   // A card/UPI order that hasn't been marked paid yet means the browser's own
   // confirmation didn't get through and we're waiting on Razorpay's webhook.
@@ -28,9 +41,9 @@ export default async function OrderSuccessPage({ searchParams }: { searchParams:
     <>
       <SiteHeader />
       <div className="container" style={{ padding: "80px 0", textAlign: "center" }}>
-        <div className="eyebrow">Thank you</div>
+        <div className="eyebrow">{order ? "Thank you" : "Order lookup"}</div>
         <h1 style={{ marginBottom: 10 }}>
-          {awaitingConfirmation ? "Payment received" : "Your order is confirmed"}
+          {!order ? "We couldn't show that order" : awaitingConfirmation ? "Payment received" : "Your order is confirmed"}
         </h1>
         {order ? (
           <>
@@ -67,7 +80,11 @@ export default async function OrderSuccessPage({ searchParams }: { searchParams:
             </div>
           </>
         ) : (
-          <p className="lede" style={{ margin: "0 auto 30px" }}>We couldn&apos;t find that order, but if payment went through, we&apos;ve got it — reach out on WhatsApp and we&apos;ll confirm right away.</p>
+          <p className="lede" style={{ margin: "0 auto 30px" }}>
+            We couldn&apos;t show that order. If you&apos;ve just paid, check your email for the confirmation, or{" "}
+            <Link href="/account/orders">sign in to see your orders</Link> — and if anything looks wrong, message us
+            on WhatsApp and we&apos;ll sort it out right away.
+          </p>
         )}
         <Link href="/shop" className="btn btn-primary" style={{ marginTop: 10 }}>Continue Shopping</Link>
       </div>

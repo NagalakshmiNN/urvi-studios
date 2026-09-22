@@ -19,6 +19,7 @@ const NAV = [
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/messages", label: "Messages" },
   { href: "/admin/data-export", label: "Data Export" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 async function adminLogout() {

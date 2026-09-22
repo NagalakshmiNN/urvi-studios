@@ -14,6 +14,8 @@ import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 import { canDeleteOrder } from "@/lib/order-cleanup";
+import { hashPassword, verifyPassword, createAdminSession } from "@/lib/auth";
+import { checkNewPassword } from "@/lib/password-rules";
 
 // Costing fields (Landed Cost, Min/Max Round Up To) are optional numbers —
 // usually set via Excel import, but editable by hand too. Blank means "not
@@ -309,6 +311,49 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
 
   revalidatePath(`/admin/orders/${order.orderNumber}`);
   revalidateStockViews();
+}
+
+/**
+ * Change the signed-in admin's own password.
+ *
+ * There was no way to do this at all, which mattered because the password the
+ * account was seeded with had been committed to the repository. A credential
+ * you cannot rotate is a credential you are stuck with.
+ *
+ * The current password is required: a session cookie proves the browser was
+ * signed in once, not that the person at the keyboard is the owner. Stamping
+ * passwordChangedAt is what ends every other session — see getAdminSession.
+ */
+export async function changeAdminPasswordAction(
+  _prev: AdminFormState,
+  formData: FormData
+): Promise<AdminFormState> {
+  const adminId = await requireAdmin();
+
+  const current = String(formData.get("currentPassword") || "");
+  const next = String(formData.get("newPassword") || "");
+  const confirm = String(formData.get("confirmPassword") || "");
+
+  const admin = await db.query.adminUsers.findFirst({ where: eq(schema.adminUsers.id, adminId) });
+  if (!admin) return { error: "That admin account no longer exists." };
+
+  const currentValid = await verifyPassword(current, admin.passwordHash);
+  if (!currentValid) return { error: "Your current password isn't right." };
+
+  const verdict = checkNewPassword(next, confirm, current);
+  if (!verdict.ok) return { error: verdict.error };
+
+  await db
+    .update(schema.adminUsers)
+    .set({ passwordHash: await hashPassword(next), passwordChangedAt: new Date() })
+    .where(eq(schema.adminUsers.id, adminId));
+
+  // The current browser's own cookie predates the change too, so it is
+  // reissued — otherwise changing your password would sign you out of the
+  // screen you changed it on.
+  await createAdminSession(adminId);
+
+  return { success: "Password changed. Any other device signed in as you has been signed out." };
 }
 
 export type DeleteOrdersResult = { deleted: number; refused: number; message: string };

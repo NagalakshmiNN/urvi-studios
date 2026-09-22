@@ -3,6 +3,8 @@
 // navigation actually goes where it says.
 
 import { test, expect } from "@playwright/test";
+import { createTestProduct, deleteTestProduct, deleteOrderByNumber, deleteCustomerByEmail } from "../setup/db";
+import { registerCustomer } from "../setup/fixtures";
 
 test.describe("home page", () => {
   test("shows the hero, the three category cards and real products", async ({ page }) => {
@@ -246,5 +248,53 @@ test.describe("the pages a payment gateway checks for", () => {
     await expect(footer.locator('a[href="/terms"]')).toBeVisible();
     await expect(footer.locator('a[href="/privacy"]')).toBeVisible();
     await expect(footer.locator('a[href="/shipping-returns#cancellations"]')).toBeVisible();
+  });
+});
+
+// Someone else's order is not yours to read.
+//
+// Order numbers are sequential — URVI-2026-00001 and upward — and this page
+// used to render whatever number it was given: the customer's email address,
+// the total, every line item. Anyone who could count could walk the order
+// book. The fix is ownership, and this is the test that keeps it.
+test.describe("order confirmation privacy", () => {
+  test("a stranger cannot read an order by guessing its number", async ({ page, browser }) => {
+    const product = await createTestProduct({ name: "Privacy Test Piece", price: 1900, stock: 4 });
+
+    // One customer places an order.
+    const { email } = await registerCustomer(page, { name: "Order Owner" });
+    const res = await page.request.post("/api/checkout/create-order", {
+      data: {
+        items: [{ productId: product.id, size: "M", color: product.colors[0].name, qty: 1 }],
+        customer: {
+          name: "Order Owner",
+          email,
+          phone: "9876500888",
+          address: "3 Private Lane",
+          city: "Bengaluru",
+          state: "Karnataka",
+          pincode: "560001",
+        },
+      },
+    });
+    const { orderNumber } = await res.json();
+
+    // The owner sees it.
+    await page.goto(`/order-success?order=${orderNumber}`);
+    await expect(page.getByText(email)).toBeVisible();
+
+    // A different browser, with no session, does not — and is told nothing
+    // that confirms the order number is even real.
+    const stranger = await browser.newContext();
+    const strangerPage = await stranger.newPage();
+    await strangerPage.goto(`/order-success?order=${orderNumber}`);
+    await expect(strangerPage.getByText(email)).toHaveCount(0);
+    await expect(strangerPage.getByText("Privacy Test Piece")).toHaveCount(0);
+    await expect(strangerPage.locator("h1")).toContainText("couldn't show that order");
+    await stranger.close();
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+    await deleteTestProduct(product.id);
   });
 });

@@ -27,13 +27,13 @@ export default function AboutPage() {
       <section className="story-split">
         <div className="story-brand">
           <div className="story-brand-inner">
-            {/* The 256px square mark. Shown no larger than it is: upscaling a
-                logo softens exactly the fine gold linework it is made of. */}
+            {/* The square mark. Displayed at 320px from a much larger source, so
+                the fine gold linework stays crisp on high-density screens. */}
             <Image
-              src="/brand/logo-story.jpg"
+              src="/brand/logo-story.png"
               alt="URVI Studios"
-              width={256}
-              height={256}
+              width={1254}
+              height={1254}
               className="story-logo"
               priority
             />

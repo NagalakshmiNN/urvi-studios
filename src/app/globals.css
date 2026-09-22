@@ -1143,7 +1143,7 @@ a.prod-label:hover span { text-decoration: underline; }
      so text-align on the parent never centred it — which is why the mark sat
      left of centre while the words beneath it were centred. */
   margin-inline: auto;
-  width: min(240px, 62%);
+  width: min(320px, 74%);
   height: auto;
   /* The file is a square with a white ground. Multiply drops that white into
      the cream so the mark sits on the page rather than on a card. */
