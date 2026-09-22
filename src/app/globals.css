@@ -1139,9 +1139,15 @@ a.prod-label:hover span { text-decoration: underline; }
 }
 
 .story-logo {
-  width: min(320px, 70%);
+  /* margin-inline, not text-align: the global reset sets img { display: block },
+     so text-align on the parent never centred it — which is why the mark sat
+     left of centre while the words beneath it were centred. */
+  margin-inline: auto;
+  width: min(240px, 62%);
   height: auto;
-  mix-blend-mode: multiply; /* the logo file has a white card behind it */
+  /* The file is a square with a white ground. Multiply drops that white into
+     the cream so the mark sits on the page rather than on a card. */
+  mix-blend-mode: multiply;
 }
 
 .story-tagline {

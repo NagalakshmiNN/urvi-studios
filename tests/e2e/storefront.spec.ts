@@ -151,6 +151,35 @@ test.describe("static pages", () => {
     await expect(strip).toHaveAttribute("alt", /Shilpa and Nagalakshmi/);
 
     await expect(page.locator(".story-brand .story-sub")).toHaveText("Confidence, worn.");
+
+    // The mark is centred in its half. The global reset sets img to display:
+    // block, so text-align on the parent does nothing for it and it drifted
+    // left of the words beneath it — which reads as a mistake on a page whose
+    // whole job is to look considered.
+    const half = await page.locator(".story-brand").boundingBox();
+    const logo = await page.locator(".story-logo").boundingBox();
+    const halfCentre = half!.x + half!.width / 2;
+    const logoCentre = logo!.x + logo!.width / 2;
+    expect(Math.abs(halfCentre - logoCentre)).toBeLessThan(2);
+  });
+
+  test("Our Story centres the mark on a phone too", async ({ page }) => {
+    // Below 900px the two halves collapse into one column, and the brand block
+    // stops being a sticky half and becomes an ordinary band. Centring is
+    // easy to lose across that boundary, so it is asserted on both sides of
+    // it rather than only on the layout that happened to be checked.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/about");
+
+    const logo = await page.locator(".story-logo").boundingBox();
+    const logoCentre = logo!.x + logo!.width / 2;
+    expect(Math.abs(390 / 2 - logoCentre)).toBeLessThan(2);
+
+    // And the strip still runs the full width underneath, where its words
+    // stay readable.
+    const strip = await page.locator(".story-strip-img").boundingBox();
+    expect(strip!.width).toBeGreaterThan(380);
+    expect(strip!.y).toBeGreaterThan(logo!.y);
   });
 
   test("Shipping & Returns quotes the one shared free-delivery threshold", async ({ page }) => {
