@@ -109,12 +109,24 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           Payment: {order.paymentMethod === "razorpay" ? "Razorpay" : order.paymentMethod === "manual" ? "Recorded manually" : "WhatsApp / COD handoff"} · {order.paymentStatus}
           {order.paymentMode && <> · {PAYMENT_MODE_LABELS[order.paymentMode] ?? order.paymentMode}</>}
           {order.razorpayPaymentId && <> · {order.razorpayPaymentId}</>}
+          {/* Shown because its absence is a diagnosis. An order marked
+              "Razorpay" with no order id here never reached Razorpay at all,
+              and that is a different problem from one that reached it and
+              went unpaid. */}
+          <br />
+          {order.razorpayOrderId
+            ? <>Razorpay order: <code>{order.razorpayOrderId}</code></>
+            : order.paymentMethod === "razorpay"
+            ? <em>No Razorpay order id — this order never reached Razorpay.</em>
+            : null}
         </p>
 
-        {/* Offered exactly where the doubt is: an order that went to Razorpay
-            but isn't marked paid. Once it is paid there is nothing to settle,
-            and on a WhatsApp order there is nothing to ask. */}
-        {order.razorpayOrderId && order.paymentStatus !== "PAID" && (
+        {/* Shown for any unpaid Razorpay order, including one with no Razorpay
+            order id. Gating that case out was a mistake: "this order never
+            reached Razorpay" is the single most useful answer the check can
+            give, and hiding the button made it the one answer you could never
+            see. */}
+        {order.paymentMethod === "razorpay" && order.paymentStatus !== "PAID" && (
           <ReconcileButton orderId={order.id} />
         )}
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>

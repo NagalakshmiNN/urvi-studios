@@ -11,6 +11,7 @@ import {
   getOrderByNumber,
   getSizeStock,
   uniqueEmail,
+  withDb,
 } from "../setup/db";
 import { loginAsAdmin } from "../setup/fixtures";
 import { outboxLength, waitForMail } from "../setup/outbox";
@@ -327,4 +328,49 @@ test("an order with no Actual Sale Price exports as empty, never as zero", async
 
   await deleteOrderByNumber(orderNumber);
   await deleteCustomerByEmail(email);
+});
+
+// Clearing out the orders that testing leaves behind.
+//
+// Every payment attempt creates an order before anyone pays, so a morning of
+// testing a gateway leaves a dozen rows that look like real business and skew
+// the Money Map. The risk in offering a bulk delete is obvious, so the guard
+// is on the server: a paid order is a sales record the books and the GST
+// return depend on, and no amount of selecting in the browser may remove one.
+test.describe("clearing unpaid orders", () => {
+  test("unpaid orders can be cleared, and paid ones cannot", async ({ page }) => {
+    const unpaid = await placeOrder(page, 1);
+    const paid = await placeOrder(page, 1);
+
+    // Make the second one real, exactly as a confirmed payment would.
+    await withDb((c) =>
+      c.query(
+        "update orders set payment_status = 'PAID', status = 'CONFIRMED', stock_deducted = true where order_number = $1",
+        [paid.orderNumber]
+      )
+    );
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/orders");
+
+    // The panel offers only the unpaid one — a paid order is never listed.
+    await page.getByRole("button", { name: /unpaid order.*can be cleared/i }).click();
+    const panel = page.locator("label", { hasText: unpaid.orderNumber });
+    await expect(panel).toBeVisible();
+    await expect(page.locator("label", { hasText: paid.orderNumber })).toHaveCount(0);
+
+    page.once("dialog", (d) => d.accept());
+    await panel.locator("input[type=checkbox]").check();
+    await page.getByRole("button", { name: /^Delete \d+ selected$/ }).click();
+
+    await expect(page.getByText(/1 order deleted/i)).toBeVisible();
+
+    // Gone, and the paid one untouched.
+    expect(await getOrderByNumber(unpaid.orderNumber)).toBeNull();
+    expect((await getOrderByNumber(paid.orderNumber))!.payment_status).toBe("PAID");
+
+    await deleteOrderByNumber(paid.orderNumber);
+    await deleteCustomerByEmail(unpaid.email);
+    await deleteCustomerByEmail(paid.email);
+  });
 });

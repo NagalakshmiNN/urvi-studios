@@ -13,6 +13,7 @@ import { isBlankHtml } from "@/lib/richtext";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 import { fetchOrderPayments, capturedPayment, describePayments } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
+import { canDeleteOrder } from "@/lib/order-cleanup";
 
 // Costing fields (Landed Cost, Min/Max Round Up To) are optional numbers —
 // usually set via Excel import, but editable by hand too. Blank means "not
@@ -308,6 +309,60 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
 
   revalidatePath(`/admin/orders/${order.orderNumber}`);
   revalidateStockViews();
+}
+
+export type DeleteOrdersResult = { deleted: number; refused: number; message: string };
+
+/**
+ * Delete orders that were never paid — the debris of testing, and the
+ * abandoned checkouts that pile up behind them.
+ *
+ * Deliberately narrow. An order is only removed if it was never paid AND
+ * never took stock; anything else is refused and counted, never quietly
+ * skipped. A paid order is a sales record that the books, the GST return and
+ * the customer all depend on, so no amount of selecting in the UI can delete
+ * one here — the guard is on this side, where it cannot be clicked past.
+ *
+ * Order items go with it: the foreign key cascades, so the lines never
+ * outlive the order they belong to.
+ */
+export async function deleteUnpaidOrdersAction(orderIds: string[]): Promise<DeleteOrdersResult> {
+  await requireAdmin();
+
+  const ids = Array.from(new Set(orderIds.filter(Boolean)));
+  if (ids.length === 0) return { deleted: 0, refused: 0, message: "Nothing was selected." };
+
+  let deleted = 0;
+  let refused = 0;
+
+  for (const id of ids) {
+    const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, id) });
+    if (!order) continue;
+
+    // The rule lives in src/lib/order-cleanup.ts so it can be read and tested
+    // on its own — it is the one thing standing between this and deleting a
+    // sales record.
+    if (!canDeleteOrder(order)) {
+      refused++;
+      continue;
+    }
+
+    await db.delete(schema.orders).where(eq(schema.orders.id, id));
+    deleted++;
+  }
+
+  revalidatePath("/admin/orders");
+
+  const parts: string[] = [];
+  if (deleted) parts.push(`${deleted} order${deleted === 1 ? "" : "s"} deleted.`);
+  if (refused) {
+    parts.push(
+      `${refused} left alone because ${refused === 1 ? "it has" : "they have"} been paid or already took stock — those are sales records and are not deleted from here.`
+    );
+  }
+  if (!parts.length) parts.push("Nothing to delete.");
+
+  return { deleted, refused, message: parts.join(" ") };
 }
 
 export type ReconcileResult = { ok: boolean; message: string; confirmed?: boolean };

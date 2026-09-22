@@ -4,6 +4,7 @@ import { formatPaise } from "@/lib/sale-price";
 import { SOURCE_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
 import { statusLabel } from "@/lib/order-status-copy";
 import Link from "next/link";
+import TidyUnpaidOrders from "./TidyUnpaidOrders";
 
 const STATUSES = ["all", "PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
 
@@ -126,6 +127,20 @@ export default async function AdminOrdersPage({
         </table>
         {orders.length === 0 && <p style={{ padding: 20, color: "var(--sage)" }}>No orders match this filter.</p>}
       </div>
+
+      {/* Built from the orders currently on screen, so the filters above
+          narrow this too — and never from anything paid. */}
+      <TidyUnpaidOrders
+        orders={orders
+          .filter((o) => o.paymentStatus !== "PAID" && !o.stockDeducted)
+          .map((o) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            customerName: o.customerName,
+            total: formatINR(o.total),
+            date: o.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+          }))}
+      />
     </>
   );
 }
