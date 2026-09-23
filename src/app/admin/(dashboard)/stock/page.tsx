@@ -166,7 +166,10 @@ export default async function AdminStockPage({
     <>
       <div className="admin-header">
         <h1>Stock</h1>
-        <a href="/api/admin/export/stock" className="btn btn-outline">Download as Excel</a>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Link href="/admin/stock/grid" className="btn btn-primary">Grid view</Link>
+          <a href="/api/admin/export/stock" className="btn btn-outline">Download as Excel</a>
+        </div>
       </div>
 
       <div className="metric-grid" style={{ marginBottom: 20 }}>

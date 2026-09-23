@@ -244,3 +244,52 @@ test.describe("the revenue chart", () => {
     await deleteTestProduct(item.id);
   });
 });
+
+// The stock grid: one row per piece, one column per size, a count in each cell.
+test.describe("stock grid", () => {
+  test("shows a cell per size, blanks sizes a piece isn't made in, and marks what's gone", async ({ page }) => {
+    const stocked = await createTestProduct({ name: "Zzz Grid Full Piece", price: 1200, stock: 12 });
+    // Empty the M shelf so there is something the grid has to shout about.
+    await withDb((c) =>
+      c.query(
+        "update product_sizes set stock = 0 where product_id = $1 and lower(label) = 'm'",
+        [stocked.id]
+      )
+    );
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/stock/grid");
+
+    const row = page.locator("tbody tr", { hasText: "Zzz Grid Full Piece" });
+    await expect(row).toBeVisible();
+
+    // The product code sits under the name, so a piece can be matched to a
+    // spreadsheet without opening it. Asserted against this product's own
+    // code rather than a prefix, since the fixtures and the real catalogue
+    // use different ones.
+    await expect(row.locator(".sg-code")).toHaveText(stocked.sku);
+
+    // An emptied size reads as out, not as blank.
+    await expect(row.locator("td.sg-out").first()).toHaveText("0");
+
+    // And the column headers run smallest to largest.
+    const headers = await page.locator("thead th.sg-size").allTextContents();
+    const sized = headers.filter((h) => h !== "Total");
+    expect(sized.indexOf("S")).toBeLessThan(sized.indexOf("M"));
+    expect(sized.indexOf("M")).toBeLessThan(sized.indexOf("L"));
+
+    await deleteTestProduct(stocked.id);
+  });
+
+  test("the report route refuses anyone without an admin session or a token", async ({ request }) => {
+    // It is called by a schedule, so it cannot rely on a cookie — which makes
+    // it exactly the kind of route that ends up open by accident.
+    const res = await request.post("/api/reports/stock-daily");
+    expect(res.status()).toBe(401);
+
+    const wrongToken = await request.post("/api/reports/stock-daily", {
+      headers: { "x-report-token": "not-the-token" },
+    });
+    expect(wrongToken.status()).toBe(401);
+  });
+});

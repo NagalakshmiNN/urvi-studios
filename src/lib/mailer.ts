@@ -12,7 +12,7 @@ import { appendFileSync } from "node:fs";
 // test suite can assert on what would have gone out. This variable is never
 // set in production (and Netlify's filesystem is read-only anyway) — without
 // it, nothing about the sending path below changes.
-function writeToOutbox(file: string, opts: { to: string; subject: string; text: string; replyTo?: string }) {
+function writeToOutbox(file: string, opts: { to: string; subject: string; text: string; html?: string; replyTo?: string }) {
   try {
     appendFileSync(file, JSON.stringify({ ...opts, at: new Date().toISOString() }) + "\n");
   } catch (err) {
@@ -30,7 +30,15 @@ function getTransport() {
   });
 }
 
-export async function sendMail(opts: { to: string; subject: string; text: string; replyTo?: string }) {
+export async function sendMail(opts: {
+  to: string;
+  subject: string;
+  /** Always required: the plain-text version, for clients that refuse HTML. */
+  text: string;
+  /** Optional richer version. A table of numbers is unreadable without it. */
+  html?: string;
+  replyTo?: string;
+}) {
   const outbox = process.env.MAIL_OUTBOX_FILE;
   if (outbox) {
     writeToOutbox(outbox, opts);
@@ -50,6 +58,7 @@ export async function sendMail(opts: { to: string; subject: string; text: string
       replyTo: opts.replyTo,
       subject: opts.subject,
       text: opts.text,
+      html: opts.html,
     });
   } catch (err) {
     // Never let an email failure break the calling request.

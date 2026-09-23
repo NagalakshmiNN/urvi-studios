@@ -1200,3 +1200,50 @@ a.prod-label:hover span { text-decoration: underline; }
     padding: 48px 24px 36px;
   }
 }
+
+/* ------------------------------------------------------- Stock grid
+
+   One row per piece, one column per size. Colour carries the same meaning as
+   the number so an empty shelf is visible while scanning rather than only
+   while reading: red is gone, amber is nearly gone, blank is a size the piece
+   was never made in. */
+
+.stock-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.stock-grid th,
+.stock-grid td { border-bottom: 1px solid var(--line, #e2e0d8); padding: 8px 6px; }
+
+.stock-grid thead th,
+.stock-grid tfoot th {
+  background: var(--sand, #ece5d8);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* The piece column stays put while the sizes scroll sideways — a count is
+   meaningless once you can no longer see which garment it belongs to. */
+.stock-grid .sg-piece {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  text-align: left;
+  min-width: 240px;
+}
+.stock-grid thead .sg-piece,
+.stock-grid tfoot .sg-piece { background: var(--sand, #ece5d8); }
+
+.stock-grid .sg-size { text-align: center; min-width: 46px; }
+.stock-grid .sg-cell { text-align: center; font-variant-numeric: tabular-nums; }
+
+.sg-name { font-weight: 500; line-height: 1.35; }
+.sg-code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: var(--sage, #7d7f6a); }
+.sg-inactive { font-weight: 400; font-size: 11.5px; color: var(--sage, #7d7f6a); }
+.sg-other { font-size: 11px; color: var(--sage, #7d7f6a); margin-top: 2px; }
+
+.sg-out { background: rgba(160, 60, 40, 0.13); color: #a03c28; font-weight: 600; }
+.sg-low { background: rgba(196, 149, 58, 0.16); color: #8a6a1f; font-weight: 600; }
+.sg-none { background: repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(0,0,0,0.035) 4px, rgba(0,0,0,0.035) 8px); }
+.sg-total { font-weight: 600; }
