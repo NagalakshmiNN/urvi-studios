@@ -38,6 +38,21 @@ export default function NewCouponForm() {
           <input type="number" name="minOrderValue" min={0} placeholder="1500" />
         </div>
       </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Total uses allowed</label>
+          <input type="number" name="usageLimit" min={1} placeholder="Leave blank for unlimited" />
+        </div>
+        <div className="form-group">
+          <label>Uses allowed per customer</label>
+          <input type="number" name="perCustomerLimit" min={1} placeholder="Leave blank for unlimited" />
+        </div>
+      </div>
+      <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 14, lineHeight: 1.6 }}>
+        A code with no limits can be used by anyone who finds it, as often as they
+        like, until you switch it off. For an Instagram offer, 1 per customer is
+        usually what you mean.
+      </p>
       <button type="submit" className="btn btn-outline" disabled={pending}>{pending ? "Creating…" : "Create Coupon"}</button>
     </form>
   );

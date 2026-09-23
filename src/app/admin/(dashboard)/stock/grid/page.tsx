@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { buildStockGrid, visibleColumns, cellTone } from "@/lib/stock-grid";
+import { pendingReservations, heldForProduct } from "@/lib/stock-reservations";
 import ProductThumb from "@/components/admin/ProductThumb";
 import SendStockEmail from "./SendStockEmail";
 
@@ -24,6 +25,10 @@ export default async function StockGridPage({
     orderBy: (p, { asc }) => [asc(p.name)],
   });
 
+  // Garments spoken for on a WhatsApp order nobody has confirmed yet. Shown
+  // beside the count, never subtracted from it — the shelf still holds them.
+  const holds = await pendingReservations();
+
   const grid = buildStockGrid(
     products.filter((p) => includeInactive || p.isActive).map((p) => ({
       id: p.id,
@@ -33,16 +38,21 @@ export default async function StockGridPage({
       isActive: p.isActive,
       images: p.images,
       sizes: p.sizes,
+      held: heldForProduct(holds, p.id),
     }))
   );
 
   const columns = visibleColumns(grid);
   const outCount = grid.rows.reduce(
-    (n, r) => n + columns.filter((c) => cellTone(r.cells[c]) === "out").length,
+    (n, r) => n + columns.filter((c) => cellTone(r.cells[c], 2, r.heldCells[c]) === "out").length,
     0
   );
   const lowCount = grid.rows.reduce(
-    (n, r) => n + columns.filter((c) => cellTone(r.cells[c]) === "low").length,
+    (n, r) => n + columns.filter((c) => cellTone(r.cells[c], 2, r.heldCells[c]) === "low").length,
+    0
+  );
+  const heldCount = grid.rows.reduce(
+    (n, r) => n + columns.filter((c) => cellTone(r.cells[c], 2, r.heldCells[c]) === "held").length,
     0
   );
 
@@ -65,8 +75,19 @@ export default async function StockGridPage({
           {grid.grandTotal === 1 ? "" : "s"} in hand ·{" "}
           <strong style={{ color: "#a03c28" }}>{outCount} size{outCount === 1 ? "" : "s"} out</strong> ·{" "}
           {lowCount} running low
+          {grid.heldGrandTotal > 0 && (
+            <> · {grid.heldGrandTotal} held for WhatsApp orders</>
+          )}
           <br />
           A blank cell means the piece isn&apos;t made in that size. A zero means it is, and it&apos;s gone.
+          {heldCount > 0 && (
+            <>
+              {" "}
+              A cell marked <em>held</em> still has the garment on the shelf, but it&apos;s
+              already promised on a WhatsApp order nobody has confirmed yet — so
+              it isn&apos;t really yours to sell.
+            </>
+          )}
         </p>
 
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -102,9 +123,14 @@ export default async function StockGridPage({
                   </td>
                   {columns.map((c) => {
                     const value = row.cells[c];
+                    const held = row.heldCells[c];
                     return (
-                      <td key={c} className={`sg-cell sg-${cellTone(value)}`}>
+                      <td key={c} className={`sg-cell sg-${cellTone(value, 2, held)}`}>
                         {value === null ? "" : value}
+                        {/* The count stays the shelf count; the hold is shown
+                            beside it, because subtracting one would say a
+                            garment isn't there when it is hanging on the rail. */}
+                        {held > 0 && <span className="sg-held-mark"> ({held} held)</span>}
                       </td>
                     );
                   })}

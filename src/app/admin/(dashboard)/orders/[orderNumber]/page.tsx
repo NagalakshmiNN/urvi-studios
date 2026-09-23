@@ -126,8 +126,21 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             reached Razorpay" is the single most useful answer the check can
             give, and hiding the button made it the one answer you could never
             see. */}
-        {order.paymentMethod === "razorpay" && order.paymentStatus !== "PAID" && (
+        {order.paymentMethod === "razorpay" && order.paymentStatus !== "PAID" && order.paymentStatus !== "REFUNDED" && (
           <ReconcileButton orderId={order.id} />
+        )}
+
+        {/* A refund made in the Razorpay dashboard leaves no trace on this
+            screen unless it is put here. Without it, an order that has been
+            refunded reads exactly like one that was paid and kept. */}
+        {order.refundedPaise > 0 && (
+          <p className="notice-box" style={{ marginTop: 10, fontSize: 13 }}>
+            <strong>Refunded {formatINR(Math.round(order.refundedPaise / 100))}</strong>
+            {order.refundedAt && <> on {order.refundedAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</>}
+            {order.refundedPaise >= order.total * 100
+              ? " — the full amount. This order is cancelled and its stock has gone back on the shelf."
+              : ` of ${formatINR(order.total)}. The order still stands and its stock is still deducted; mark it Returned if the garment is coming back.`}
+          </p>
         )}
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>
           Channel: {SOURCE_LABELS[order.source] ?? order.source} ·{" "}

@@ -53,7 +53,11 @@ export async function POST(request: Request) {
   // Run a wordlist through it and the owners of those addresses can never
   // register and can never sign in. No payment, no order, no authentication
   // required.
-  const pricing = await priceCart(items, couponCode);
+  // The email goes in so a coupon capped at one per customer can actually
+  // count what this customer has already used. The cart-page preview has no
+  // email to offer, which is why the limit is re-checked here rather than
+  // trusted from there.
+  const pricing = await priceCart(items, couponCode, { customerEmail: customer.email });
   if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
 
   let customerId = await getCustomerSession();

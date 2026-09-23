@@ -13,6 +13,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db } from "@/db";
 import { sendMail, parseRecipients } from "@/lib/mailer";
 import { renderStockGridEmail } from "@/lib/stock-report-email";
+import { pendingReservations, heldForProduct } from "@/lib/stock-reservations";
 import { SITE } from "@/lib/site-config";
 import { getAdminSession } from "@/lib/auth";
 
@@ -45,6 +46,12 @@ async function send() {
     orderBy: (p, { asc }) => [asc(p.name)],
   });
 
+  // Garments already promised on an unconfirmed WhatsApp order. They are on
+  // the shelf, so they stay in the count — but the email says how many of
+  // each count are spoken for, because a number that includes them is the
+  // reason the same kurti gets sold twice.
+  const holds = await pendingReservations();
+
   // Inactive pieces are left out. The point of this email is what can be sold
   // this morning, and a piece that is not live cannot be.
   const report = renderStockGridEmail(
@@ -58,6 +65,7 @@ async function send() {
         isActive: p.isActive,
         images: p.images,
         sizes: p.sizes,
+        held: heldForProduct(holds, p.id),
       })),
     { siteUrl: SITE.siteUrl }
   );

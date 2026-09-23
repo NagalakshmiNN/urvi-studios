@@ -653,6 +653,12 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
 
 // ------------------------------------------------------------------- Coupons
 
+/** A whole number above zero, or null for "not set". */
+function positiveOrNull(raw: FormDataEntryValue | null): number | null {
+  const n = parseInt(String(raw ?? "").trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export async function createCouponAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
   await requireAdmin();
 
@@ -660,6 +666,12 @@ export async function createCouponAction(_prev: AdminFormState, formData: FormDa
   const type = String(formData.get("type") || "PERCENT");
   const value = parseInt(String(formData.get("value") || ""), 10);
   const minOrderValue = parseInt(String(formData.get("minOrderValue") || "0"), 10) || 0;
+  // Blank means no limit, which is how every coupon behaved before limits
+  // existed. A zero or a negative would mean "usable zero times", which
+  // nobody types on purpose, so it is read as blank rather than creating a
+  // coupon that can never be used.
+  const usageLimit = positiveOrNull(formData.get("usageLimit"));
+  const perCustomerLimit = positiveOrNull(formData.get("perCustomerLimit"));
 
   if (!code || code.length < 3) return { error: "Please enter a coupon code." };
   if (!Number.isFinite(value) || value <= 0) return { error: "Please enter a valid value." };
@@ -667,7 +679,7 @@ export async function createCouponAction(_prev: AdminFormState, formData: FormDa
   const existing = await db.query.coupons.findFirst({ where: eq(schema.coupons.code, code) });
   if (existing) return { error: "A coupon with this code already exists." };
 
-  await db.insert(schema.coupons).values({ code, type, value, minOrderValue });
+  await db.insert(schema.coupons).values({ code, type, value, minOrderValue, usageLimit, perCustomerLimit });
   revalidatePath("/admin/coupons");
   return { success: `Coupon ${code} created.` };
 }
