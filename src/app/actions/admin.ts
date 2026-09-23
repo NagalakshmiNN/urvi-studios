@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { priceCart, nextOrderNumber, parseUnitPriceOverride, type CartLineInput } from "@/lib/order-pricing";
 import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
+import { sanitizeDescription } from "@/lib/sanitize-description";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
@@ -49,7 +50,7 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   await requireAdmin();
 
   const name = String(formData.get("name") || "").trim();
-  const description = String(formData.get("description") || "").trim();
+  const description = sanitizeDescription(String(formData.get("description") || "").trim());
   const fabric = String(formData.get("fabric") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);
@@ -167,7 +168,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
 
   const productId = String(formData.get("productId") || "");
   const name = String(formData.get("name") || "").trim();
-  const description = String(formData.get("description") || "").trim();
+  const description = sanitizeDescription(String(formData.get("description") || "").trim());
   const fabric = String(formData.get("fabric") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
   const price = parseInt(String(formData.get("price") || ""), 10);

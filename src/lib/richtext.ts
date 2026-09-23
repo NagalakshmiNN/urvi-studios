@@ -28,6 +28,12 @@ export function plainTextToHtml(s: string) {
 
 // What to actually feed the editor / render on the page — pass real HTML
 // through untouched, convert plain text on the way in.
+//
+// This does NOT sanitise, and must not: it runs in the browser (the editor
+// and the product page both call it), and pulling a sanitiser into the client
+// bundle to clean markup the client was handed anyway protects nobody.
+// Cleaning happens on the server — see src/lib/sanitize-description.ts, used
+// where the product is loaded and where the description is saved.
 export function toDisplayHtml(s: string | null | undefined) {
   if (!s) return "";
   return looksLikeHtml(s) ? s : plainTextToHtml(s);

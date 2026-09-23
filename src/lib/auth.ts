@@ -33,7 +33,16 @@ function sessionSecret(): Uint8Array {
 }
 const CUSTOMER_COOKIE = "urvi_session";
 const ADMIN_COOKIE = "urvi_admin_session";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+// A customer staying signed in for a month is a convenience they expect from
+// a shop, and the worst a stolen customer session does is show someone their
+// own order history and address.
+const CUSTOMER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+// The admin is a different proposition: it reads every customer's details,
+// moves money and changes prices. Twelve hours covers a working day — sign in
+// in the morning, still signed in at night — without leaving a token valid
+// for a month on a laptop that gets left somewhere.
+const ADMIN_MAX_AGE_SECONDS = 60 * 60 * 12; // 12 hours
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
@@ -43,11 +52,11 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-async function signSession(payload: Record<string, unknown>) {
+async function signSession(payload: Record<string, unknown>, maxAgeSeconds: number) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${MAX_AGE_SECONDS}s`)
+    .setExpirationTime(`${maxAgeSeconds}s`)
     .sign(sessionSecret());
 }
 
@@ -63,14 +72,14 @@ async function verifySession(token: string) {
 // ---------------------------------------------------------------- Customer
 
 export async function createCustomerSession(customerId: string) {
-  const token = await signSession({ sub: customerId, kind: "customer" });
+  const token = await signSession({ sub: customerId, kind: "customer" }, CUSTOMER_MAX_AGE_SECONDS);
   const store = await cookies();
   store.set(CUSTOMER_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: MAX_AGE_SECONDS,
+    maxAge: CUSTOMER_MAX_AGE_SECONDS,
   });
 }
 
@@ -91,14 +100,14 @@ export async function clearCustomerSession() {
 // ------------------------------------------------------------------ Admin
 
 export async function createAdminSession(adminId: string) {
-  const token = await signSession({ sub: adminId, kind: "admin" });
+  const token = await signSession({ sub: adminId, kind: "admin" }, ADMIN_MAX_AGE_SECONDS);
   const store = await cookies();
   store.set(ADMIN_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: MAX_AGE_SECONDS,
+    maxAge: ADMIN_MAX_AGE_SECONDS,
   });
 }
 

@@ -6,6 +6,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailClient from "./ProductDetailClient";
+import { sanitizeDescription } from "@/lib/sanitize-description";
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -54,7 +55,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <div className="container">
-        <ProductDetailClient product={product} isLoggedIn={!!customerId} wishlisted={wishlisted} />
+        {/* Cleaned here rather than in the client component: this runs on the
+            server, so descriptions already sitting in the database are covered
+            too, and no sanitiser has to ship to the browser. */}
+        <ProductDetailClient
+          product={{ ...product, description: sanitizeDescription(product.description) }}
+          isLoggedIn={!!customerId}
+          wishlisted={wishlisted}
+        />
       </div>
 
       {reviews.length > 0 && (
