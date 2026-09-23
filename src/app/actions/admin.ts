@@ -484,6 +484,7 @@ export async function reconcileWithRazorpayAction(orderId: string): Promise<Reco
     orderNumber: order.orderNumber,
     razorpayOrderId: order.razorpayOrderId,
     razorpayPaymentId: captured.id,
+    amountPaise: captured.amount,
   });
 
   revalidatePath(`/admin/orders/${order.orderNumber}`);

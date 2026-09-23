@@ -45,6 +45,17 @@ export async function POST(request: Request) {
   //    stranger's order to someone else's account (or silently logging
   //    into it without a password), this is turned back with a clear
   //    "please login" error — the checkout form surfaces that inline.
+  // Price the cart BEFORE touching the customers table.
+  //
+  // The account used to be created first, so a request with an empty bag —
+  // which fails pricing a few lines below — still left a real account behind
+  // for whatever email address was sent, with a random password nobody holds.
+  // Run a wordlist through it and the owners of those addresses can never
+  // register and can never sign in. No payment, no order, no authentication
+  // required.
+  const pricing = await priceCart(items, couponCode);
+  if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
+
   let customerId = await getCustomerSession();
   let newAccountEmail: string | null = null;
 
@@ -67,9 +78,6 @@ export async function POST(request: Request) {
     newAccountEmail = newCustomer.email;
     await createCustomerSession(customerId);
   }
-
-  const pricing = await priceCart(items, couponCode);
-  if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
 
   const orderNumber = await nextOrderNumber();
 

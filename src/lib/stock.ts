@@ -20,19 +20,26 @@ export async function adjustStockForLine(productId: string, sizeLabel: string, q
     if (row) {
       await db
         .update(schema.productSizes)
-        .set({ stock: sql`greatest(0, ${schema.productSizes.stock} + ${qtyDelta})` })
+        // Not clamped at zero. A clamp makes taking stock and giving it back
+        // stop being opposites: deduct 3 from a shelf of 1 and you lose 2,
+        // then release 3 and the shelf holds 3. Flipping an order between
+        // CONFIRMED and CANCELLED would mint garments that do not exist.
+        // A negative number here is the honest record of an oversell, and
+        // priceCart refuses to sell against it.
+        .set({ stock: sql`${schema.productSizes.stock} + ${qtyDelta}` })
         .where(eq(schema.productSizes.id, row.id));
       await syncProductStockTotal(productId);
       return;
     }
   }
 
-  // No matching size row — an unsized product, or the size was renamed or
-  // removed since this order was placed. Fall back to the product's own
-  // total so stock still moves somewhere sensible rather than being lost.
+  // No matching size row — an unsized product, or a size renamed or removed
+  // since this order was placed. The product's own total moves instead, so
+  // the stock still goes somewhere rather than being lost. Same reasoning as
+  // above on the missing clamp.
   await db
     .update(schema.products)
-    .set({ stock: sql`greatest(0, ${schema.products.stock} + ${qtyDelta})` })
+    .set({ stock: sql`${schema.products.stock} + ${qtyDelta}` })
     .where(eq(schema.products.id, productId));
 }
 

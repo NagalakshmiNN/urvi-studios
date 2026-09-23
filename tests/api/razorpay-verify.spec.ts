@@ -476,3 +476,81 @@ test.describe("the Razorpay webhook", () => {
     expect(await res.json()).toMatchObject({ ok: false, reason: "bad-json" });
   });
 });
+
+// Two findings from the second security audit.
+test.describe("confirming a payment is atomic and checks the amount", () => {
+  test("two confirmations arriving at once take the stock only once", async ({ request }) => {
+    // The guard used to be a read: "is stockDeducted false?" then, separately,
+    // "set it true and deduct". The browser and Razorpay's webhook routinely
+    // arrive within milliseconds of each other, and Razorpay retries a webhook
+    // it gets no 2xx for — so both would read false, both would pass, and one
+    // payment would take two garments off the shelf.
+    const product = await createTestProduct({ name: "Race Test Piece", price: 2000, stock: 9 });
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, product);
+    const before = (await getSizeStock(product.id, "M"))!;
+    const paymentId = "pay_RACE0001";
+
+    const verifyBody = {
+      razorpay_order_id: razorpayOrderId,
+      razorpay_payment_id: paymentId,
+      razorpay_signature: sign(razorpayOrderId, paymentId),
+      orderNumber,
+    };
+    const raw = JSON.stringify({
+      event: "payment.captured",
+      payload: { payment: { entity: { id: paymentId, order_id: razorpayOrderId, amount: 200000 } } },
+    });
+    const webhookSig = createHmac("sha256", RAZORPAY_TEST_WEBHOOK_SECRET).update(raw).digest("hex");
+
+    // Fired together, not one after the other — sequential calls were always
+    // handled; it is the simultaneous pair that was broken.
+    await Promise.all([
+      request.post("/api/checkout/verify-payment", { data: verifyBody }),
+      request.post("/api/webhooks/razorpay", {
+        headers: { "Content-Type": "application/json", "x-razorpay-signature": webhookSig },
+        data: raw,
+      }),
+      request.post("/api/checkout/verify-payment", { data: verifyBody }),
+    ]);
+
+    expect(await getSizeStock(product.id, "M")).toBe(before - 1);
+    expect((await getOrderByNumber(orderNumber))!.payment_status).toBe("PAID");
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+    await deleteTestProduct(product.id);
+  });
+
+  test("a payment for the wrong amount does not confirm the order", async ({ request }) => {
+    // Razorpay enforces the amount we fixed when the order was created, so
+    // this should be impossible — which is why it is worth checking. If it
+    // ever happens something is misconfigured, and an order must not be
+    // marked paid on the strength of it.
+    const product = await createTestProduct({ name: "Short Pay Piece", price: 2000, stock: 5 });
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, product);
+    const before = (await getSizeStock(product.id, "M"))!;
+
+    const raw = JSON.stringify({
+      event: "payment.captured",
+      // One rupee against a two-thousand rupee order.
+      payload: { payment: { entity: { id: "pay_SHORT001", order_id: razorpayOrderId, amount: 100 } } },
+    });
+    const res = await request.post("/api/webhooks/razorpay", {
+      headers: {
+        "Content-Type": "application/json",
+        "x-razorpay-signature": createHmac("sha256", RAZORPAY_TEST_WEBHOOK_SECRET).update(raw).digest("hex"),
+      },
+      data: raw,
+    });
+
+    // Acknowledged so Razorpay stops retrying, but the order stands unpaid
+    // and the stock is untouched.
+    expect(res.status()).toBe(200);
+    expect((await getOrderByNumber(orderNumber))!.payment_status).toBe("PENDING");
+    expect(await getSizeStock(product.id, "M")).toBe(before);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+    await deleteTestProduct(product.id);
+  });
+});

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   let body: {
     event?: string;
-    payload?: { payment?: { entity?: { id?: string; order_id?: string } } };
+    payload?: { payment?: { entity?: { id?: string; order_id?: string; amount?: number } } };
   };
   try {
     body = JSON.parse(raw);
@@ -87,7 +87,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await confirmPaidOrder({ razorpayOrderId, razorpayPaymentId });
+    const result = await confirmPaidOrder({
+      razorpayOrderId,
+      razorpayPaymentId,
+      // Razorpay sends what it took; comparing it to the order total is the
+      // one check that would catch a partial capture.
+      amountPaise: typeof payment.amount === "number" ? payment.amount : undefined,
+    });
 
     if (!result.ok) {
       // Money has been taken for something we can't find. Retrying won't help,

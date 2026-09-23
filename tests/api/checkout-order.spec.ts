@@ -229,3 +229,73 @@ test.describe("coupons at order time", () => {
     expect((await res.json()).error).toContain("coupon code isn");
   });
 });
+
+// The quantity and identity bugs found in the second security audit. Each of
+// these was exploitable by anyone who could send an HTTP request.
+test.describe("what a hostile cart cannot do", () => {
+  test("the same item sent fifty times cannot outrun the stock", async ({ request }) => {
+    // Each line was checked on its own, and the ceilings were 50 lines and 10
+    // per line — so one shoe sent fifty times at ten each passed fifty
+    // separate "is there enough?" checks and became an order for 500 against
+    // a stock of 3. The customer pays for every one of them.
+    const p = await createTestProduct({ name: "Oversell Test Piece", price: 1000, stock: 3 });
+    const line = { productId: p.id, size: "M", color: p.colors[0].name, qty: 10 };
+
+    const res = await request.post("/api/checkout/create-order", {
+      data: {
+        items: Array.from({ length: 50 }, () => ({ ...line })),
+        customer: {
+          name: "Greedy", email: uniqueEmail("oversell"), phone: "9876500999",
+          address: "1 Test", city: "Bengaluru", state: "Karnataka", pincode: "560001",
+        },
+      },
+    });
+
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/Only \d+ left/);
+    await deleteTestProduct(p.id);
+  });
+
+  test("a size that doesn't exist is refused, not checked against every other size", async ({ request }) => {
+    // An unmatched size fell back to the product's total — the sum across all
+    // sizes — so a sold-out "S" asked for as "Small" was measured against the
+    // stock of everything else and went through.
+    const p = await createTestProduct({ name: "Phantom Size Piece", price: 1000, stock: 9 });
+
+    const res = await request.post("/api/checkout/create-order", {
+      data: {
+        items: [{ productId: p.id, size: "Small", color: p.colors[0].name, qty: 5 }],
+        customer: {
+          name: "Phantom", email: uniqueEmail("phantom"), phone: "9876500998",
+          address: "1 Test", city: "Bengaluru", state: "Karnataka", pincode: "560001",
+        },
+      },
+    });
+
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/no longer available/);
+    await deleteTestProduct(p.id);
+  });
+
+  test("a failed checkout leaves no account behind", async ({ request }) => {
+    // The account was created before the cart was priced, so an empty bag
+    // still minted a real account for whatever email was sent, with a random
+    // password nobody holds. Run a wordlist through it and those people can
+    // never register and never sign in.
+    const email = uniqueEmail("squat");
+
+    const res = await request.post("/api/checkout/create-order", {
+      data: {
+        items: [],
+        customer: {
+          name: "Squatter", email, phone: "9876500997",
+          address: "1 Test", city: "Bengaluru", state: "Karnataka", pincode: "560001",
+        },
+      },
+    });
+    expect(res.status()).toBe(400);
+
+    const rows = await query("select id from customers where email = $1", [email]);
+    expect(rows).toHaveLength(0);
+  });
+});

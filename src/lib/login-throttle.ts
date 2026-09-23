@@ -68,6 +68,39 @@ export async function checkThrottle(key: string): Promise<ThrottleState> {
   return evaluate(rows.map((r) => r.createdAt));
 }
 
+/**
+ * Take one attempt from the allowance, and say what is left.
+ *
+ * Counting used to happen before the password was checked and the failure was
+ * recorded after — a gap of one bcrypt comparison, which is an age. Two
+ * hundred requests sent at once all read "no failures yet", all passed, and
+ * all got a guess: the limit only ever constrained someone guessing patiently,
+ * one at a time, which is not how anyone guesses.
+ *
+ * So the attempt is written first and counted afterwards. Whatever else is in
+ * flight, this request's own row is already there, and a burst of two hundred
+ * finds two hundred rows rather than none.
+ */
+export async function claimAttempt(key: string): Promise<ThrottleState> {
+  const [mine] = await db
+    .insert(schema.authAttempts)
+    .values({ attemptKey: key })
+    .returning({ id: schema.authAttempts.id });
+
+  const since = new Date(Date.now() - WINDOW_MINUTES * 60_000);
+  const rows = await db
+    .select({ id: schema.authAttempts.id, createdAt: schema.authAttempts.createdAt })
+    .from(schema.authAttempts)
+    .where(and(eq(schema.authAttempts.attemptKey, key), gt(schema.authAttempts.createdAt, since)));
+
+  // This request's own row is excluded, so "five allowed" still means five
+  // tries and not four. Everyone else's rows are counted, including those
+  // written by requests running at the same moment on other instances —
+  // which is the whole point of writing before counting.
+  const others = rows.filter((r) => r.id !== mine.id);
+  return evaluate(others.map((r) => r.createdAt));
+}
+
 export async function recordFailure(key: string): Promise<void> {
   await db.insert(schema.authAttempts).values({ attemptKey: key });
 }
@@ -94,4 +127,41 @@ export function lockoutMessage(state: ThrottleState): string {
     `Too many sign-in attempts. Please wait ${state.retryAfterMinutes} minute` +
     `${state.retryAfterMinutes === 1 ? "" : "s"} and try again.`
   );
+}
+
+// ------------------------------------------------- Limiting anything else
+
+/**
+ * A general-purpose limit for endpoints anyone can call without signing in.
+ *
+ * The contact form writes a row and sends mail through the shop's own Gmail
+ * account on every request, and the coupon preview says yes or no to any code
+ * offered — a clean oracle for working through a namespace. Neither had any
+ * ceiling at all.
+ *
+ * Keyed by caller address here rather than by account, because there is no
+ * account: the alternative is no limit. Netlify puts the real client address
+ * in x-nf-client-connection-ip; x-forwarded-for is the fallback and its first
+ * entry is the closest thing to the origin.
+ */
+export function callerKey(kind: string, headers: Headers): string {
+  const direct = headers.get("x-nf-client-connection-ip");
+  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return `${kind}:${direct || forwarded || "unknown"}`;
+}
+
+/** Take one from an allowance of `limit` per window. True if it may proceed. */
+export async function allowRequest(key: string, limit: number): Promise<boolean> {
+  const [mine] = await db
+    .insert(schema.authAttempts)
+    .values({ attemptKey: key })
+    .returning({ id: schema.authAttempts.id });
+
+  const since = new Date(Date.now() - WINDOW_MINUTES * 60_000);
+  const rows = await db
+    .select({ id: schema.authAttempts.id })
+    .from(schema.authAttempts)
+    .where(and(eq(schema.authAttempts.attemptKey, key), gt(schema.authAttempts.createdAt, since)));
+
+  return rows.filter((r) => r.id !== mine.id).length < limit;
 }

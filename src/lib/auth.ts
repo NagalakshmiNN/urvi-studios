@@ -143,10 +143,16 @@ export async function getAdminSession() {
   if (!admin) return null;
 
   if (admin.passwordChangedAt) {
-    // iat is in seconds; a token issued in the same second as the change is
-    // treated as older, which errs towards signing someone out.
-    const issuedAtMs = typeof payload.iat === "number" ? payload.iat * 1000 : 0;
-    if (issuedAtMs <= admin.passwordChangedAt.getTime()) return null;
+    // Both sides are compared in whole seconds, because that is all a JWT
+    // records: setIssuedAt() floors to the second, while passwordChangedAt
+    // has milliseconds. Comparing the two directly meant a token minted
+    // immediately after a password change looked *older* than the change
+    // whenever the change landed mid-second — so changing your password
+    // signed you out of the screen you changed it on, about half the time,
+    // depending on where the clock happened to be.
+    const issuedAtSeconds = typeof payload.iat === "number" ? payload.iat : 0;
+    const changedAtSeconds = Math.floor(admin.passwordChangedAt.getTime() / 1000);
+    if (issuedAtSeconds < changedAtSeconds) return null;
   }
 
   return adminId;

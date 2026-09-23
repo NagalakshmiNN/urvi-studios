@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { sendMail } from "@/lib/mailer";
+import { allowRequest, callerKey } from "@/lib/login-throttle";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -12,6 +13,18 @@ export async function POST(request: Request) {
 
   if (!name || !email || !message) {
     return NextResponse.json({ ok: false, error: "Name, email, and message are all required." }, { status: 400 });
+  }
+
+  // Every call writes a row and sends mail through the shop's own Gmail
+  // account, with a subject and body chosen by the caller. Unthrottled, that
+  // is a way to fill the Messages screen and to get the sending address
+  // rate-limited or suspended by Google — the shop's own order confirmations
+  // go through the same account.
+  if (!(await allowRequest(callerKey("contact", request.headers), 5))) {
+    return NextResponse.json(
+      { ok: false, error: "That's a few messages in a short while — please give it a few minutes and try again." },
+      { status: 429 }
+    );
   }
 
   await db.insert(schema.contactMessages).values({ name, email, message });

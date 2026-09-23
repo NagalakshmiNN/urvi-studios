@@ -95,17 +95,41 @@ export async function priceCart(
   });
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  const lines: PricedLine[] = [];
+  // Lines are combined by product and size before anything is checked.
+  //
+  // Each line used to be validated on its own, and the only ceilings were 50
+  // lines and 10 per line — so the same shoe, sent fifty times at ten each,
+  // passed fifty individual "is there enough?" checks and became an order for
+  // five hundred against a stock of ten. The customer pays for all of them.
+  // What matters is the total wanted of one thing, so that is what is counted.
+  const wanted = new Map<string, { item: CartLineInput; qty: number }>();
   for (const item of items) {
+    const qty = Math.max(1, Math.min(10, Math.floor(item.qty) || 1));
+    const key = `${item.productId}::${String(item.size || "").trim().toLowerCase()}::${String(item.color || "").trim().toLowerCase()}`;
+    const existing = wanted.get(key);
+    if (existing) existing.qty = Math.min(10, existing.qty + qty);
+    else wanted.set(key, { item, qty });
+  }
+
+  const lines: PricedLine[] = [];
+  for (const { item, qty } of wanted.values()) {
     const product = byId.get(item.productId);
     if (!product || !product.isActive) return { ok: false, error: "One of the items in your bag is no longer available." };
-    const qty = Math.max(1, Math.min(10, Math.floor(item.qty) || 1));
 
-    // Stock is tracked per size (see product_sizes.stock) — fall back to
-    // the product's own total only for the rare case of an unsized product
-    // or a size label that no longer matches any of the product's sizes.
+    // A size that matches no row used to fall back to the product's total —
+    // the sum across every size — so asking for a sold-out "S" as "Small"
+    // was checked against the stock of every other size and sailed through.
+    // Worse, the later deduction also found no row and wrote the product
+    // total, which the next real sale recomputed and silently discarded.
+    //
+    // An unsized product (no size rows at all) is still legitimate and still
+    // uses the product total. A named size that does not exist is not.
     const sizeLabel = String(item.size || "").trim();
     const matchedSize = product.sizes.find((s) => s.label.toLowerCase() === sizeLabel.toLowerCase());
+    if (!matchedSize && product.sizes.length > 0) {
+      return { ok: false, error: `That size is no longer available for "${product.name}" — please choose another.` };
+    }
+
     const available = matchedSize ? matchedSize.stock : product.stock;
     if (available < qty) {
       const sizeNote = matchedSize ? ` in size ${matchedSize.label}` : "";

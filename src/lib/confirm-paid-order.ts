@@ -19,7 +19,7 @@
 // deducting a second time would silently sell stock that is still on the
 // shelf.
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { adjustStockForLine } from "./stock";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "./order-notify";
@@ -27,7 +27,7 @@ import { revalidateStockViews } from "./revalidate-stock";
 
 export type ConfirmResult =
   | { ok: true; state: "confirmed" | "already"; orderNumber: string }
-  | { ok: false; reason: "not-found" | "order-mismatch" };
+  | { ok: false; reason: "not-found" | "order-mismatch" | "amount-mismatch" };
 
 /**
  * Confirm the order behind a successful Razorpay payment.
@@ -41,8 +41,16 @@ export async function confirmPaidOrder(opts: {
   orderNumber?: string;
   razorpayOrderId?: string;
   razorpayPaymentId: string;
+  /**
+   * What Razorpay says it actually took, in paise, when the caller knows it.
+   * Razorpay enforces the amount fixed server-side when the order was
+   * created, so a mismatch should be impossible — which is exactly why it is
+   * worth checking. If it ever happens, something is misconfigured and an
+   * order should not be quietly marked paid on the strength of it.
+   */
+  amountPaise?: number;
 }): Promise<ConfirmResult> {
-  const { orderNumber, razorpayOrderId, razorpayPaymentId } = opts;
+  const { orderNumber, razorpayOrderId, razorpayPaymentId, amountPaise } = opts;
 
   const order = orderNumber
     ? await db.query.orders.findFirst({ where: eq(schema.orders.orderNumber, orderNumber), with: { items: true } })
@@ -55,11 +63,34 @@ export async function confirmPaidOrder(opts: {
     return { ok: false, reason: "order-mismatch" };
   }
 
+  if (typeof amountPaise === "number" && amountPaise !== order.total * 100) {
+    console.error(
+      `[confirm-paid-order] ${order.orderNumber} expects ${order.total * 100} paise but Razorpay captured ` +
+        `${amountPaise} for payment ${razorpayPaymentId}. Not confirming — this needs a person.`
+    );
+    return { ok: false, reason: "amount-mismatch" };
+  }
+
   if (order.paymentStatus === "PAID" || order.stockDeducted) {
     return { ok: true, state: "already", orderNumber: order.orderNumber };
   }
 
-  await db
+  // The read above is a courtesy, not the guard. The guard is this update.
+  //
+  // Two callers routinely arrive within milliseconds of each other — the
+  // customer's browser and Razorpay's webhook, and Razorpay retries a webhook
+  // it does not get a 2xx for. Both would read stockDeducted as false, both
+  // would pass the check above, and both would go on to take the stock: one
+  // payment, two garments off the shelf. The header of this file used to call
+  // stockDeducted "the real guard", and it was not — it was an unsynchronised
+  // read.
+  //
+  // So the flag is claimed with a conditional update instead. The database
+  // decides: exactly one caller gets a row back and does the work; anyone
+  // else gets nothing and reports that it was already done. This holds across
+  // separate serverless instances, which is where the two callers actually
+  // live.
+  const claimed = await db
     .update(schema.orders)
     .set({
       paymentStatus: "PAID",
@@ -68,7 +99,13 @@ export async function confirmPaidOrder(opts: {
       stockDeducted: true,
       updatedAt: new Date(),
     })
-    .where(eq(schema.orders.id, order.id));
+    .where(and(eq(schema.orders.id, order.id), eq(schema.orders.stockDeducted, false)))
+    .returning({ id: schema.orders.id });
+
+  if (claimed.length === 0) {
+    // Someone else claimed it between the read and here.
+    return { ok: true, state: "already", orderNumber: order.orderNumber };
+  }
 
   for (const item of order.items) {
     if (item.productId) {

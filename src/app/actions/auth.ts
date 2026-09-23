@@ -2,7 +2,7 @@
 
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
-import { attemptKey, checkThrottle, clearAttempts, lockoutMessage, pruneOldAttempts, recordFailure } from "@/lib/login-throttle";
+import { attemptKey, claimAttempt, clearAttempts, lockoutMessage, pruneOldAttempts } from "@/lib/login-throttle";
 import { hashPassword, verifyPassword, createCustomerSession, clearCustomerSession, createAdminSession, clearAdminSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -56,7 +56,10 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   const next = safeNext(formData.get("next"));
 
   const key = attemptKey("customer", email);
-  const throttle = await checkThrottle(key);
+  // The attempt is spent before the password is looked at, so requests sent
+  // in parallel each count against the allowance instead of all seeing an
+  // empty slate.
+  const throttle = await claimAttempt(key);
   if (!throttle.allowed) return { error: lockoutMessage(throttle) };
 
   const customer = await db.query.customers.findFirst({ where: eq(schema.customers.email, email) });
@@ -66,7 +69,6 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   // here, which is a list worth having and not ours to give away.
   const valid = customer ? await verifyPassword(password, customer.passwordHash) : false;
   if (!customer || !valid) {
-    await recordFailure(key);
     void pruneOldAttempts();
     return { error: "That email and password don't match. Please try again." };
   }
@@ -88,13 +90,15 @@ export async function adminLoginAction(_prev: AuthState, formData: FormData): Pr
   const password = String(formData.get("password") || "");
 
   const key = attemptKey("admin", email);
-  const throttle = await checkThrottle(key);
+  // The attempt is spent before the password is looked at, so requests sent
+  // in parallel each count against the allowance instead of all seeing an
+  // empty slate.
+  const throttle = await claimAttempt(key);
   if (!throttle.allowed) return { error: lockoutMessage(throttle) };
 
   const admin = await db.query.adminUsers.findFirst({ where: eq(schema.adminUsers.email, email) });
   const valid = admin ? await verifyPassword(password, admin.passwordHash) : false;
   if (!admin || !valid) {
-    await recordFailure(key);
     void pruneOldAttempts();
     return { error: "That email and password don't match. Please try again." };
   }
