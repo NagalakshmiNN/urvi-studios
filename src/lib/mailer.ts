@@ -20,6 +20,35 @@ function writeToOutbox(file: string, opts: { to: string; subject: string; text: 
   }
 }
 
+
+/**
+ * One or more addresses from a single setting.
+ *
+ * Shop mail goes to more than one person — both founders want the morning
+ * stock report — but an environment variable is one string. Commas,
+ * semicolons and newlines all separate, because whoever types it into the
+ * hosting dashboard six months from now will use whichever they expect to
+ * work, and none of them should silently produce a single broken address.
+ *
+ * Blanks and duplicates are dropped, and anything without an @ is left out
+ * rather than handed to the mail server: one malformed entry can make a
+ * provider reject the whole message, which would lose the good addresses too.
+ */
+export function parseRecipients(raw: string | undefined | null): string[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(/[,;\n]/)) {
+    const address = part.trim();
+    if (!address || !address.includes("@") || address.includes(" ")) continue;
+    const key = address.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(address);
+  }
+  return out;
+}
+
 function getTransport() {
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;

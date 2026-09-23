@@ -28,7 +28,7 @@ export default function SendStockEmail() {
               const data = await res.json();
               setMessage(
                 data.ok
-                  ? `Sent to ${data.to} — ${data.pieces} pieces, ${data.garments} garments.`
+                  ? `Sent to ${(data.to as string[]).join(", ")} — ${data.pieces} pieces, ${data.garments} garments.`
                   : data.error || "Could not send the report."
               );
             } catch {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
-import { sendMail } from "@/lib/mailer";
+import { sendMail, parseRecipients } from "@/lib/mailer";
 import { allowRequest, callerKey } from "@/lib/login-throttle";
 
 export async function POST(request: Request) {
@@ -31,10 +31,10 @@ export async function POST(request: Request) {
 
   // Best-effort alert email — the message is already saved above regardless
   // of whether this succeeds, so a mail outage never loses a customer note.
-  const notifyTo = process.env.CONTACT_NOTIFY_EMAIL;
-  if (notifyTo) {
+  const notifyTo = parseRecipients(process.env.CONTACT_NOTIFY_EMAIL);
+  if (notifyTo.length > 0) {
     await sendMail({
-      to: notifyTo,
+      to: notifyTo.join(", "),
       replyTo: email,
       subject: `New website message from ${name}`,
       text: `From: ${name} <${email}>\n\n${message}\n\n— Sent via the Urvi Studios contact form. Just hit Reply to write back to them directly, or view it in the admin dashboard under Messages.`,

@@ -11,7 +11,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { db } from "@/db";
-import { sendMail } from "@/lib/mailer";
+import { sendMail, parseRecipients } from "@/lib/mailer";
 import { renderStockGridEmail } from "@/lib/stock-report-email";
 import { SITE } from "@/lib/site-config";
 import { getAdminSession } from "@/lib/auth";
@@ -62,16 +62,22 @@ async function send() {
     { siteUrl: SITE.siteUrl }
   );
 
-  const to = process.env.STOCK_REPORT_EMAIL || process.env.CONTACT_NOTIFY_EMAIL;
-  if (!to) {
-    return { ok: false as const, error: "No recipient set. STOCK_REPORT_EMAIL is missing." };
+  // More than one person can want this. STOCK_REPORT_EMAIL takes a list:
+  // "shilpa@example.com, lakshmi@example.com".
+  const recipients = parseRecipients(process.env.STOCK_REPORT_EMAIL || process.env.CONTACT_NOTIFY_EMAIL);
+  if (recipients.length === 0) {
+    return {
+      ok: false as const,
+      error:
+        "No recipient set. Put one or more addresses in STOCK_REPORT_EMAIL, separated by commas.",
+    };
   }
 
-  await sendMail({ to, subject: report.subject, text: report.text, html: report.html });
+  await sendMail({ to: recipients.join(", "), subject: report.subject, text: report.text, html: report.html });
 
   return {
     ok: true as const,
-    to,
+    to: recipients,
     pieces: report.grid.rows.length,
     garments: report.grid.grandTotal,
   };
