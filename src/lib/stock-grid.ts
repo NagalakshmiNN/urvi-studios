@@ -59,6 +59,14 @@ export type GridProduct = {
   isActive: boolean;
   images?: { url: string; position: number | null }[];
   sizes: { label: string; stock: number }[];
+  /**
+   * Pieces already promised to someone on an unconfirmed WhatsApp/COD order.
+   *
+   * Counted separately from stock, never subtracted from it — see
+   * stock-reservations.ts for why both numbers have to be on the screen.
+   * Absent for every caller that does not care, which is most of them.
+   */
+  held?: { label: string; qty: number }[];
 };
 
 export type GridRow = {
@@ -71,9 +79,15 @@ export type GridRow = {
   /** Count per column. A size the product does not come in is null, not 0 — */
   /** "we don't make it" and "we've run out" are different facts. */
   cells: Record<string, number | null>;
+  /**
+   * How many of each cell's count are already promised on an unconfirmed
+   * order. Zero everywhere unless the caller passed `held`.
+   */
+  heldCells: Record<string, number>;
   /** Sizes this product has that are not one of our columns. */
   other: { label: string; stock: number }[];
   total: number;
+  heldTotal: number;
 };
 
 export type StockGrid = {
@@ -81,6 +95,8 @@ export type StockGrid = {
   /** Column totals, for the foot of the table. */
   columnTotals: Record<string, number>;
   grandTotal: number;
+  /** Garments across the whole catalogue that are promised but not yet taken. */
+  heldGrandTotal: number;
   /** Columns nothing in the catalogue uses, so the table can leave them out. */
   emptyColumns: string[];
 };
@@ -97,8 +113,19 @@ export function buildStockGrid(products: GridProduct[]): StockGrid {
 
   for (const product of products) {
     const cells: Record<string, number | null> = Object.fromEntries(SIZE_COLUMNS.map((c) => [c, null]));
+    const heldCells: Record<string, number> = Object.fromEntries(SIZE_COLUMNS.map((c) => [c, 0]));
     const other: { label: string; stock: number }[] = [];
     let total = 0;
+    let heldTotal = 0;
+
+    // Holds are mapped through the same column rule as stock, so an order
+    // placed for "2XL" lands in the XXL column beside the stock it is holding
+    // rather than quietly vanishing.
+    for (const hold of product.held ?? []) {
+      const column = sizeColumn(hold.label);
+      if (column) heldCells[column] += hold.qty;
+      heldTotal += hold.qty;
+    }
 
     for (const size of product.sizes) {
       const column = sizeColumn(size.label);
@@ -122,8 +149,10 @@ export function buildStockGrid(products: GridProduct[]): StockGrid {
       isActive: product.isActive,
       imageUrl: firstImage(product.images),
       cells,
+      heldCells,
       other,
       total,
+      heldTotal,
     });
   }
 
@@ -131,6 +160,7 @@ export function buildStockGrid(products: GridProduct[]): StockGrid {
     rows,
     columnTotals,
     grandTotal: rows.reduce((sum, r) => sum + r.total, 0),
+    heldGrandTotal: rows.reduce((sum, r) => sum + r.heldTotal, 0),
     emptyColumns: SIZE_COLUMNS.filter((c) => !used.has(c)),
   };
 }
@@ -141,11 +171,24 @@ export function visibleColumns(grid: StockGrid): string[] {
 }
 
 /** How a cell should read at a glance. Empty shelves are the point of this page. */
-export type CellTone = "none" | "out" | "low" | "ok";
+export type CellTone = "none" | "out" | "held" | "low" | "ok";
 
-export function cellTone(value: number | null, lowAt = 2): CellTone {
+/**
+ * `held` is how many of that count are already promised on an unconfirmed
+ * order. A shelf of one with one promised is not a piece you can sell, and
+ * reading it as "1 in stock" is how the same kurti gets sold twice — so it
+ * gets its own tone rather than being counted as stock or as out.
+ */
+export function cellTone(value: number | null, lowAt = 2, held = 0): CellTone {
   if (value === null) return "none";
   if (value <= 0) return "out";
-  if (value <= lowAt) return "low";
+  if (held > 0 && value - held <= 0) return "held";
+  if (value - held <= lowAt) return "low";
   return "ok";
+}
+
+/** What could actually be sold to the next customer. Never below zero. */
+export function freeToSell(value: number | null, held = 0): number {
+  if (value === null) return 0;
+  return Math.max(0, value - held);
 }

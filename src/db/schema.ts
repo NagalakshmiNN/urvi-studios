@@ -178,6 +178,12 @@ export const orders = pgTable("orders", {
   actualSalePricePaise: integer("actual_sale_price_paise"),
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
+  // When money went back to the customer, and how much of it — in PAISE,
+  // because a refund can be for any amount and rounding one to whole rupees
+  // is how a rupee goes missing from a reconciliation. Both stay null/zero
+  // for every order that was never refunded.
+  refundedAt: timestamp("refunded_at"),
+  refundedPaise: integer("refunded_paise").notNull().default(0),
 
   subtotal: integer("subtotal").notNull(),
   shipping: integer("shipping").notNull(),
@@ -213,6 +219,24 @@ export const orderItems = pgTable("order_items", {
   landedCostAtSale: integer("landed_cost_at_sale"),
 });
 
+/**
+ * One row per refund Razorpay has made, keyed by Razorpay's own refund id.
+ *
+ * Razorpay sends several events for a single refund and retries any it does
+ * not get a 2xx for, so amounts cannot simply be added up as they arrive —
+ * the same money would be counted three times, and a ₹200 goodwill refund
+ * would look like a full one, cancelling the sale and putting a garment back
+ * on the shelf that the customer still has. Keying on the refund id makes a
+ * repeat a no-op and the total the sum of distinct refunds.
+ */
+export const orderRefunds = pgTable("order_refunds", {
+  // Razorpay's id, not one of ours.
+  id: text("id").primaryKey(),
+  orderId: text("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  amountPaise: integer("amount_paise").notNull(),
+  createdAt: createdAt(),
+});
+
 export const coupons = pgTable("coupons", {
   id: id(),
   code: text("code").notNull().unique(),
@@ -221,6 +245,13 @@ export const coupons = pgTable("coupons", {
   minOrderValue: integer("min_order_value").notNull().default(0),
   active: boolean("active").notNull().default(true),
   expiresAt: timestamp("expires_at"),
+  // How many times this code may be redeemed in total, and how many times by
+  // any one customer. NULL means no limit — which is what every coupon
+  // created before this existed is, so nothing changes behaviour by itself.
+  // A code with no ceiling that reaches a deals site is a standing offer to
+  // the entire internet.
+  usageLimit: integer("usage_limit"),
+  perCustomerLimit: integer("per_customer_limit"),
   createdAt: createdAt(),
 });
 
@@ -470,6 +501,11 @@ export const productColorsRelations = relations(productColors, ({ one }) => ({
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   customer: one(customers, { fields: [orders.customerId], references: [customers.id] }),
   items: many(orderItems),
+  refunds: many(orderRefunds),
+}));
+
+export const orderRefundsRelations = relations(orderRefunds, ({ one }) => ({
+  order: one(orders, { fields: [orderRefunds.orderId], references: [orders.id] }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

@@ -14,6 +14,8 @@ import { buildStockGrid, visibleColumns, cellTone, type GridProduct, type StockG
 const TONE_STYLE: Record<string, string> = {
   out: "background:#f6e2dd;color:#a03c28;font-weight:600;",
   low: "background:#f7eed8;color:#8a6a1f;font-weight:600;",
+  // Promised on an unconfirmed WhatsApp order: on the shelf, not available.
+  held: "background:#e6e8ef;color:#4a5570;font-weight:600;",
   ok: "",
   none: "background:#f4f2ec;color:#b8b5a8;",
 };
@@ -54,11 +56,13 @@ export function renderStockGridEmail(
 
   const outPairs: string[] = [];
   const lowPairs: string[] = [];
+  const heldPairs: string[] = [];
   for (const row of grid.rows) {
     for (const c of columns) {
-      const tone = cellTone(row.cells[c]);
+      const tone = cellTone(row.cells[c], 2, row.heldCells[c]);
       if (tone === "out") outPairs.push(`${row.name} — ${c}`);
       if (tone === "low") lowPairs.push(`${row.name} — ${c} (${row.cells[c]})`);
+      if (tone === "held") heldPairs.push(`${row.name} — ${c} (${row.heldCells[c]} promised)`);
     }
   }
 
@@ -82,6 +86,13 @@ export function renderStockGridEmail(
   if (lowPairs.length) {
     textLines.push("RUNNING LOW", ...lowPairs.map((s) => `  ${s}`), "");
   }
+  if (heldPairs.length) {
+    textLines.push(
+      "SPOKEN FOR (on the shelf, already promised on an unconfirmed WhatsApp order)",
+      ...heldPairs.map((s) => `  ${s}`),
+      ""
+    );
+  }
   textLines.push("Full grid: " + `${opts.siteUrl.replace(/\/$/, "")}/admin/stock/grid`);
 
   // ------------------------------------------------------------------ html
@@ -97,7 +108,9 @@ export function renderStockGridEmail(
       const cells = columns
         .map((c) => {
           const v = row.cells[c];
-          return `<td style="${CELL}${TONE_STYLE[cellTone(v)]}">${v === null ? "" : v}</td>`;
+          const held = row.heldCells[c];
+          const mark = held > 0 ? `<div style="font-size:10px;font-weight:500;">${held} held</div>` : "";
+          return `<td style="${CELL}${TONE_STYLE[cellTone(v, 2, held)]}">${v === null ? "" : v}${mark}</td>`;
         })
         .join("");
 
@@ -133,7 +146,11 @@ export function renderStockGridEmail(
     <div style="font-size:14px;line-height:1.8;margin-bottom:18px;">
       <strong>${grid.rows.length}</strong> pieces · <strong>${grid.grandTotal}</strong> garments in hand<br>
       <span style="color:#a03c28;font-weight:600;">${outPairs.length} size${outPairs.length === 1 ? "" : "s"} out of stock</span>
-      · ${lowPairs.length} running low
+      · ${lowPairs.length} running low${
+        grid.heldGrandTotal > 0
+          ? ` · <span style="color:#4a5570;">${grid.heldGrandTotal} held for WhatsApp orders</span>`
+          : ""
+      }
     </div>
 
     ${
@@ -162,6 +179,7 @@ ${body}
 
     <p style="font-size:12px;color:#7d7f6a;line-height:1.8;margin-top:16px;">
       A shaded empty cell means the piece isn't made in that size. A red zero means it is, and it's gone.<br>
+      A blue cell is on the shelf but already promised on a WhatsApp order nobody has confirmed — count it as sold until you know otherwise.<br>
       <a href="${escape(opts.siteUrl.replace(/\/$/, ""))}/admin/stock/grid" style="color:#3f4827;">Open the live grid</a>
     </p>
   </div>

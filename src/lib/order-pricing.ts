@@ -7,6 +7,7 @@ import { db, schema } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateOrderNumberSeed } from "@/lib/format";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { countCouponUses, withinLimits } from "@/lib/coupon-usage";
 
 // Re-exported so existing importers (shipping-returns page, order detail
 // pages) don't need to change — src/lib/shipping.ts is the actual source of
@@ -83,7 +84,18 @@ export async function priceCart(
   // Admin-only. Set by the Record a Sale form, where the person entering the
   // order is a signed-in admin deciding what was actually charged, and never
   // by anything reachable from the storefront.
-  opts?: { allowPriceOverride?: boolean }
+  opts?: {
+    allowPriceOverride?: boolean;
+    /**
+     * Who is buying, for the per-customer coupon limit.
+     *
+     * Optional because the coupon preview on the cart page runs before anyone
+     * has typed an email address. The total limit is still enforced there;
+     * only the per-customer one needs a name to check against, and it is
+     * checked again at checkout where the email is known.
+     */
+    customerEmail?: string | null;
+  }
 ): Promise<PricingResult> {
   if (!items || items.length === 0) return { ok: false, error: "Your bag is empty." };
   if (items.length > 50) return { ok: false, error: "Too many items in one order." };
@@ -169,13 +181,34 @@ export async function priceCart(
   let appliedCode: string | null = null;
   if (couponCode) {
     const coupon = await db.query.coupons.findFirst({ where: eq(schema.coupons.code, couponCode.trim().toUpperCase()) });
-    if (coupon && coupon.active && subtotal >= coupon.minOrderValue && (!coupon.expiresAt || coupon.expiresAt > new Date())) {
-      discount = coupon.type === "PERCENT" ? Math.round((subtotal * coupon.value) / 100) : coupon.value;
-      discount = Math.min(discount, subtotal);
-      appliedCode = coupon.code;
-    } else {
+    if (!coupon || !coupon.active || subtotal < coupon.minOrderValue || (coupon.expiresAt && coupon.expiresAt <= new Date())) {
       return { ok: false, error: "That coupon code isn't valid for this order." };
     }
+
+    // How many times it has been used, and by whom.
+    //
+    // A code with no ceiling is a standing offer to anyone who finds it, and
+    // codes do get found — screenshotted off an Instagram post, forwarded
+    // into a deals group, pasted onto a coupon site. The limits are checked
+    // here rather than only in the preview route, because the preview is a
+    // convenience and this is the function that decides what is actually
+    // charged.
+    //
+    // Two checkouts landing in the same second can both see the last
+    // remaining use and both take it. That is a real race and it is left
+    // alone: the cost is one extra discount on a code that was about to run
+    // out, and closing it properly means locking the coupon row on every
+    // checkout for a shop that takes a handful of orders a day.
+    const counts = await countCouponUses(coupon.code, opts?.customerEmail ?? null);
+    const verdict = withinLimits(
+      { usageLimit: coupon.usageLimit, perCustomerLimit: coupon.perCustomerLimit },
+      counts
+    );
+    if (!verdict.ok) return { ok: false, error: verdict.error };
+
+    discount = coupon.type === "PERCENT" ? Math.round((subtotal * coupon.value) / 100) : coupon.value;
+    discount = Math.min(discount, subtotal);
+    appliedCode = coupon.code;
   }
 
   const total = subtotal + shipping - discount;

@@ -1,7 +1,7 @@
 // One row per piece, one column per size, a count in each cell.
 
 import { test, expect } from "@playwright/test";
-import { buildStockGrid, sizeColumn, cellTone, visibleColumns, SIZE_COLUMNS } from "@/lib/stock-grid";
+import { buildStockGrid, sizeColumn, cellTone, freeToSell, visibleColumns, SIZE_COLUMNS } from "@/lib/stock-grid";
 
 const product = (over: Partial<Parameters<typeof buildStockGrid>[0][number]> = {}) => ({
   id: "p1",
@@ -120,4 +120,63 @@ test("an empty catalogue produces an empty grid rather than throwing", () => {
   expect(grid.rows).toEqual([]);
   expect(grid.grandTotal).toBe(0);
   expect(visibleColumns(grid)).toEqual([]);
+});
+
+// ------------------------------- Garments promised but still on the shelf
+//
+// A WhatsApp order is a request, not a sale: nobody has paid and the stock
+// has not moved. Deducting it would say a kurti isn't there while it hangs
+// on the rail; ignoring it is how the same kurti gets promised twice. Both
+// numbers are carried, and neither is subtracted from the other.
+
+test("a hold is counted beside the stock, never taken out of it", () => {
+  const grid = buildStockGrid([
+    product({ sizes: [{ label: "M", stock: 3 }], held: [{ label: "M", qty: 1 }] }),
+  ]);
+  // The shelf still holds three. One of them is spoken for.
+  expect(grid.rows[0].cells.M).toBe(3);
+  expect(grid.rows[0].heldCells.M).toBe(1);
+  expect(grid.rows[0].total).toBe(3);
+  expect(grid.rows[0].heldTotal).toBe(1);
+  expect(grid.grandTotal).toBe(3);
+  expect(grid.heldGrandTotal).toBe(1);
+});
+
+test("a hold written as 2XL lands in the XXL column with the stock it holds", () => {
+  // Order lines record whatever label was on the product the day it sold, so
+  // a hold and its stock can be spelt differently and still be one shelf.
+  const grid = buildStockGrid([
+    product({ sizes: [{ label: "XXL", stock: 2 }], held: [{ label: "2XL", qty: 2 }] }),
+  ]);
+  expect(grid.rows[0].heldCells.XXL).toBe(2);
+});
+
+test("every piece in a cell being promised reads differently from being gone", () => {
+  // One in stock and one promised is not a piece you can sell — but it is
+  // also not an empty shelf, and telling a customer it's out of stock when
+  // it's hanging there is its own mistake.
+  expect(cellTone(1, 2, 1)).toBe("held");
+  expect(cellTone(3, 2, 3)).toBe("held");
+  // Still one spare: low, not held.
+  expect(cellTone(3, 2, 2)).toBe("low");
+  // A hold cannot make an empty shelf read as anything but empty.
+  expect(cellTone(0, 2, 1)).toBe("out");
+  // No holds at all leaves every existing reading exactly as it was.
+  expect(cellTone(3, 2, 0)).toBe("ok");
+});
+
+test("what's free to sell is the count less the holds, and never negative", () => {
+  expect(freeToSell(5, 2)).toBe(3);
+  expect(freeToSell(1, 1)).toBe(0);
+  // More promised than held happens when stock is adjusted down after an
+  // order was taken; it means nothing is available, not that we owe minus one.
+  expect(freeToSell(1, 4)).toBe(0);
+  expect(freeToSell(null, 0)).toBe(0);
+});
+
+test("a product with no holds behaves exactly as before", () => {
+  const grid = buildStockGrid([product({ sizes: [{ label: "M", stock: 4 }] })]);
+  expect(grid.rows[0].heldTotal).toBe(0);
+  expect(grid.rows[0].heldCells.M).toBe(0);
+  expect(grid.heldGrandTotal).toBe(0);
 });

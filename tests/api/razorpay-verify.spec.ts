@@ -554,3 +554,168 @@ test.describe("confirming a payment is atomic and checks the amount", () => {
     await deleteTestProduct(product.id);
   });
 });
+
+// Money going back out.
+//
+// Razorpay has always sent a refund webhook; the site acknowledged it and did
+// nothing. A refunded order stayed PAID and CONFIRMED with its stock
+// deducted, so the day's revenue counted a sale that had been given back and
+// the shelf count stayed a garment short of what was on the shelf. Refunds
+// are made in the Razorpay dashboard, so this webhook is the only way the
+// shop's own records ever hear about one.
+test.describe("refunds", () => {
+  let refundProduct: Product;
+  test.beforeAll(async () => {
+    refundProduct = await createTestProduct({ name: "Refund Test Piece", price: 2000, stock: 40 });
+  });
+  test.afterAll(async () => {
+    await deleteTestProduct(refundProduct.id);
+  });
+
+  function signHook(raw: string) {
+    return createHmac("sha256", RAZORPAY_TEST_WEBHOOK_SECRET).update(raw).digest("hex");
+  }
+
+  async function postHook(request: import("@playwright/test").APIRequestContext, raw: string) {
+    return request.post("/api/webhooks/razorpay", {
+      headers: { "Content-Type": "application/json", "x-razorpay-signature": signHook(raw) },
+      data: raw,
+    });
+  }
+
+  /** Place an order and take it all the way to paid, the way a real one goes. */
+  async function paidOrder(request: import("@playwright/test").APIRequestContext, paymentId: string) {
+    const { orderNumber, razorpayOrderId, email } = await placeAwaitingPaymentOrder(request, refundProduct);
+    const raw = JSON.stringify({
+      event: "payment.captured",
+      payload: { payment: { entity: { id: paymentId, order_id: razorpayOrderId, amount: 200000 } } },
+    });
+    const res = await postHook(request, raw);
+    expect(await res.json()).toMatchObject({ ok: true, state: "confirmed" });
+    return { orderNumber, razorpayOrderId, email };
+  }
+
+  test("a full refund cancels the order and puts the stock back", async ({ request }) => {
+    const { orderNumber, email } = await paidOrder(request, "pay_REFUND001");
+    const afterSale = (await getSizeStock(refundProduct.id, "M"))!;
+
+    const raw = JSON.stringify({
+      event: "refund.created",
+      payload: { refund: { entity: { id: "rfnd_001", payment_id: "pay_REFUND001", amount: 200000 } } },
+    });
+    const res = await postHook(request, raw);
+    expect(res.ok()).toBeTruthy();
+    expect(await res.json()).toMatchObject({ ok: true, state: "refunded", orderNumber });
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.payment_status).toBe("REFUNDED");
+    expect(order!.status).toBe("CANCELLED");
+    // The garment is back on the shelf, and the order no longer holds it.
+    expect(order!.stock_deducted).toBe(false);
+    expect(await getSizeStock(refundProduct.id, "M")).toBe(afterSale + 1);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("a partial refund is recorded without undoing the sale", async ({ request }) => {
+    // ₹200 back on a ₹2,000 order — a mark on a sleeve, not a return. The
+    // customer still has the garment, so putting it back on the shelf would
+    // be a lie the next customer pays for.
+    const { orderNumber, email } = await paidOrder(request, "pay_REFUND002");
+    const afterSale = (await getSizeStock(refundProduct.id, "M"))!;
+
+    const raw = JSON.stringify({
+      event: "refund.created",
+      payload: { refund: { entity: { id: "rfnd_002", payment_id: "pay_REFUND002", amount: 20000 } } },
+    });
+    const res = await postHook(request, raw);
+    expect(await res.json()).toMatchObject({ ok: true, state: "partial", orderNumber });
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.payment_status).toBe("PAID");
+    expect(order!.status).toBe("CONFIRMED");
+    expect(order!.stock_deducted).toBe(true);
+    expect(await getSizeStock(refundProduct.id, "M")).toBe(afterSale);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("the same refund arriving twice returns the stock only once", async ({ request }) => {
+    // Razorpay sends refund.created and payment.refunded for one refund, and
+    // retries anything it gets no 2xx for. Handling it twice would mint a
+    // garment that does not exist.
+    const { orderNumber, email } = await paidOrder(request, "pay_REFUND003");
+    const afterSale = (await getSizeStock(refundProduct.id, "M"))!;
+
+    const created = JSON.stringify({
+      event: "refund.created",
+      payload: { refund: { entity: { id: "rfnd_003", payment_id: "pay_REFUND003", amount: 200000 } } },
+    });
+    const refunded = JSON.stringify({
+      event: "payment.refunded",
+      payload: { payment: { entity: { id: "pay_REFUND003", amount: 200000, amount_refunded: 200000 } } },
+    });
+
+    expect(await (await postHook(request, created)).json()).toMatchObject({ state: "refunded" });
+    expect(await (await postHook(request, refunded)).json()).toMatchObject({ state: "already" });
+    expect(await (await postHook(request, created)).json()).toMatchObject({ state: "already" });
+
+    expect(await getSizeStock(refundProduct.id, "M")).toBe(afterSale + 1);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("two part refunds that add up to the whole cancel the order", async ({ request }) => {
+    const { orderNumber, email } = await paidOrder(request, "pay_REFUND004");
+    const afterSale = (await getSizeStock(refundProduct.id, "M"))!;
+
+    const half = (id: string) =>
+      JSON.stringify({
+        event: "refund.created",
+        payload: { refund: { entity: { id, payment_id: "pay_REFUND004", amount: 100000 } } },
+      });
+
+    expect(await (await postHook(request, half("rfnd_004a"))).json()).toMatchObject({ state: "partial" });
+    expect(await getSizeStock(refundProduct.id, "M")).toBe(afterSale);
+
+    expect(await (await postHook(request, half("rfnd_004b"))).json()).toMatchObject({ state: "refunded" });
+    expect(await getSizeStock(refundProduct.id, "M")).toBe(afterSale + 1);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+
+  test("a refund on a payment no order claims is acknowledged, not retried forever", async ({ request }) => {
+    // Retrying cannot conjure an order, and a webhook that keeps failing gets
+    // switched off at Razorpay's end — taking the working events with it.
+    const raw = JSON.stringify({
+      event: "refund.created",
+      payload: { refund: { entity: { id: "rfnd_ghost", payment_id: "pay_NOSUCHPAYMENT", amount: 5000 } } },
+    });
+    const res = await postHook(request, raw);
+    expect(res.ok()).toBeTruthy();
+    expect(await res.json()).toMatchObject({ ok: true, unmatched: "not-found" });
+  });
+
+  test("a refund event carrying no amount changes nothing", async ({ request }) => {
+    // Guessing "the whole order" would cancel a sale on no evidence.
+    const { orderNumber, email } = await paidOrder(request, "pay_REFUND005");
+
+    const raw = JSON.stringify({
+      event: "refund.created",
+      payload: { refund: { entity: { id: "rfnd_005", payment_id: "pay_REFUND005" } } },
+    });
+    const res = await postHook(request, raw);
+    expect(await res.json()).toMatchObject({ ok: true, ignored: "no-amount" });
+
+    const order = await getOrderByNumber(orderNumber);
+    expect(order!.payment_status).toBe("PAID");
+    expect(order!.stock_deducted).toBe(true);
+
+    await deleteOrderByNumber(orderNumber);
+    await deleteCustomerByEmail(email);
+  });
+});

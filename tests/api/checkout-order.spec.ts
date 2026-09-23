@@ -230,6 +230,148 @@ test.describe("coupons at order time", () => {
   });
 });
 
+// A coupon had no ceiling of any kind: one code screenshotted off an
+// Instagram post and forwarded into a deals group was redeemable by everyone
+// who found it, as often as they liked, until somebody switched it off by
+// hand. The discount is real money.
+test.describe("coupon limits", () => {
+  async function makeCoupon(opts: { code: string; usageLimit?: number | null; perCustomerLimit?: number | null }) {
+    await query("delete from coupons where code = $1", [opts.code]);
+    await query(
+      `insert into coupons (id, code, type, value, min_order_value, active, usage_limit, per_customer_limit)
+       values (gen_random_uuid()::text, $1, 'FLAT', 100, 0, true, $2, $3)`,
+      [opts.code, opts.usageLimit ?? null, opts.perCustomerLimit ?? null]
+    );
+  }
+
+  /** Place an order with the code and say what happened. */
+  async function orderWith(
+    request: import("@playwright/test").APIRequestContext,
+    code: string,
+    email: string
+  ) {
+    const res = await request.post("/api/checkout/create-order", {
+      data: { items: itemsFor(product), customer: shipping(email), couponCode: code },
+    });
+    return { status: res.status(), body: await res.json() };
+  }
+
+  test("a coupon capped at one total use stops after that one", async ({ request }) => {
+    await makeCoupon({ code: "ONLYONCE", usageLimit: 1 });
+    const first = uniqueEmail("cap-a");
+    const second = uniqueEmail("cap-b");
+
+    const a = await orderWith(request, "ONLYONCE", first);
+    expect(a.status).toBe(200);
+
+    // The first order is WhatsApp/COD and unpaid, so it does not count yet —
+    // an abandoned checkout must not burn a coupon. Mark it the way a
+    // confirmed sale looks.
+    await query("update orders set payment_status = 'PAID', status = 'CONFIRMED' where order_number = $1", [
+      a.body.orderNumber,
+    ]);
+
+    const b = await orderWith(request, "ONLYONCE", second);
+    expect(b.status).toBe(400);
+    expect(b.body.error).toContain("fully used");
+
+    await deleteOrderByNumber(a.body.orderNumber);
+    await deleteCustomerByEmail(first);
+    await deleteCustomerByEmail(second);
+    await query("delete from coupons where code = $1", ["ONLYONCE"]);
+  });
+
+  test("an unpaid, unconfirmed order does not use up a coupon", async ({ request }) => {
+    // Otherwise a script could exhaust a campaign in seconds without paying
+    // for a single garment, and every real customer would be turned away.
+    await makeCoupon({ code: "NOTBURNT", usageLimit: 1 });
+    const first = uniqueEmail("burn-a");
+    const second = uniqueEmail("burn-b");
+
+    const a = await orderWith(request, "NOTBURNT", first);
+    expect(a.status).toBe(200);
+
+    const b = await orderWith(request, "NOTBURNT", second);
+    expect(b.status).toBe(200);
+
+    await deleteOrderByNumber(a.body.orderNumber);
+    await deleteOrderByNumber(b.body.orderNumber);
+    await deleteCustomerByEmail(first);
+    await deleteCustomerByEmail(second);
+    await query("delete from coupons where code = $1", ["NOTBURNT"]);
+  });
+
+  test("a cancelled order gives its coupon use back", async ({ request }) => {
+    await makeCoupon({ code: "GIVESBACK", usageLimit: 1 });
+    const first = uniqueEmail("back-a");
+    const second = uniqueEmail("back-b");
+
+    const a = await orderWith(request, "GIVESBACK", first);
+    await query("update orders set payment_status = 'PAID', status = 'CONFIRMED' where order_number = $1", [
+      a.body.orderNumber,
+    ]);
+    expect((await orderWith(request, "GIVESBACK", second)).status).toBe(400);
+
+    // The sale was undone, so the code is available again — the alternative
+    // is a campaign that quietly shrinks every time an order falls through.
+    await query("update orders set status = 'CANCELLED' where order_number = $1", [a.body.orderNumber]);
+    const c = await orderWith(request, "GIVESBACK", second);
+    expect(c.status).toBe(200);
+
+    await deleteOrderByNumber(a.body.orderNumber);
+    await deleteOrderByNumber(c.body.orderNumber);
+    await deleteCustomerByEmail(first);
+    await deleteCustomerByEmail(second);
+    await query("delete from coupons where code = $1", ["GIVESBACK"]);
+  });
+
+  test("one per customer stops the same person, not everybody else", async ({ request }) => {
+    await makeCoupon({ code: "ONEEACH", perCustomerLimit: 1 });
+    const mine = uniqueEmail("each-a");
+    const theirs = uniqueEmail("each-b");
+
+    const a = await orderWith(request, "ONEEACH", mine);
+    expect(a.status).toBe(200);
+    await query("update orders set payment_status = 'PAID', status = 'CONFIRMED' where order_number = $1", [
+      a.body.orderNumber,
+    ]);
+
+    const again = await orderWith(request, "ONEEACH", mine);
+    expect(again.status).toBe(400);
+    expect(again.body.error).toContain("one order per customer");
+
+    // Somebody else is unaffected — a per-customer cap is not a total cap.
+    const b = await orderWith(request, "ONEEACH", theirs);
+    expect(b.status).toBe(200);
+
+    await deleteOrderByNumber(a.body.orderNumber);
+    await deleteOrderByNumber(b.body.orderNumber);
+    await deleteCustomerByEmail(mine);
+    await deleteCustomerByEmail(theirs);
+    await query("delete from coupons where code = $1", ["ONEEACH"]);
+  });
+
+  test("a coupon with no limits still works without end", async ({ request }) => {
+    // Every coupon created before limits existed is this one.
+    await makeCoupon({ code: "NOCEILING" });
+    const emails = [uniqueEmail("ceil-a"), uniqueEmail("ceil-b"), uniqueEmail("ceil-c")];
+    const numbers: string[] = [];
+
+    for (const email of emails) {
+      const r = await orderWith(request, "NOCEILING", email);
+      expect(r.status).toBe(200);
+      numbers.push(r.body.orderNumber);
+      await query("update orders set payment_status = 'PAID', status = 'CONFIRMED' where order_number = $1", [
+        r.body.orderNumber,
+      ]);
+    }
+
+    for (const n of numbers) await deleteOrderByNumber(n);
+    for (const e of emails) await deleteCustomerByEmail(e);
+    await query("delete from coupons where code = $1", ["NOCEILING"]);
+  });
+});
+
 // The quantity and identity bugs found in the second security audit. Each of
 // these was exploitable by anyone who could send an HTTP request.
 test.describe("what a hostile cart cannot do", () => {
