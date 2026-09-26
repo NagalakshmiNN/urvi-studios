@@ -220,6 +220,28 @@ export const orderItems = pgTable("order_items", {
 });
 
 /**
+ * One row per run of a scheduled report.
+ *
+ * The morning stock email worked when tested by hand and then did not arrive,
+ * and nothing on the site could say which half had failed — the schedule
+ * never firing and the send failing look identical from the outside. Each run
+ * records itself here, including the ones that failed, so the answer is on a
+ * screen rather than in a hosting dashboard's function logs. An empty table is
+ * an answer too: it means nothing has ever called the report.
+ */
+export const reportRuns = pgTable("report_runs", {
+  id: id(),
+  /** Which report. Only "stock-daily" today. */
+  kind: text("kind").notNull(),
+  /** "schedule" when the timer called it, "manual" when somebody pressed the button. */
+  source: text("source").notNull(),
+  ok: boolean("ok").notNull(),
+  recipients: text("recipients").notNull().default(""),
+  note: text("note"),
+  ranAt: timestamp("ran_at").notNull().defaultNow(),
+});
+
+/**
  * One row per refund Razorpay has made, keyed by Razorpay's own refund id.
  *
  * Razorpay sends several events for a single refund and retries any it does

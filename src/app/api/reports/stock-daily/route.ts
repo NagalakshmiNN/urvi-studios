@@ -16,6 +16,7 @@ import { renderStockGridEmail } from "@/lib/stock-report-email";
 import { pendingReservations, heldForProduct } from "@/lib/stock-reservations";
 import { SITE } from "@/lib/site-config";
 import { getAdminSession } from "@/lib/auth";
+import { recordRun, STOCK_REPORT, type RunSource } from "@/lib/report-health";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,20 +28,27 @@ function tokenMatches(given: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-async function authorised(request: NextRequest): Promise<boolean> {
-  // A signed-in admin may always run it — that is the "send it to me now"
+/**
+ * Who is calling, or null if they may not.
+ *
+ * The answer is the caller's identity rather than a yes/no, because every run
+ * is recorded and "did the 7am schedule fire?" is the question the record
+ * exists to answer. A boolean would throw that away.
+ */
+async function authorised(request: NextRequest): Promise<RunSource | null> {
+  // A signed-in admin may always run it — that is the "Email it to me now"
   // button on the Stock Grid page.
-  if (await getAdminSession()) return true;
+  if (await getAdminSession()) return "manual";
 
   const expected = process.env.REPORT_TOKEN;
-  if (!expected) return false;
+  if (!expected) return null;
 
   const given =
     request.headers.get("x-report-token") ?? request.nextUrl.searchParams.get("token") ?? "";
-  return Boolean(given) && tokenMatches(given, expected);
+  return Boolean(given) && tokenMatches(given, expected) ? "schedule" : null;
 }
 
-async function send() {
+async function send(source: RunSource) {
   const products = await db.query.products.findMany({
     with: { images: true, sizes: true },
     orderBy: (p, { asc }) => [asc(p.name)],
@@ -74,14 +82,24 @@ async function send() {
   // "shilpa@example.com, lakshmi@example.com".
   const recipients = parseRecipients(process.env.STOCK_REPORT_EMAIL || process.env.CONTACT_NOTIFY_EMAIL);
   if (recipients.length === 0) {
-    return {
-      ok: false as const,
-      error:
-        "No recipient set. Put one or more addresses in STOCK_REPORT_EMAIL, separated by commas.",
-    };
+    const error =
+      "No recipient set. Put one or more addresses in STOCK_REPORT_EMAIL, separated by commas.";
+    // Recorded, not just returned. A 7am run that failed for this reason is
+    // invisible otherwise, and the silence looks exactly like a schedule that
+    // never fired.
+    await recordRun({ kind: STOCK_REPORT, source, ok: false, note: error });
+    return { ok: false as const, error };
   }
 
-  await sendMail({ to: recipients.join(", "), subject: report.subject, text: report.text, html: report.html });
+  try {
+    await sendMail({ to: recipients.join(", "), subject: report.subject, text: report.text, html: report.html });
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "The mail server refused the message.";
+    await recordRun({ kind: STOCK_REPORT, source, ok: false, recipients, note: error });
+    return { ok: false as const, error };
+  }
+
+  await recordRun({ kind: STOCK_REPORT, source, ok: true, recipients });
 
   return {
     ok: true as const,
@@ -92,15 +110,13 @@ async function send() {
 }
 
 export async function GET(request: NextRequest) {
-  if (!(await authorised(request))) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-  return NextResponse.json(await send());
+  const source = await authorised(request);
+  if (!source) return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  return NextResponse.json(await send(source));
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await authorised(request))) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-  return NextResponse.json(await send());
+  const source = await authorised(request);
+  if (!source) return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  return NextResponse.json(await send(source));
 }

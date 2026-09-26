@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { buildStockGrid, visibleColumns, cellTone } from "@/lib/stock-grid";
 import { pendingReservations, heldForProduct } from "@/lib/stock-reservations";
 import ProductThumb from "@/components/admin/ProductThumb";
-import SendStockEmail from "./SendStockEmail";
+import ReportHealthCard from "./ReportHealthCard";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +65,13 @@ export default async function StockGridPage({
           <Link href={includeInactive ? "/admin/stock/grid" : "/admin/stock/grid?all=1"} className="btn btn-outline">
             {includeInactive ? "Active only" : "Include inactive"}
           </Link>
-          <SendStockEmail />
         </div>
       </div>
+
+      {/* Why the seven o'clock email did or didn't arrive — and the button to
+          send it now, which is the fastest way to tell a broken report from a
+          schedule that never fired. */}
+      <ReportHealthCard />
 
       <div className="admin-card" style={{ padding: "18px 20px" }}>
         <p style={{ fontSize: 13, color: "var(--sage)", margin: "0 0 14px", lineHeight: 1.7 }}>

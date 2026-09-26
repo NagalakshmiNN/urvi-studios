@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@netlify/database": "^2.0.0",
+    "@netlify/functions": "^6.0.0",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-color": "^3.31.3",
     "@tiptap/extension-font-family": "^3.31.3",
@@ -39,7 +40,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@netlify/functions": "^6.0.0",
     "@playwright/test": "^1.56.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",

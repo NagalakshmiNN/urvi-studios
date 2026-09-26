@@ -1,0 +1,19 @@
+# Deliberately minimal.
+#
+# Build command, publish directory and environment variables are all set in
+# the Netlify UI for this site, and anything declared here would override them
+# — so nothing about the build is repeated. The only thing this file exists for
+# is the one setting that cannot be made in the UI at all.
+#
+# The morning stock report is a scheduled function. Its schedule is already
+# exported from netlify/functions/stock-report.mts, which is the documented way
+# and should be enough; declaring it here as well is belt and braces, because
+# the symptom of the schedule not registering is an email that silently never
+# arrives, and that cost a morning of guessing once already.
+#
+# 01:30 UTC is 07:00 in India. Netlify schedules are always UTC — there is no
+# timezone setting, so the conversion has to be done here and redone if the
+# desired hour ever changes.
+
+[functions."stock-report"]
+  schedule = "30 1 * * *"
