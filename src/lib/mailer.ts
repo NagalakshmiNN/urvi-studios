@@ -87,6 +87,32 @@ export function mailConfigured(): boolean {
   return Boolean(process.env.MAIL_OUTBOX_FILE) || missingMailSettings().length === 0;
 }
 
+/**
+ * What a mail server's refusal actually means, in words.
+ *
+ * Gmail's SMTP errors are precise and completely opaque: "534-5.7.9
+ * Application-specific password required ... InvalidSecondFactor" is an exact
+ * description of the problem and tells you nothing about what to do. These are
+ * the two failures that account for almost every Gmail setup that does not
+ * work, and the card should name the fix rather than relay a code.
+ */
+export function explainMailError(reason: string): string | null {
+  if (/534|application-specific password|InvalidSecondFactor/i.test(reason)) {
+    return (
+      "Gmail is refusing this password because the account has 2-Step Verification on. " +
+      "GMAIL_APP_PASSWORD has to be a 16-character app password generated at Google → Security → " +
+      "App passwords — not the password you sign in with. Enter it without the spaces Google shows."
+    );
+  }
+  if (/535|username and password not accepted|BadCredentials/i.test(reason)) {
+    return (
+      "Gmail did not accept the username or password. Check GMAIL_USER is the full address, and that " +
+      "the app password was copied whole and without spaces."
+    );
+  }
+  return null;
+}
+
 export async function sendMail(opts: {
   to: string;
   subject: string;

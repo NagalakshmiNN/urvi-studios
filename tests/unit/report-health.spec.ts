@@ -71,9 +71,44 @@ test("a missing token blames the schedule, not the button", () => {
   expect(v.message).toContain("button below still works");
 });
 
+test("a refused sign-in is explained, not relayed as an SMTP code", () => {
+  // Gmail's own words are exact and useless: "534-5.7.9 Application-specific
+  // password required ... InvalidSecondFactor". The card should name the fix.
+  const v = diagnosis({
+    ...good,
+    lastRun: {
+      source: "manual",
+      ok: false,
+      recipients: "shop@example.com",
+      note: "Invalid login: 534-5.7.9 Application-specific password required. For more information, go to https://support.google.com/mail/?p=InvalidSecondFactor",
+      ranAt: new Date(),
+    },
+    lastScheduledRun: null,
+  });
+  expect(v.fine).toBe(false);
+  expect(v.message).toContain("app password");
+  expect(v.message).toContain("Google");
+  // And it must not send her to look at the deploy instead.
+  expect(v.message).not.toContain("scheduled function");
+});
+
+test("a failed attempt outranks a schedule that has not fired yet", () => {
+  // The settings existing is not the same as the settings working, and only
+  // an attempt can tell the difference. This ordering was wrong once and the
+  // card blamed the deploy while Gmail was refusing a password.
+  const v = diagnosis({
+    ...good,
+    lastRun: { source: "manual", ok: false, recipients: "", note: "The mail server refused the message.", ranAt: new Date() },
+    lastScheduledRun: null,
+  });
+  expect(v.message).toContain("did not send");
+  expect(v.message).not.toContain("never called");
+});
+
 test("a schedule that has never fired is called out as a deploy problem", () => {
-  // The most useful line on the card. Everything configured and no run on
-  // record means the scheduled function isn't deployed — which is fixed
+  // The most useful line on the card — but only once a send has actually
+  // worked. Everything configured, a successful manual run, and nothing from
+  // the schedule means the scheduled function isn't deployed, which is fixed
   // somewhere completely different from an email fault.
   const v = diagnosis({ ...good, lastScheduledRun: null });
   expect(v.fine).toBe(false);

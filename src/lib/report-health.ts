@@ -14,7 +14,7 @@
 
 import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { parseRecipients, mailConfigured } from "./mailer";
+import { parseRecipients, mailConfigured, explainMailError } from "./mailer";
 
 export const STOCK_REPORT = "stock-daily";
 
@@ -161,12 +161,30 @@ export function diagnosis(health: ReportHealth): { fine: boolean; message: strin
         "The button below still works, because your admin session authorises it.",
     };
   }
+  // A run that actually failed outranks a schedule that has not fired yet.
+  //
+  // This used to be the other way round, and the card said "everything is
+  // configured, the schedule has never called this report" while the most
+  // recent attempt was being refused by Gmail — sending somebody to look at a
+  // deploy when the live fault was a password. The settings existing is not
+  // the same as the settings working, and only an attempt can tell the
+  // difference.
+  if (health.lastRun && !health.lastRun.ok) {
+    const reason = health.lastRun.note ?? "no reason recorded";
+    const help = explainMailError(reason);
+    return {
+      fine: false,
+      message: help
+        ? `The last attempt did not send. ${help}`
+        : `The last attempt did not send: ${reason}`,
+    };
+  }
   if (!health.lastScheduledRun) {
     return {
       fine: false,
       message:
-        "Everything is configured, but the 7am schedule has never called this report. " +
-        "That points at the scheduled function not being deployed rather than at the email.",
+        "Everything is configured and a send has worked, but the 7am schedule has never called " +
+        "this report. That points at the scheduled function not being deployed rather than at the email.",
     };
   }
   if (!health.lastScheduledRun.ok) {
