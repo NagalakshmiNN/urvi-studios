@@ -91,12 +91,19 @@ async function send(source: RunSource) {
     return { ok: false as const, error };
   }
 
+  // sendMail used to return nothing whether it sent or silently skipped, so
+  // this route reported "Sent to ..." on a site with no mail account
+  // configured — the one thing it exists to be honest about.
+  let result;
   try {
-    await sendMail({ to: recipients.join(", "), subject: report.subject, text: report.text, html: report.html });
+    result = await sendMail({ to: recipients.join(", "), subject: report.subject, text: report.text, html: report.html });
   } catch (err) {
-    const error = err instanceof Error ? err.message : "The mail server refused the message.";
-    await recordRun({ kind: STOCK_REPORT, source, ok: false, recipients, note: error });
-    return { ok: false as const, error };
+    result = { sent: false as const, reason: err instanceof Error ? err.message : "The mail server refused the message." };
+  }
+
+  if (!result.sent) {
+    await recordRun({ kind: STOCK_REPORT, source, ok: false, recipients, note: result.reason });
+    return { ok: false as const, error: result.reason };
   }
 
   await recordRun({ kind: STOCK_REPORT, source, ok: true, recipients });

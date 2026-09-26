@@ -59,6 +59,34 @@ function getTransport() {
   });
 }
 
+/**
+ * Whether the message actually went.
+ *
+ * This used to return nothing at all, and that was a real fault rather than an
+ * omission. A missing Gmail password and a message delivered to two inboxes
+ * were indistinguishable to every caller — so the stock report announced
+ * "Sent to nagalakshmin@gmail.com, shilpahp298@gmail.com" on a site that could
+ * not send email at all, and did so for days.
+ *
+ * Callers that must not fail because of email — an order being saved, a
+ * contact message being stored — still ignore this and are still correct to.
+ * Callers whose entire job IS the email have to be able to tell.
+ */
+export type MailResult = { sent: true } | { sent: false; reason: string };
+
+/** Which half of the Gmail settings is missing, named individually. */
+function missingMailSettings(): string[] {
+  const missing: string[] = [];
+  if (!process.env.GMAIL_USER) missing.push("GMAIL_USER");
+  if (!process.env.GMAIL_APP_PASSWORD) missing.push("GMAIL_APP_PASSWORD");
+  return missing;
+}
+
+/** True when this site can send email at all. */
+export function mailConfigured(): boolean {
+  return Boolean(process.env.MAIL_OUTBOX_FILE) || missingMailSettings().length === 0;
+}
+
 export async function sendMail(opts: {
   to: string;
   subject: string;
@@ -67,17 +95,21 @@ export async function sendMail(opts: {
   /** Optional richer version. A table of numbers is unreadable without it. */
   html?: string;
   replyTo?: string;
-}) {
+}): Promise<MailResult> {
   const outbox = process.env.MAIL_OUTBOX_FILE;
   if (outbox) {
     writeToOutbox(outbox, opts);
-    return;
+    return { sent: true };
   }
 
   const transport = getTransport();
   if (!transport) {
-    console.warn("sendMail skipped: GMAIL_USER/GMAIL_APP_PASSWORD not configured.");
-    return;
+    const missing = missingMailSettings();
+    const reason =
+      `This site cannot send email: ${missing.join(" and ")} ` +
+      `${missing.length === 1 ? "is" : "are"} not set. Nothing has been sent to anyone.`;
+    console.warn(`sendMail skipped: ${reason}`);
+    return { sent: false, reason };
   }
   const from = process.env.GMAIL_USER!;
   try {
@@ -89,8 +121,11 @@ export async function sendMail(opts: {
       text: opts.text,
       html: opts.html,
     });
+    return { sent: true };
   } catch (err) {
-    // Never let an email failure break the calling request.
+    // Never let an email failure break the calling request — but say so,
+    // rather than returning the same nothing a success returns.
     console.error("sendMail failed:", err);
+    return { sent: false, reason: err instanceof Error ? err.message : "The mail server refused the message." };
   }
 }

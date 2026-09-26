@@ -15,6 +15,7 @@ const good: ReportHealth = {
   recipientsUnusable: false,
   tokenSet: true,
   mailConfigured: true,
+  missingMailSettings: [],
   lastRun: { source: "schedule", ok: true, recipients: "shop@example.com", note: null, ranAt: new Date() },
   lastScheduledRun: { source: "schedule", ok: true, recipients: "shop@example.com", note: null, ranAt: new Date() },
 };
@@ -40,6 +41,25 @@ test("a recipient set to something that isn't an address is its own message", ()
   // already there.
   const v = diagnosis({ ...good, recipients: [], recipientsSet: false, recipientsUnusable: true });
   expect(v.message).toContain("nothing that looks like an email");
+});
+
+test("no mail account is reported as the whole site, not as a report fault", () => {
+  // The card once said "Mail isn't configured" and, on the very same line,
+  // "Sent to nagalakshmin@gmail.com" — because sendMail returned the same
+  // nothing whether it sent or skipped. Worse, the message made it sound like
+  // a stock-report setting. With no mail account, every email the site sends
+  // is going nowhere, including a customer's order confirmation.
+  const v = diagnosis({ ...good, mailConfigured: false, missingMailSettings: ["GMAIL_APP_PASSWORD"] });
+  expect(v.fine).toBe(false);
+  expect(v.message).toContain("GMAIL_APP_PASSWORD");
+  expect(v.message).toContain("Order confirmations");
+  // Both missing reads as a list, not as "GMAIL_USER, GMAIL_APP_PASSWORD is".
+  const both = diagnosis({
+    ...good,
+    mailConfigured: false,
+    missingMailSettings: ["GMAIL_USER", "GMAIL_APP_PASSWORD"],
+  });
+  expect(both.message).toContain("GMAIL_USER and GMAIL_APP_PASSWORD are not set");
 });
 
 test("a missing token blames the schedule, not the button", () => {

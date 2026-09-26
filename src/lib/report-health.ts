@@ -14,7 +14,7 @@
 
 import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { parseRecipients } from "./mailer";
+import { parseRecipients, mailConfigured } from "./mailer";
 
 export const STOCK_REPORT = "stock-daily";
 
@@ -80,6 +80,8 @@ export type ReportHealth = {
   tokenSet: boolean;
   /** Whether mail can be sent at all. */
   mailConfigured: boolean;
+  /** Which Gmail settings are missing, named so they can be fixed one by one. */
+  missingMailSettings: string[];
   lastRun: RunRow | null;
   lastScheduledRun: RunRow | null;
 };
@@ -106,7 +108,8 @@ export async function stockReportHealth(): Promise<ReportHealth> {
     // how somebody spends an evening re-entering a value that was already there.
     recipientsUnusable: raw.trim().length > 0 && recipients.length === 0,
     tokenSet: Boolean(process.env.REPORT_TOKEN),
-    mailConfigured: Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD),
+    mailConfigured: mailConfigured(),
+    missingMailSettings: ["GMAIL_USER", "GMAIL_APP_PASSWORD"].filter((name) => !process.env[name]),
     lastRun: runs[0] ?? null,
     lastScheduledRun: runs.find((r) => r.source === "schedule") ?? null,
   };
@@ -138,7 +141,17 @@ export function diagnosis(health: ReportHealth): { fine: boolean; message: strin
     };
   }
   if (!health.mailConfigured) {
-    return { fine: false, message: "Mail isn't configured — GMAIL_USER or GMAIL_APP_PASSWORD is missing." };
+    // Named individually, because "one of these two" means checking both.
+    // And said at full strength: with no mail account, NOTHING the site sends
+    // is going out — not this report, not an order confirmation to a
+    // customer, not a contact-form message. It is not a stock-report problem.
+    return {
+      fine: false,
+      message:
+        `This site cannot send any email — ${health.missingMailSettings.join(" and ")} ` +
+        `${health.missingMailSettings.length === 1 ? "is" : "are"} not set. ` +
+        "Order confirmations and contact-form messages are not going out either.",
+    };
   }
   if (!health.tokenSet) {
     return {
