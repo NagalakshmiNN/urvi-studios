@@ -1,14 +1,25 @@
 import { db, schema } from "@/db";
 import { loadBands } from "@/lib/markup-band-store";
-import { bandUsage } from "@/lib/markup-bands";
+import { bandUsage, bandFor, bandLabel } from "@/lib/markup-bands";
 import PricingControls, { type BandRow } from "./PricingControls";
+import ProductMarkupTable from "./ProductMarkupTable";
 
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
   const bands = await loadBands();
   const products = await db
-    .select({ price: schema.products.price, landedCost: schema.products.landedCost })
+    .select({
+      id: schema.products.id,
+      sku: schema.products.sku,
+      name: schema.products.name,
+      price: schema.products.price,
+      landedCost: schema.products.landedCost,
+      minRoundUpTo: schema.products.minRoundUpTo,
+      maxRoundUpTo: schema.products.maxRoundUpTo,
+      targetMarkupPct: schema.products.targetMarkupPct,
+      minMarkupPct: schema.products.minMarkupPct,
+    })
     .from(schema.products);
 
   const usage = bandUsage(bands, products);
@@ -21,6 +32,20 @@ export default async function PricingPage() {
   }));
 
   const uncosted = products.filter((p) => p.landedCost == null || p.landedCost <= 0).length;
+
+  // Build per-product rows with their band info
+  const productRows = products.map((p) => {
+    const band = p.landedCost != null && p.landedCost > 0
+      ? bandFor(p.landedCost * 100, bands)
+      : bands[bands.length - 1]; // fallback for display
+    const idx = bands.indexOf(band);
+    return {
+      ...p,
+      bandTargetPct: band.targetPct,
+      bandMinPct: band.minPct,
+      bandLabel: bandLabel(band, idx, bands),
+    };
+  });
 
   return (
     <>
@@ -44,7 +69,9 @@ export default async function PricingPage() {
         </div>
       )}
 
-      <PricingControls rows={rows} />
+      <PricingControls rows={rows} overrideCount={products.filter((p) => p.targetMarkupPct != null || p.minMarkupPct != null).length} />
+
+      <ProductMarkupTable products={productRows} />
     </>
   );
 }

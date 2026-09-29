@@ -13,6 +13,8 @@ import { isBlankHtml } from "@/lib/richtext";
 import { sanitizeDescription } from "@/lib/sanitize-description";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
+import { suggestPricingForProduct } from "@/lib/markup-bands";
+import { loadBands } from "@/lib/markup-band-store";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 import { canDeleteOrder } from "@/lib/order-cleanup";
 import { hashPassword, verifyPassword, createAdminSession } from "@/lib/auth";
@@ -176,6 +178,8 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const landedCost = optionalInt(formData, "landedCost");
   const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
   const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
+  const targetMarkupPct = optionalInt(formData, "targetMarkupPct");
+  const minMarkupPct = optionalInt(formData, "minMarkupPct");
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
   const isActive = formData.get("isActive") === "on";
@@ -202,6 +206,31 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   // Description box replaces them), so any existing values on older
   // products are left exactly as they are rather than getting silently
   // blanked out on every save.
+  // When per-product markup overrides are set and there is a landed cost,
+  // recompute prices from the markup rather than taking the form's price
+  // fields at face value — the markup IS the decision, the price follows.
+  let finalPrice = price;
+  let finalMinRoundUpTo = minRoundUpTo;
+  let finalMaxRoundUpTo = maxRoundUpTo;
+
+  if (landedCost != null && landedCost > 0 && (targetMarkupPct != null || minMarkupPct != null)) {
+    const bands = await loadBands();
+    const suggested = suggestPricingForProduct(landedCost * 100, bands, {
+      targetMarkupPct,
+      minMarkupPct,
+    });
+    if (suggested) {
+      finalPrice = suggested.price;
+      finalMaxRoundUpTo = suggested.price;
+      finalMinRoundUpTo = suggested.minPrice;
+    }
+  }
+
+  // Validate: when min markup is set, it cannot exceed target
+  if (targetMarkupPct != null && minMarkupPct != null && minMarkupPct > targetMarkupPct) {
+    return { error: "The minimum markup cannot be above the target — the floor would sit above the price." };
+  }
+
   await db
     .update(schema.products)
     .set({
@@ -209,11 +238,13 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
       description,
       fabric: fabric || "See description",
       stylingTips: stylingTips || null,
-      price,
+      price: finalPrice,
       compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
       landedCost,
-      minRoundUpTo,
-      maxRoundUpTo,
+      minRoundUpTo: finalMinRoundUpTo,
+      maxRoundUpTo: finalMaxRoundUpTo,
+      targetMarkupPct,
+      minMarkupPct,
       badge: badge || null,
       stock: totalStock,
       categoryId,

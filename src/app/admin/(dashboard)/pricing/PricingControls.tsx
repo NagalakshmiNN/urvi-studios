@@ -18,7 +18,7 @@ export type BandRow = MarkupBand & {
  * out of the air is a hard question; showing that thirty-one products under
  * ₹500 are currently selling at a median of 96% over cost makes it an easy one.
  */
-export default function PricingControls({ rows }: { rows: BandRow[] }) {
+export default function PricingControls({ rows, overrideCount = 0 }: { rows: BandRow[]; overrideCount?: number }) {
   const [bands, setBands] = useState(rows);
   const [saveState, save, saving] = useActionState<PricingFormState, FormData>(saveBandsAction, undefined);
   const [applyState, apply, applying] = useActionState<PricingFormState, FormData>(applyPricingAction, undefined);
@@ -150,6 +150,11 @@ export default function PricingControls({ rows }: { rows: BandRow[] }) {
             <>Every priced product already matches its band.</>
           )}{" "}
           Products with no recorded landed cost are never touched.
+          {overrideCount > 0 && (
+            <>
+              {" "}<strong style={{ color: "var(--ink, inherit)" }}>{overrideCount}</strong> product{overrideCount === 1 ? " has" : "s have"} custom markup — those will be cleared and reset to their band.
+            </>
+          )}
         </p>
 
         <form

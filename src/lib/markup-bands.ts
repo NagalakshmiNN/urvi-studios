@@ -191,3 +191,29 @@ export function bandUsage(
     return { band, label: bandLabel(band, i, bands), products: inBand.length, medianMarkupPct: mid, wouldChange };
   });
 }
+
+/**
+ * What a piece should cost, with optional per-product markup overrides.
+ *
+ * When a product has its own targetPct or minPct set (non-null), those
+ * override the band's values. This is the single place per-product and
+ * band-level pricing meet, so every caller — the edit page preview, the
+ * pricing table, and "Apply to catalogue" — goes through the same arithmetic.
+ */
+export function suggestPricingForProduct(
+  landedPerUnitPaise: number,
+  bands: MarkupBand[],
+  overrides?: { targetMarkupPct?: number | null; minMarkupPct?: number | null }
+): SuggestedPricing | null {
+  if (!Number.isFinite(landedPerUnitPaise) || landedPerUnitPaise <= 0) return null;
+  const band = bandFor(landedPerUnitPaise, bands);
+  const targetPct = overrides?.targetMarkupPct ?? band.targetPct;
+  const minPct = overrides?.minMarkupPct ?? band.minPct;
+  const landedRupees = landedPerUnitPaise / 100;
+  return {
+    price: roundUpTo10(landedRupees * (1 + targetPct / 100)),
+    minPrice: roundUpTo10(landedRupees * (1 + minPct / 100)),
+    targetPct,
+    minPct,
+  };
+}

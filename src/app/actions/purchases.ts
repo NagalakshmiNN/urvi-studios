@@ -7,7 +7,7 @@ import { eq, inArray } from "drizzle-orm";
 import { parseInvoiceBrief } from "@/lib/invoice-brief";
 import { planPurchase, applyPurchase, type PurchasePlan, type PurchaseResult } from "@/lib/record-purchase";
 import { loadBands, saveBands } from "@/lib/markup-band-store";
-import { suggestPricing, validateBands, type MarkupBand } from "@/lib/markup-bands";
+import { suggestPricing, suggestPricingForProduct, validateBands, type MarkupBand } from "@/lib/markup-bands";
 import { isDocumentKind } from "@/lib/purchase-documents";
 
 async function requireAdmin() {
@@ -148,30 +148,48 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
       id: schema.products.id,
       price: schema.products.price,
       landedCost: schema.products.landedCost,
+      targetMarkupPct: schema.products.targetMarkupPct,
+      minMarkupPct: schema.products.minMarkupPct,
     })
     .from(schema.products)
     .where(onlyIds.length > 0 ? inArray(schema.products.id, onlyIds) : undefined);
 
   let moved = 0;
   let skipped = 0;
+  let overridesCleared = 0;
   for (const row of rows) {
     if (row.landedCost == null || row.landedCost <= 0) {
+      // Even without a landed cost, clear any stale per-product overrides
+      if (row.targetMarkupPct != null || row.minMarkupPct != null) {
+        await db
+          .update(schema.products)
+          .set({ targetMarkupPct: null, minMarkupPct: null, updatedAt: new Date() })
+          .where(eq(schema.products.id, row.id));
+        overridesCleared++;
+      }
       skipped++;
       continue;
     }
     const suggested = suggestPricing(row.landedCost * 100, bands);
-    if (!suggested || suggested.price === row.price) continue;
+    const priceChanged = suggested != null && suggested.price !== row.price;
+    const hadOverride = row.targetMarkupPct != null || row.minMarkupPct != null;
+
+    if (!priceChanged && !hadOverride) continue;
 
     await db
       .update(schema.products)
       .set({
-        price: suggested.price,
-        maxRoundUpTo: suggested.price,
-        minRoundUpTo: suggested.minPrice,
+        ...(suggested && priceChanged
+          ? { price: suggested.price, maxRoundUpTo: suggested.price, minRoundUpTo: suggested.minPrice }
+          : {}),
+        // Reset per-product overrides — the band is now the rule again
+        targetMarkupPct: null,
+        minMarkupPct: null,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, row.id));
-    moved++;
+    if (priceChanged) moved++;
+    if (hadOverride) overridesCleared++;
   }
 
   revalidatePath("/admin/pricing");
@@ -179,8 +197,11 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
   revalidatePath("/shop");
 
   const skippedNote = skipped > 0 ? ` ${skipped} left alone — no landed cost recorded.` : "";
+  const overrideNote = overridesCleared > 0 ? ` ${overridesCleared} custom markup${overridesCleared === 1 ? "" : "s"} cleared.` : "";
   return {
-    success: moved === 0 ? `Nothing to change — every price already matches its band.${skippedNote}` : `${moved} price${moved === 1 ? "" : "s"} updated.${skippedNote}`,
+    success: moved === 0
+      ? `Nothing to change — every price already matches its band.${overrideNote}${skippedNote}`
+      : `${moved} price${moved === 1 ? "" : "s"} updated.${overrideNote}${skippedNote}`,
   };
 }
 
@@ -324,4 +345,84 @@ export async function restoreDocumentAction(_prev: DocumentFormState, formData: 
 
   revalidatePurchase(doc.purchaseId);
   return { success: `${doc.filename} is back.` };
+}
+
+// -------------------------------------------------------- Per-product markup
+
+/**
+ * Save a per-product markup override from the Pricing screen's product table.
+ *
+ * When a target or minimum markup is set, the product's price, maxRoundUpTo
+ * and minRoundUpTo are recomputed from the markup and landed cost — the
+ * markup IS the pricing decision, the rupee figure follows.
+ *
+ * Clearing both fields (blank) removes the override and does NOT reset the
+ * price — the product keeps its current price until the next "Apply to
+ * catalogue" or until the admin sets a new markup.
+ */
+export async function updateProductMarkupAction(
+  _prev: PricingFormState,
+  formData: FormData
+): Promise<PricingFormState> {
+  await requireAdmin();
+
+  const productId = String(formData.get("productId") || "").trim();
+  if (!productId) return { error: "Missing product." };
+
+  const targetRaw = String(formData.get("targetMarkupPct") || "").trim();
+  const minRaw = String(formData.get("minMarkupPct") || "").trim();
+  const targetMarkupPct = targetRaw === "" ? null : Math.round(Number(targetRaw));
+  const minMarkupPct = minRaw === "" ? null : Math.round(Number(minRaw));
+
+  if (targetMarkupPct != null && (!Number.isFinite(targetMarkupPct) || targetMarkupPct < 0 || targetMarkupPct > 1000)) {
+    return { error: "Target markup must be between 0 and 1000%." };
+  }
+  if (minMarkupPct != null && (!Number.isFinite(minMarkupPct) || minMarkupPct < 0 || minMarkupPct > 1000)) {
+    return { error: "Minimum markup must be between 0 and 1000%." };
+  }
+  if (targetMarkupPct != null && minMarkupPct != null && minMarkupPct > targetMarkupPct) {
+    return { error: "The minimum markup cannot be above the target." };
+  }
+
+  const product = await db
+    .select({
+      id: schema.products.id,
+      name: schema.products.name,
+      price: schema.products.price,
+      landedCost: schema.products.landedCost,
+    })
+    .from(schema.products)
+    .where(eq(schema.products.id, productId))
+    .then((r) => r[0]);
+
+  if (!product) return { error: "That product no longer exists." };
+
+  const update: Record<string, unknown> = {
+    targetMarkupPct,
+    minMarkupPct,
+    updatedAt: new Date(),
+  };
+
+  // When markup is set and landed cost exists, recompute the price
+  if (product.landedCost != null && product.landedCost > 0 && (targetMarkupPct != null || minMarkupPct != null)) {
+    const bands = await loadBands();
+    const suggested = suggestPricingForProduct(product.landedCost * 100, bands, {
+      targetMarkupPct,
+      minMarkupPct,
+    });
+    if (suggested) {
+      update.price = suggested.price;
+      update.maxRoundUpTo = suggested.price;
+      update.minRoundUpTo = suggested.minPrice;
+    }
+  }
+
+  await db.update(schema.products).set(update).where(eq(schema.products.id, productId));
+
+  revalidatePath("/admin/pricing");
+  revalidatePath("/admin/products");
+  revalidatePath("/shop");
+
+  const priceNote = update.price ? ` Price → ₹${(update.price as number).toLocaleString("en-IN")}.` : "";
+  return { success: `Saved.${priceNote}` };
 }

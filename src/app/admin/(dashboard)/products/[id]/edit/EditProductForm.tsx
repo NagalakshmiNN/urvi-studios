@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useMemo } from "react";
 import { updateProductFullAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
@@ -18,6 +18,8 @@ type Product = {
   landedCost: number | null;
   minRoundUpTo: number | null;
   maxRoundUpTo: number | null;
+  targetMarkupPct: number | null;
+  minMarkupPct: number | null;
   badge: string | null;
   stock: number;
   isActive: boolean;
@@ -27,8 +29,57 @@ type Product = {
   colors: { name: string; hex: string }[];
 };
 
-export default function EditProductForm({ product, categories }: { product: Product; categories: { id: string; name: string }[] }) {
+type BandInfo = { targetPct: number; minPct: number; label: string };
+
+function roundUpTo10(rupees: number): number {
+  return Math.ceil(rupees / 10) * 10;
+}
+
+export default function EditProductForm({
+  product,
+  categories,
+  bandInfo,
+}: {
+  product: Product;
+  categories: { id: string; name: string }[];
+  bandInfo: BandInfo | null;
+}) {
   const [state, formAction, pending] = useActionState(updateProductFullAction, undefined);
+
+  // Local state for markup % fields so the preview updates live
+  const [targetPctInput, setTargetPctInput] = useState(
+    product.targetMarkupPct != null ? String(product.targetMarkupPct) : ""
+  );
+  const [minPctInput, setMinPctInput] = useState(
+    product.minMarkupPct != null ? String(product.minMarkupPct) : ""
+  );
+
+  // Compute preview prices from the markup inputs
+  const preview = useMemo(() => {
+    if (product.landedCost == null || product.landedCost <= 0) return null;
+
+    const effectiveTarget = targetPctInput.trim() !== ""
+      ? parseInt(targetPctInput, 10)
+      : bandInfo?.targetPct ?? null;
+    const effectiveMin = minPctInput.trim() !== ""
+      ? parseInt(minPctInput, 10)
+      : bandInfo?.minPct ?? null;
+
+    if (effectiveTarget == null || effectiveMin == null) return null;
+    if (!Number.isFinite(effectiveTarget) || !Number.isFinite(effectiveMin)) return null;
+
+    const price = roundUpTo10(product.landedCost * (1 + effectiveTarget / 100));
+    const minPrice = roundUpTo10(product.landedCost * (1 + effectiveMin / 100));
+
+    return {
+      price,
+      minPrice,
+      priceChanged: price !== product.price,
+      minChanged: minPrice !== (product.minRoundUpTo ?? 0),
+    };
+  }, [targetPctInput, minPctInput, product.landedCost, product.price, product.minRoundUpTo, bandInfo]);
+
+  const hasCustomMarkup = targetPctInput.trim() !== "" || minPctInput.trim() !== "";
 
   return (
     <form action={formAction}>
@@ -65,6 +116,85 @@ export default function EditProductForm({ product, categories }: { product: Prod
         <label>Ease / styling</label>
         <textarea name="stylingTips" rows={3} placeholder="e.g. Pair with statement jewelry" defaultValue={product.stylingTips ?? ""} />
       </div>
+
+      {/* ---- Markup & pricing section ---- */}
+      {product.landedCost != null && product.landedCost > 0 && bandInfo && (
+        <fieldset style={{ border: "1px solid var(--border, #ddd)", borderRadius: 8, padding: "16px 20px 12px", marginBottom: 20 }}>
+          <legend style={{ fontWeight: 600, fontSize: 14, padding: "0 6px" }}>Markup %</legend>
+          <p className="field-hint" style={{ marginTop: 0, marginBottom: 14, lineHeight: 1.6 }}>
+            The band for this product&apos;s landed cost (₹{product.landedCost.toLocaleString("en-IN")}) is{" "}
+            <strong>{bandInfo.label}</strong>: target {bandInfo.targetPct}%, minimum {bandInfo.minPct}%.
+            {" "}Set a custom percentage here to override the band for this product only.
+            Leave blank to use the band default.
+          </p>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Target markup %</label>
+              <input
+                type="number"
+                name="targetMarkupPct"
+                min={0}
+                max={1000}
+                step={1}
+                placeholder={`Band: ${bandInfo.targetPct}%`}
+                value={targetPctInput}
+                onChange={(e) => setTargetPctInput(e.target.value)}
+                style={{ width: 140 }}
+              />
+            </div>
+            <div className="form-group">
+              <label>Minimum markup %</label>
+              <input
+                type="number"
+                name="minMarkupPct"
+                min={0}
+                max={1000}
+                step={1}
+                placeholder={`Band: ${bandInfo.minPct}%`}
+                value={minPctInput}
+                onChange={(e) => setMinPctInput(e.target.value)}
+                style={{ width: 140 }}
+              />
+            </div>
+          </div>
+
+          {preview && (
+            <div style={{
+              background: hasCustomMarkup ? "var(--cream, #fffcf0)" : "var(--sand, #f5f3ee)",
+              borderRadius: 6,
+              padding: "10px 14px",
+              fontSize: 13.5,
+              lineHeight: 1.7,
+              marginTop: 4,
+            }}>
+              {hasCustomMarkup ? (
+                <>
+                  <strong>Preview with custom markup:</strong>{" "}
+                  Price ₹{preview.price.toLocaleString("en-IN")}
+                  {preview.priceChanged && (
+                    <span style={{ color: preview.price > product.price ? "var(--green, #2a7a3a)" : "var(--rust, #b5451b)" }}>
+                      {" "}(currently ₹{product.price.toLocaleString("en-IN")})
+                    </span>
+                  )}
+                  {" · "}Floor ₹{preview.minPrice.toLocaleString("en-IN")}
+                  {preview.minChanged && product.minRoundUpTo != null && (
+                    <span style={{ color: "var(--sage)" }}>
+                      {" "}(currently ₹{product.minRoundUpTo.toLocaleString("en-IN")})
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>Band default:</strong>{" "}
+                  Price ₹{preview.price.toLocaleString("en-IN")} · Floor ₹{preview.minPrice.toLocaleString("en-IN")}
+                </>
+              )}
+            </div>
+          )}
+        </fieldset>
+      )}
+
       <div className="form-row">
         <div className="form-group">
           <label>Price (₹)</label>
