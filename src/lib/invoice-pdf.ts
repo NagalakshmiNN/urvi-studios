@@ -11,18 +11,24 @@
 //   • Totals: subtotal, shipping, discount, grand total
 //   • GST provision (labels only, no numbers)
 //   • Footer: contact numbers, Instagram QR, address, website
+//
+// NOTE: jsPDF's built-in Helvetica has no ₹ glyph, so we use "Rs." for
+// rupee formatting.  The brand heading uses Playfair Display Bold (embedded).
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SITE } from "./site-config";
-import { LOGO_DATA_URI, INSTAGRAM_QR_DATA_URI } from "./invoice-assets";
+import {
+  LOGO_DATA_URI,
+  INSTAGRAM_QR_DATA_URI,
+  PLAYFAIR_BOLD_B64,
+} from "./invoice-assets";
 
 // ---------------------------------------------------------------------------
 // Brand colours (from URVI_Studios_Brand_Guidelines)
 // ---------------------------------------------------------------------------
 const OLIVE: [number, number, number] = [63, 72, 39];   // #3F4827
 const GOLD: [number, number, number] = [169, 130, 56];   // #A98238
-const IVORY: [number, number, number] = [247, 240, 228];  // #F7F0E4
 const EARTH: [number, number, number] = [81, 70, 47];     // #51462F
 
 // ---------------------------------------------------------------------------
@@ -61,8 +67,10 @@ export interface InvoiceItem {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Format a number as "Rs.1,430.00" — avoids the ₹ glyph which jsPDF
+ *  built-in fonts cannot render. */
 function formatINR(amount: number): string {
-  return "₹" + Number(amount).toLocaleString("en-IN", {
+  return "Rs." + Number(amount).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -133,43 +141,47 @@ export function generateInvoicePdf(order: InvoiceOrder, items: InvoiceItem[]): B
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
 
+  // ---- Register Playfair Display Bold for the brand heading ----
+  doc.addFileToVFS("PlayfairDisplay-Bold.ttf", PLAYFAIR_BOLD_B64);
+  doc.addFont("PlayfairDisplay-Bold.ttf", "PlayfairDisplay", "bold");
+
   // =========================================================================
-  // 1. LOGO — centred at the very top
+  // 1. LOGO — centred at the top with a bit more breathing room
   // =========================================================================
-  const logoW = 40; // mm
-  const logoH = 40; // square logo
+  const logoW = 38; // mm
+  const logoH = 38;
   const logoX = (pageWidth - logoW) / 2;
-  doc.addImage(LOGO_DATA_URI, "PNG", logoX, 8, logoW, logoH);
+  doc.addImage(LOGO_DATA_URI, "PNG", logoX, 10, logoW, logoH);
 
-  let y = 52; // below logo
+  let y = 54; // below logo (pushed down a touch)
 
   // =========================================================================
-  // 2. BRAND NAME + TAGLINE
+  // 2. BRAND NAME + TAGLINE  (Playfair Display Bold, larger, lower)
   // =========================================================================
   doc.setTextColor(...OLIVE);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setFont("PlayfairDisplay", "bold");
   doc.text("URVI STUDIOS", pageWidth / 2, y, { align: "center" });
-  y += 5;
+  y += 6;
 
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(...GOLD);
   doc.text("Confidence, worn.", pageWidth / 2, y, { align: "center" });
-  y += 3;
+  y += 3.5;
 
   // Decorative gold line
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
   doc.line(margin + 40, y, pageWidth - margin - 40, y);
-  y += 6;
+  y += 7;
 
   // "INVOICE" title
   doc.setTextColor(...EARTH);
   doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
+  doc.setFont("PlayfairDisplay", "bold");
   doc.text("INVOICE", pageWidth / 2, y, { align: "center" });
-  y += 7;
+  y += 8;
 
   // =========================================================================
   // 3. ORDER + CUSTOMER DETAILS (two-column layout)
@@ -269,23 +281,25 @@ export function generateInvoicePdf(order: InvoiceOrder, items: InvoiceItem[]): B
       halign: "center",
       valign: "middle",
       fontStyle: "bold",
+      font: "helvetica",
     },
     bodyStyles: {
       fontSize: 8,
       textColor: [50, 50, 50],
       valign: "middle",
+      font: "helvetica",
     },
     alternateRowStyles: {
       fillColor: [250, 247, 240], // very light ivory
     },
     columnStyles: {
-      0: { halign: "center", cellWidth: 10 },
-      1: { cellWidth: 48 },
-      2: { halign: "center", cellWidth: 16 },
-      3: { halign: "center", cellWidth: 20 },
-      4: { halign: "center", cellWidth: 12 },
-      5: { halign: "right", cellWidth: 24 },
-      6: { halign: "right", cellWidth: 24 },
+      0: { halign: "center", cellWidth: 10 },   // #
+      1: { cellWidth: 50 },                       // Description
+      2: { halign: "center", cellWidth: 14 },     // Size
+      3: { halign: "center", cellWidth: 20 },     // Color
+      4: { halign: "center", cellWidth: 12 },     // Qty
+      5: { halign: "right", cellWidth: 28 },      // Unit Price
+      6: { halign: "right", cellWidth: 28 },      // Amount
     },
     margin: { left: margin, right: margin },
     styles: { overflow: "linebreak", cellPadding: 2.5 },
@@ -321,7 +335,7 @@ export function generateInvoicePdf(order: InvoiceOrder, items: InvoiceItem[]): B
   // Discount
   if (order.discount > 0) {
     doc.text("Discount" + (order.couponCode ? ` (${order.couponCode})` : "") + ":", summaryLabelX, y);
-    doc.text("−" + formatINR(order.discount), summaryValX, y, { align: "right" });
+    doc.text("-" + formatINR(order.discount), summaryValX, y, { align: "right" });
     y += 5;
   }
 
