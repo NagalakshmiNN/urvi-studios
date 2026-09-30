@@ -5,6 +5,7 @@ import { SOURCE_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
 import { statusLabel } from "@/lib/order-status-copy";
 import Link from "next/link";
 import TidyUnpaidOrders from "./TidyUnpaidOrders";
+import InvoiceDownloadButton from "./InvoiceDownloadButton";
 
 const STATUSES = ["all", "PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
 
@@ -78,6 +79,7 @@ export default async function AdminOrdersPage({
         <table className="admin-table">
           <thead>
             <tr>
+              <th style={{ width: 44, textAlign: "center" }}>Invoice</th>
               <th>Order</th>
               <th>Customer</th>
               <th>Channel</th>
@@ -92,6 +94,9 @@ export default async function AdminOrdersPage({
           <tbody>
             {orders.map((o) => (
               <tr key={o.id}>
+                <td style={{ textAlign: "center" }}>
+                  <InvoiceDownloadButton orderNumber={o.orderNumber} />
+                </td>
                 <td><Link href={`/admin/orders/${o.orderNumber}`} style={{ color: "var(--olive)", fontWeight: 600 }}>{o.orderNumber}</Link></td>
                 <td>
                   {o.customerName}
