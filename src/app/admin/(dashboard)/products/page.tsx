@@ -71,7 +71,7 @@ export default async function AdminProductsPage({
               <th>Badge</th>
               <th>Stock</th>
               <th>Active</th>
-              <th></th>
+
             </tr>
           </thead>
           <tbody>

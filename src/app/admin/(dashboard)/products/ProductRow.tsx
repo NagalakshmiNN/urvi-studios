@@ -83,7 +83,19 @@ export default function ProductRow({ product }: { product: Product }) {
             <span>{product.name}</span>
           </Link>
         </td>
-        <td><code style={{ fontSize: 12 }}>{product.sku}</code></td>
+        <td>
+          {/* SKU + action buttons stacked so Save/Edit/Delete are always
+              visible without horizontal scrolling. */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <code style={{ fontSize: 12 }}>{product.sku}</code>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button form={formId} type="submit" className="link-btn" disabled={!mounted || pending}>{pending ? "Saving…" : "Save"}</button>
+              <Link href={`/admin/products/${product.id}/edit`} className="link-btn">Edit</Link>
+              <DeleteProductButton productId={product.id} productName={product.name} />
+            </div>
+            {state?.error && <div style={{ color: "#a5333a", fontSize: 11.5, marginTop: 2 }}>{state.error}</div>}
+          </div>
+        </td>
         <td>{product.category.name}</td>
         <td>
           <input form={formId} type="number" name="price" defaultValue={product.price} style={{ width: 80 }} className="admin-inline-input" />
@@ -103,14 +115,6 @@ export default function ProductRow({ product }: { product: Product }) {
         </td>
         <td>
           <input form={formId} type="checkbox" name="isActive" defaultChecked={product.isActive} />
-        </td>
-        <td>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <button form={formId} type="submit" className="link-btn" disabled={!mounted || pending}>{pending ? "Saving…" : "Save"}</button>
-            <Link href={`/admin/products/${product.id}/edit`} className="link-btn">Edit</Link>
-            <DeleteProductButton productId={product.id} productName={product.name} />
-          </div>
-          {state?.error && <div style={{ color: "#a5333a", fontSize: 11.5, marginTop: 4 }}>{state.error}</div>}
         </td>
       </tr>
     </>
