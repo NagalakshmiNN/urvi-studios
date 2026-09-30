@@ -54,6 +54,11 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const fabric = String(formData.get("fabric") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
+  const price = parseInt(String(formData.get("price") || "0"), 10) || 0;
+  const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
+  const landedCost = parseInt(String(formData.get("landedCost") || ""), 10) || null;
+  const minRoundUpTo = parseInt(String(formData.get("minRoundUpTo") || ""), 10) || null;
+  const maxRoundUpTo = parseInt(String(formData.get("maxRoundUpTo") || ""), 10) || null;
   const categoryId = String(formData.get("categoryId") || "");
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const sizeLabels = formData.getAll("sizeLabel").map(String);
