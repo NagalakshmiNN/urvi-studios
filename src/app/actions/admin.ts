@@ -13,8 +13,6 @@ import { isBlankHtml } from "@/lib/richtext";
 import { sanitizeDescription } from "@/lib/sanitize-description";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
-import { suggestPricingForProduct } from "@/lib/markup-bands";
-import { loadBands } from "@/lib/markup-band-store";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 import { canDeleteOrder } from "@/lib/order-cleanup";
 import { hashPassword, verifyPassword, createAdminSession } from "@/lib/auth";
@@ -55,11 +53,6 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const description = sanitizeDescription(String(formData.get("description") || "").trim());
   const fabric = String(formData.get("fabric") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
-  const price = parseInt(String(formData.get("price") || ""), 10);
-  const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
-  const landedCost = optionalInt(formData, "landedCost");
-  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
-  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -72,7 +65,6 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
 
   if (!name || name.length < 3) return { error: "Please enter a product name." };
   if (!description || isBlankHtml(description)) return { error: "Please enter a description." };
-  if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
   if (sizes.length === 0) return { error: "Please add at least one size." };
@@ -173,13 +165,6 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const description = sanitizeDescription(String(formData.get("description") || "").trim());
   const fabric = String(formData.get("fabric") || "").trim();
   const stylingTips = String(formData.get("stylingTips") || "").trim();
-  const price = parseInt(String(formData.get("price") || ""), 10);
-  const compareAtPriceRaw = String(formData.get("compareAtPrice") || "").trim();
-  const landedCost = optionalInt(formData, "landedCost");
-  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
-  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
-  const targetMarkupPct = optionalInt(formData, "targetMarkupPct");
-  const minMarkupPct = optionalInt(formData, "minMarkupPct");
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
   const isActive = formData.get("isActive") === "on";
@@ -194,7 +179,6 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   if (!productId) return { error: "Missing product." };
   if (!name || name.length < 3) return { error: "Please enter a product name." };
   if (!description || isBlankHtml(description)) return { error: "Please enter a description." };
-  if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
   if (!categoryId) return { error: "Please choose a category." };
   if (imageUrls.length === 0) return { error: "Please add at least one photo." };
   if (sizes.length === 0) return { error: "Please add at least one size." };
@@ -206,31 +190,9 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   // Description box replaces them), so any existing values on older
   // products are left exactly as they are rather than getting silently
   // blanked out on every save.
-  // When per-product markup overrides are set and there is a landed cost,
-  // recompute prices from the markup rather than taking the form's price
-  // fields at face value — the markup IS the decision, the price follows.
-  let finalPrice = price;
-  let finalMinRoundUpTo = minRoundUpTo;
-  let finalMaxRoundUpTo = maxRoundUpTo;
-
-  if (landedCost != null && landedCost > 0 && (targetMarkupPct != null || minMarkupPct != null)) {
-    const bands = await loadBands();
-    const suggested = suggestPricingForProduct(landedCost * 100, bands, {
-      targetMarkupPct,
-      minMarkupPct,
-    });
-    if (suggested) {
-      finalPrice = suggested.price;
-      finalMaxRoundUpTo = suggested.price;
-      finalMinRoundUpTo = suggested.minPrice;
-    }
-  }
-
-  // Validate: when min markup is set, it cannot exceed target
-  if (targetMarkupPct != null && minMarkupPct != null && minMarkupPct > targetMarkupPct) {
-    return { error: "The minimum markup cannot be above the target — the floor would sit above the price." };
-  }
-
+  // Price, landed cost and markup are also excluded — they have their own
+  // dedicated forms and save buttons on the product edit page, so the main
+  // Save Changes only touches the product-details fields below.
   await db
     .update(schema.products)
     .set({
@@ -238,13 +200,6 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
       description,
       fabric: fabric || "See description",
       stylingTips: stylingTips || null,
-      price: finalPrice,
-      compareAtPrice: compareAtPriceRaw ? parseInt(compareAtPriceRaw, 10) : null,
-      landedCost,
-      minRoundUpTo: finalMinRoundUpTo,
-      maxRoundUpTo: finalMaxRoundUpTo,
-      targetMarkupPct,
-      minMarkupPct,
       badge: badge || null,
       stock: totalStock,
       categoryId,
@@ -727,4 +682,43 @@ export async function markMessageReadAction(messageId: string, status: "NEW" | "
   await requireAdmin();
   await db.update(schema.contactMessages).set({ status }).where(eq(schema.contactMessages.id, messageId));
   revalidatePath("/admin/messages");
+}
+
+// ---- Save just the pricing fields from the product edit page ----
+export async function updateProductPriceAction(
+  _prev: AdminFormState,
+  formData: FormData
+): Promise<AdminFormState> {
+  await requireAdmin();
+  const productId = String(formData.get("productId") || "").trim();
+  if (!productId) return { error: "Missing product." };
+
+  const price = parseInt(String(formData.get("price") || ""), 10);
+  if (!Number.isFinite(price) || price < 1) return { error: "Price must be at least ₹1." };
+
+  const compareAtPrice = optionalInt(formData, "compareAtPrice");
+  const landedCost = optionalInt(formData, "landedCost");
+  const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
+  const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
+
+  await db
+    .update(schema.products)
+    .set({
+      price: Math.round(price),
+      compareAtPrice,
+      landedCost,
+      minRoundUpTo,
+      maxRoundUpTo,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.products.id, productId));
+
+  const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId) });
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}/edit`);
+  revalidatePath("/admin/pricing");
+  revalidatePath("/shop");
+  if (product) revalidatePath(`/product/${product.slug}`);
+
+  return { success: `Price saved — ₹${Math.round(price).toLocaleString("en-IN")}.` };
 }

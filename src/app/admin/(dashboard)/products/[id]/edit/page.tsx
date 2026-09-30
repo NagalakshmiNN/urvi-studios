@@ -19,8 +19,6 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
   if (!product) notFound();
 
-  // Tell the form which band this product falls in, so the preview can show
-  // band defaults alongside custom overrides.
   let bandInfo: { targetPct: number; minPct: number; label: string } | null = null;
   if (product.landedCost != null && product.landedCost > 0) {
     const band = bandFor(product.landedCost * 100, bands);
@@ -37,13 +35,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <div className="admin-header">
         <h1>Edit Product</h1>
       </div>
-      <div className="admin-card admin-form-card">
-        <EditProductForm
-          product={product}
-          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-          bandInfo={bandInfo}
-        />
-      </div>
+      <EditProductForm
+        product={product}
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        bandInfo={bandInfo}
+      />
     </>
   );
 }

@@ -156,40 +156,44 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
 
   let moved = 0;
   let skipped = 0;
-  let overridesCleared = 0;
+  let keptCustom = 0;
   for (const row of rows) {
     if (row.landedCost == null || row.landedCost <= 0) {
-      // Even without a landed cost, clear any stale per-product overrides
-      if (row.targetMarkupPct != null || row.minMarkupPct != null) {
-        await db
-          .update(schema.products)
-          .set({ targetMarkupPct: null, minMarkupPct: null, updatedAt: new Date() })
-          .where(eq(schema.products.id, row.id));
-        overridesCleared++;
-      }
       skipped++;
       continue;
     }
-    const suggested = suggestPricing(row.landedCost * 100, bands);
-    const priceChanged = suggested != null && suggested.price !== row.price;
-    const hadOverride = row.targetMarkupPct != null || row.minMarkupPct != null;
 
-    if (!priceChanged && !hadOverride) continue;
+    const hasCustom = row.targetMarkupPct != null || row.minMarkupPct != null;
+
+    // Use the product's own markup if set, otherwise fall back to the band.
+    // A custom markup is the admin's deliberate decision for this product —
+    // "Apply to catalogue" respects it rather than wiping it out.
+    const suggested = hasCustom
+      ? suggestPricingForProduct(row.landedCost * 100, bands, {
+          targetMarkupPct: row.targetMarkupPct,
+          minMarkupPct: row.minMarkupPct,
+        })
+      : suggestPricing(row.landedCost * 100, bands);
+
+    if (suggested == null) { skipped++; continue; }
+
+    const priceChanged = suggested.price !== row.price;
+    if (!priceChanged) {
+      if (hasCustom) keptCustom++;
+      continue;
+    }
 
     await db
       .update(schema.products)
       .set({
-        ...(suggested && priceChanged
-          ? { price: suggested.price, maxRoundUpTo: suggested.price, minRoundUpTo: suggested.minPrice }
-          : {}),
-        // Reset per-product overrides — the band is now the rule again
-        targetMarkupPct: null,
-        minMarkupPct: null,
+        price: suggested.price,
+        maxRoundUpTo: suggested.price,
+        minRoundUpTo: suggested.minPrice,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, row.id));
-    if (priceChanged) moved++;
-    if (hadOverride) overridesCleared++;
+    moved++;
+    if (hasCustom) keptCustom++;
   }
 
   revalidatePath("/admin/pricing");
@@ -197,11 +201,11 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
   revalidatePath("/shop");
 
   const skippedNote = skipped > 0 ? ` ${skipped} left alone — no landed cost recorded.` : "";
-  const overrideNote = overridesCleared > 0 ? ` ${overridesCleared} custom markup${overridesCleared === 1 ? "" : "s"} cleared.` : "";
+  const customNote = keptCustom > 0 ? ` ${keptCustom} product${keptCustom === 1 ? "" : "s"} kept ${keptCustom === 1 ? "its" : "their"} custom markup.` : "";
   return {
     success: moved === 0
-      ? `Nothing to change — every price already matches its band.${overrideNote}${skippedNote}`
-      : `${moved} price${moved === 1 ? "" : "s"} updated.${overrideNote}${skippedNote}`,
+      ? `Nothing to change — every price already matches its markup.${customNote}${skippedNote}`
+      : `${moved} price${moved === 1 ? "" : "s"} updated.${customNote}${skippedNote}`,
   };
 }
 
@@ -422,6 +426,7 @@ export async function updateProductMarkupAction(
   revalidatePath("/admin/pricing");
   revalidatePath("/admin/products");
   revalidatePath("/shop");
+  revalidatePath(`/admin/products/${productId}/edit`);
 
   const priceNote = update.price ? ` Price → ₹${(update.price as number).toLocaleString("en-IN")}.` : "";
   return { success: `Saved.${priceNote}` };
