@@ -706,6 +706,17 @@ p { line-height: 1.7; color: var(--earth); }
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; padding: 50px 0 90px; }
 .contact-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 30px; margin-bottom: 16px; }
 .contact-card h4 { color: var(--olive); font-family: var(--font-display); margin-bottom: 6px; }
+.social-heading { display: flex; align-items: center; gap: 8px; }
+.social-heading svg { flex-shrink: 0; }
+.social-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--gold); font-weight: 600; text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1.5px;
+  margin-top: 8px; transition: color 0.2s, gap 0.2s;
+}
+.social-link:hover { color: var(--olive); gap: 8px; }
+.social-link svg { flex-shrink: 0; transition: transform 0.2s; }
+.social-link:hover svg { transform: translate(2px, -2px); }
 
 /* ---------------- Footer ---------------- */
 .site-footer { background: var(--black); color: var(--sand); padding: 70px 0 30px; margin-top: 40px; }
