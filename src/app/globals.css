@@ -479,7 +479,7 @@ p { line-height: 1.7; color: var(--earth); }
   border: none; color: #d44; cursor: pointer; transition: transform 0.2s ease;
 }
 .product-card .wishlist-btn:hover { transform: scale(1.12); }
-.product-card .wishlist-btn.active { color: #d22; }
+.product-card .wishlist-btn.active { color: #d44; }
 .wishlist-btn.pop { animation: heart-pop 0.4s ease; }
 @keyframes heart-pop {
   0%   { transform: scale(1); }
