@@ -5,7 +5,7 @@
 // connection is chosen).
 
 import { pgTable, text, integer, boolean, timestamp, date, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 const id = () =>
   text("id")

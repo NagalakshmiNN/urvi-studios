@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { getCustomerSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type AddressState = { error?: string } | undefined;
+export type AddressState = { error?: string; success?: boolean } | undefined;
 
 export async function addAddressAction(_prev: AddressState, formData: FormData): Promise<AddressState> {
   const customerId = await getCustomerSession();
@@ -21,6 +21,11 @@ export async function addAddressAction(_prev: AddressState, formData: FormData):
   if (!line1 || !city || !state || !pincode || !phone) {
     return { error: "Please fill in every field." };
   }
+  if (line1.length < 5) return { error: "Please enter a complete address (at least 5 characters)." };
+  if (!/^[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, ""))) {
+    return { error: "Enter a valid 10-digit Indian mobile number." };
+  }
+  if (!/^[A-Za-z\s.''-]{2,}$/.test(city)) return { error: "City should contain only letters." };
   if (!/^\d{6}$/.test(pincode)) return { error: "Enter a valid 6-digit pincode." };
 
   const existingCount = await db.query.addresses.findMany({ where: eq(schema.addresses.customerId, customerId) });
@@ -36,7 +41,7 @@ export async function addAddressAction(_prev: AddressState, formData: FormData):
   });
 
   revalidatePath("/account/addresses");
-  return undefined;
+  return { success: true };
 }
 
 export async function deleteAddressAction(addressId: string) {

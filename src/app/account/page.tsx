@@ -21,7 +21,7 @@ export default async function AccountOverviewPage({ searchParams }: { searchPara
   return (
     <>
       <SiteHeader active="Account" />
-      <div className="page-hero container">
+      <div className="page-hero compact container">
         <div className="eyebrow">My Account</div>
         <h1>Welcome, {customer?.name?.split(" ")[0] || "there"}</h1>
       </div>

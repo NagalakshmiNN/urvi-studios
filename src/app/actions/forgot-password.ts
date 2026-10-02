@@ -34,6 +34,7 @@ export async function forgotPasswordAction(_prev: ForgotState, formData: FormDat
     await sendMail({
       to: email,
       subject: "Reset your Urvi Studios password",
+      text: `Hi ${customer.name}, visit this link to reset your Urvi Studios password: ${resetUrl} — this link expires in 1 hour.`,
       html: `
         <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #3F4827;">Reset your password</h2>

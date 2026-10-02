@@ -19,7 +19,7 @@ export default async function WishlistPage() {
   return (
     <>
       <SiteHeader active="Account" />
-      <div className="page-hero container">
+      <div className="page-hero compact container">
         <div className="eyebrow">My Account</div>
         <h1>Your Wishlist</h1>
       </div>

@@ -17,7 +17,7 @@ export default async function OrdersPage() {
   return (
     <>
       <SiteHeader active="Account" />
-      <div className="page-hero container">
+      <div className="page-hero compact container">
         <div className="eyebrow">My Account</div>
         <h1>Your Orders</h1>
       </div>
