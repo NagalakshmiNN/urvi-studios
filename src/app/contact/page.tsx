@@ -33,7 +33,30 @@ export default function ContactPage() {
             </div>
             <div className="contact-card">
               <h4>Instagram</h4>
-              <p>@{SITE.instagramHandle} — follow for new drops, styling edits and behind-the-scenes.</p>
+              <p>
+                <a href={`https://www.instagram.com/${SITE.instagramHandle}`} target="_blank" rel="noopener noreferrer">
+                  @{SITE.instagramHandle}
+                </a>{" "}
+                — follow for new drops, styling edits and behind-the-scenes.
+              </p>
+            </div>
+            <div className="contact-card">
+              <h4>Facebook</h4>
+              <p>
+                <a href={SITE.facebookUrl} target="_blank" rel="noopener noreferrer">
+                  Urvi Studios on Facebook
+                </a>{" "}
+                — updates, lookbooks and community.
+              </p>
+            </div>
+            <div className="contact-card">
+              <h4>YouTube</h4>
+              <p>
+                <a href={SITE.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                  Urvi Studios on YouTube
+                </a>{" "}
+                — styling videos, hauls and behind-the-scenes.
+              </p>
             </div>
           </div>
           <div className="contact-card" style={{ margin: 0 }}>
