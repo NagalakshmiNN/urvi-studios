@@ -485,6 +485,30 @@ export const reviews = pgTable("reviews", {
   createdAt: createdAt(),
 });
 
+
+// --------------------------------------------------------- Product Views
+//
+// Approximate daily view counts per product, for social proof
+// ("X people viewed this today"). One row per product per day,
+// incremented by a lightweight API call from the product page.
+
+export const productViews = pgTable("product_views", {
+  productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  viewedOn: date("viewed_on", { mode: "string" }).notNull().defaultNow(),
+  viewCount: integer("view_count").notNull().default(1),
+}, (t) => ({
+  pk: uniqueIndex("product_views_pkey").on(t.productId, t.viewedOn),
+}));
+
+// ------------------------------------------------------------------ Password Reset Tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  customerId: text("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 // ---------------------------------------------------------------- Relations
 
 export const customersRelations = relations(customers, ({ many }) => ({

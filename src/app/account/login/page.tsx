@@ -7,14 +7,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <SiteHeader />
-      <div className="container">
-        <div className="auth-card">
-          <div className="eyebrow" style={{ textAlign: "center", display: "block", marginBottom: 8 }}>Welcome back</div>
+      <div className="auth-page">
+        <div className="container">
+          <div className="auth-card">
+          <div className="eyebrow" style={{ textAlign: "center", display: "block", marginBottom: 8 }}>Your Account</div>
           <h1>Login</h1>
           <LoginForm next={next} email={email} />
-          <p className="auth-switch">
-            New to Urvi Studios? <a href={`/account/register${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Create an account</a>
-          </p>
+            <p className="auth-switch">
+              New to Urvi Studios? <a href={`/account/register${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Create an account</a>
+            </p>
+          </div>
         </div>
       </div>
       <SiteFooter />

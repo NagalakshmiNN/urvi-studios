@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { getCustomerSession } from "@/lib/auth";
 import Link from "next/link";
 import RefineFilters from "@/components/RefineFilters";
+import { buildColorFamilyOptions, expandColorSelection } from "@/lib/color-families";
 
 const SUB_LABELS: Record<string, string> = {
   "festive-wear": "Festive Wear",
@@ -69,12 +70,13 @@ export default async function ShopPage({
   const fabricOptions = Array.from(new Set(products.map((p) => p.fabric.trim()).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b)
   );
-  const colorOptions = Array.from(
-    products.reduce((map, p) => {
-      for (const c of p.colors) if (!map.has(c.name)) map.set(c.name, c.hex);
-      return map;
-    }, new Map<string, string>())
-  ).sort((a, b) => a[0].localeCompare(b[0]));
+  const individualColors = products.reduce((map, p) => {
+    for (const c of p.colors) if (!map.has(c.name)) map.set(c.name, c.hex);
+    return map;
+  }, new Map<string, string>());
+  const colorFamilies = buildColorFamilyOptions(individualColors);
+  // Expand selected family keys into individual color names for filtering
+  const expandedColorNames = expandColorSelection(colorSel);
   const sizeOptions = Array.from(new Set(products.flatMap((p) => p.sizes.map((s) => s.label)))).sort((a, b) => {
     const ai = SIZE_ORDER.indexOf(a);
     const bi = SIZE_ORDER.indexOf(b);
@@ -85,7 +87,7 @@ export default async function ShopPage({
   });
 
   if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
-  if (colorSel.length) products = products.filter((p) => p.colors.some((c) => colorSel.includes(c.name)));
+  if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
 
   if (sort === "price-asc") products = [...products].sort((a, b) => a.price - b.price);
@@ -174,7 +176,7 @@ export default async function ShopPage({
             ))}
           </div>
 
-          {(fabricOptions.length > 0 || colorOptions.length > 0 || sizeOptions.length > 0) && (
+          {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0) && (
             <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length}>
             <div className="refine-bar">
               {sizeOptions.length > 0 && (
@@ -189,18 +191,18 @@ export default async function ShopPage({
                   </div>
                 </div>
               )}
-              {colorOptions.length > 0 && (
+              {colorFamilies.length > 0 && (
                 <div className="refine-group">
                   <span className="refine-label">Color</span>
                   <div className="refine-chips">
-                    {colorOptions.map(([name, hex]) => (
+                    {colorFamilies.map((fam) => (
                       <Link
-                        key={name}
-                        href={refineHref("color", name)}
-                        className={`chip-sm chip-color ${colorSel.includes(name) ? "active" : ""}`}
+                        key={fam.key}
+                        href={refineHref("color", fam.key)}
+                        className={`chip-sm chip-color ${colorSel.includes(fam.key) ? "active" : ""}`}
                       >
-                        <span className="chip-color-dot" style={{ background: hex }} />
-                        {name}
+                        <span className="chip-color-dot" style={{ background: fam.hex }} />
+                        {fam.label}
                       </Link>
                     ))}
                   </div>

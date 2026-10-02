@@ -7,7 +7,7 @@ import Link from "next/link";
 import TidyUnpaidOrders from "./TidyUnpaidOrders";
 import InvoiceDownloadButton from "./InvoiceDownloadButton";
 
-const STATUSES = ["all", "PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
+const STATUSES = ["all", "PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED", "ABANDONED"];
 
 // The two things worth separating at a glance: what came through the website
 // on its own, and what was sold face to face.

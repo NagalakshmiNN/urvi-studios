@@ -7,14 +7,16 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <SiteHeader />
-      <div className="container">
-        <div className="auth-card">
+      <div className="auth-page">
+        <div className="container">
+          <div className="auth-card">
           <div className="eyebrow" style={{ textAlign: "center", display: "block", marginBottom: 8 }}>Join Urvi Studios</div>
           <h1>Create an account</h1>
           <RegisterForm next={next} />
-          <p className="auth-switch">
-            Already have an account? <a href={`/account/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Login</a>
-          </p>
+            <p className="auth-switch">
+              Already have an account? <a href={`/account/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Login</a>
+            </p>
+          </div>
         </div>
       </div>
       <SiteFooter />

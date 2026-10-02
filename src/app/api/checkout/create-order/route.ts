@@ -7,10 +7,15 @@ import { getCustomerSession, hashPassword, createCustomerSession } from "@/lib/a
 import { SITE } from "@/lib/site-config";
 import { formatINR } from "@/lib/format";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "@/lib/order-notify";
+import { sendWhatsApp } from "@/lib/whatsapp";
+import { expireAbandonedOrders } from "@/lib/expire-abandoned-orders";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  // Housekeeping: expire any Razorpay orders abandoned more than 30 minutes
+  // ago. Runs opportunistically on each new checkout — cheap and idempotent.
+  expireAbandonedOrders().catch(() => {});
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
@@ -81,6 +86,14 @@ export async function POST(request: Request) {
     customerId = newCustomer.id;
     newAccountEmail = newCustomer.email;
     await createCustomerSession(customerId);
+
+    // Alert the admin about the new registration (fire-and-forget).
+    sendWhatsApp(
+      `New customer registered on Urvi Studios!\n\n` +
+      `Name: ${customer.name}\n` +
+      `Email: ${emailLower}\n` +
+      `Phone: ${customer.phone}`
+    ).catch(() => {});
   }
 
   const orderNumber = await nextOrderNumber();
@@ -164,6 +177,16 @@ export async function POST(request: Request) {
       notifyLines,
       newAccountEmail ? { newAccountEmail } : undefined
     );
+
+    // WhatsApp alert for WhatsApp/COD orders (fire-and-forget).
+    const codItemSummary = notifyLines.map((l) => `• ${l.productName} (${l.size}) x${l.qty}`).join("\n");
+    sendWhatsApp(
+      `New order ${orderNumber} (WhatsApp/COD)!\n\n` +
+      `${codItemSummary}\n\n` +
+      `Total: ${formatINR(pricing.total)}\n` +
+      `Customer: ${customer.name}\n` +
+      `Phone: ${customer.phone}`
+    ).catch(() => {});
 
     return NextResponse.json({ configured: false, orderNumber, whatsappUrls, accountCreated: Boolean(newAccountEmail), customerEmail: order.customerEmail });
   }

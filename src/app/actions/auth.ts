@@ -47,7 +47,9 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const [customer] = await db.insert(schema.customers).values({ name, email, phone, passwordHash }).returning();
 
   await createCustomerSession(customer.id);
-  redirect(next);
+  // Append welcome flag so the account page can show a success toast
+  const welcomeNext = next === "/account" ? "/account?welcome=1" : next;
+  redirect(welcomeNext);
 }
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

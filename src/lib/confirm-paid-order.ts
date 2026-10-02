@@ -24,6 +24,8 @@ import { db, schema } from "@/db";
 import { adjustStockForLine } from "./stock";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "./order-notify";
 import { revalidateStockViews } from "./revalidate-stock";
+import { sendWhatsApp } from "./whatsapp";
+import { formatINR } from "./format";
 
 export type ConfirmResult =
   | { ok: true; state: "confirmed" | "already"; orderNumber: string }
@@ -128,6 +130,16 @@ export async function confirmPaidOrder(opts: {
   await sendOrderNotification({ ...order, paymentStatus: "PAID" }, lines);
   await sendCustomerOrderConfirmation({ ...order, paymentStatus: "PAID" }, lines);
 
+
+  // WhatsApp alert to the admin — fire-and-forget, same as the email above.
+  const itemSummary = lines.map((l) => `• ${l.productName} (${l.size}) x${l.qty}`).join("\n");
+  sendWhatsApp(
+    `New paid order ${order.orderNumber}!\n\n` +
+    `${itemSummary}\n\n` +
+    `Total: ${formatINR(order.total)}\n` +
+    `Customer: ${order.customerName}\n` +
+    `Phone: ${order.customerPhone}`
+  ).catch(() => {});
   // Stock just moved, so the screens that show it must not keep serving the
   // count from before this payment.
   revalidateStockViews();

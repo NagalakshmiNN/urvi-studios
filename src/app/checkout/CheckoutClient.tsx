@@ -332,37 +332,7 @@ export default function CheckoutClient({
       {razorpayConfigured && <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />}
       <form className="checkout-layout" onSubmit={submit}>
         <div>
-          <h3 style={{ marginBottom: 16 }}>{fulfilment === "pickup" ? "Your Details" : "Shipping Details"}</h3>
-
-          {/* Delivered, or collected in person. Chosen up front because it
-              decides whether an address is needed at all. */}
-          <div className="fulfilment-choice">
-            <button
-              type="button"
-              className={`fulfilment-option${fulfilment === "delivery" ? " selected" : ""}`}
-              onClick={() => setFulfilment("delivery")}
-              aria-pressed={fulfilment === "delivery"}
-            >
-              <span className="fulfilment-title">Deliver to me</span>
-              <span className="fulfilment-note">We ship across India</span>
-            </button>
-            <button
-              type="button"
-              className={`fulfilment-option${fulfilment === "pickup" ? " selected" : ""}`}
-              onClick={() => setFulfilment("pickup")}
-              aria-pressed={fulfilment === "pickup"}
-            >
-              <span className="fulfilment-title">Collect in person</span>
-              <span className="fulfilment-note">No delivery charge</span>
-            </button>
-          </div>
-
-          {fulfilment === "pickup" && (
-            <p className="promo-note" style={{ marginTop: -6, marginBottom: 16 }}>
-              We&apos;ll message you as soon as your order is packed and ready, and confirm the address and a
-              time that suits you.
-            </p>
-          )}
+          <h3 style={{ marginBottom: 16 }}>Shipping Details</h3>
 
           {!loggedIn && guestMode && (
             <p className="promo-note" style={{ marginTop: -8, marginBottom: 16 }}>
@@ -461,25 +431,17 @@ export default function CheckoutClient({
           </div>
           <div className="summary-row">
             <span>Delivery</span>
-            <span>{fulfilment === "pickup" ? "Collecting in person" : freeShipping ? "Free" : "Additional"}</span>
+            <span>{freeShipping ? "Free" : "Additional"}</span>
           </div>
           {discount > 0 && <div className="summary-row"><span>Discount</span><span>−{formatINR(discount)}</span></div>}
           <div className="summary-row total"><span>Total</span><span>{formatINR(total)}</span></div>
-          {fulfilment === "pickup" ? (
+          {!freeShipping && (
             <p className="promo-note" style={{ marginTop: -6 }}>
-              Nothing to pay for delivery — you&apos;re collecting this one yourself.
+              Delivery charges are additional on this order — they depend on your pincode and package, so our
+              team will confirm the amount with you before dispatch. Free delivery on orders above ₹5,000.
             </p>
-          ) : (
-            <>
-              {!freeShipping && (
-                <p className="promo-note" style={{ marginTop: -6 }}>
-                  Delivery charges are additional on this order — they depend on your pincode and package, so our
-                  team will confirm the amount with you before dispatch. Free delivery on orders above ₹5,000.
-                </p>
-              )}
-              <p className="promo-note" style={{ marginTop: freeShipping ? -6 : 0 }}>We deliver across India.</p>
-            </>
           )}
+          <p className="promo-note" style={{ marginTop: freeShipping ? -6 : 0 }}>We deliver across India.</p>
 
           {error && <div className="notice-box error" style={{ marginTop: 14 }}>{error}</div>}
 

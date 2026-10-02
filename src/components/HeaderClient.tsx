@@ -28,11 +28,13 @@ export default function HeaderClient({ customerName }: { customerName: string | 
           <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
         </svg>
       </Link>
-      <Link href="/account/wishlist" className="icon-btn desktop-only" aria-label="Wishlist">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M12 21s-7.5-4.6-10-9.1C.5 8.4 2.3 5 5.9 5c2 0 3.4 1 4.1 2.3C10.7 6 12.1 5 14.1 5c3.6 0 5.4 3.4 3.9 6.9C19.5 16.4 12 21 12 21Z" />
-        </svg>
-      </Link>
+      {customerName && (
+        <Link href="/account/wishlist" className="icon-btn desktop-only" aria-label="Wishlist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M12 21s-7.5-4.6-10-9.1C.5 8.4 2.3 5 5.9 5c2 0 3.4 1 4.1 2.3C10.7 6 12.1 5 14.1 5c3.6 0 5.4 3.4 3.9 6.9C19.5 16.4 12 21 12 21Z" />
+          </svg>
+        </Link>
+      )}
       <Link href="/cart" className="icon-btn" aria-label="Cart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
           <circle cx="9" cy="21" r="1" />

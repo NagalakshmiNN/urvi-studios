@@ -51,6 +51,7 @@ export default function ProductDetailClient({
   // which one is the big main image; the thumbnail strip only renders when
   // there's more than one photo to choose from.
   const [activeImage, setActiveImage] = useState(0);
+  const [todayViews, setTodayViews] = useState(0);
   const mainImage = product.images[activeImage] ?? product.images[0];
 
   // The arrows wrap, so neither one is ever a dead control — reaching the last
@@ -75,6 +76,20 @@ export default function ProductDetailClient({
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageCount]);
+
+  // Record a page view and fetch today's approximate count.
+  // Runs client-side so crawlers and prefetches don't inflate the number.
+  useEffect(() => {
+    fetch("/api/products/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: product.id }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (d.views > 0) setTodayViews(d.views); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   // Stock is tracked per size — fall back to the product total only for the
   // rare unsized product.
@@ -177,6 +192,11 @@ export default function ProductDetailClient({
             ? `Only ${sizeStock} left${size ? ` in size ${size}` : ""} — order soon`
             : "In stock · Ships in 3–5 business days"}
         </div>
+        {todayViews >= 3 && (
+          <div className="pdp-views">
+            {todayViews} {todayViews === 1 ? "person" : "people"} viewed this today
+          </div>
+        )}
         <div className="pdp-desc" dangerouslySetInnerHTML={{ __html: toDisplayHtml(product.description) }} />
 
         <div className="field-block">

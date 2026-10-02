@@ -14,6 +14,7 @@ export const STATUS_LABELS: Record<string, string> = {
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
   RETURNED: "Return Processed",
+  ABANDONED: "Abandoned",
 };
 
 export const STATUS_CUSTOMER_LINES: Record<string, string> = {
@@ -32,6 +33,7 @@ const PICKUP_STATUS_LABELS: Record<string, string> = {
   DELIVERED: "Collected",
   CANCELLED: "Cancelled",
   RETURNED: "Return Processed",
+  ABANDONED: "Abandoned",
 };
 
 const PICKUP_CUSTOMER_LINES: Record<string, string> = {
