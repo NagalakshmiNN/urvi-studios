@@ -30,7 +30,7 @@ export default function HeaderClient({ customerName }: { customerName: string | 
       </Link>
       {customerName && (
         <Link href="/account/wishlist" className="icon-btn desktop-only" aria-label="Wishlist">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#d44" strokeWidth="2">
             <path d="M12 21s-7.5-4.6-10-9.1C.5 8.4 2.3 5 5.9 5c2 0 3.4 1 4.1 2.3C10.7 6 12.1 5 14.1 5c3.6 0 5.4 3.4 3.9 6.9C19.5 16.4 12 21 12 21Z" />
           </svg>
         </Link>

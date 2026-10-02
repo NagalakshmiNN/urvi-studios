@@ -52,6 +52,39 @@ export default function ProductDetailClient({
   // there's more than one photo to choose from.
   const [activeImage, setActiveImage] = useState(0);
   const [todayViews, setTodayViews] = useState(0);
+  const [speaking, setSpeaking] = useState(false);
+
+  // Read-aloud: use the browser's SpeechSynthesis API
+  function toggleReadAloud() {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    // Build the text to read: name, price, description, fabric, style notes
+    const descText = product.description.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ");
+    const parts = [
+      product.name,
+      `Priced at ${Math.round(product.price)} rupees.`,
+      descText,
+      product.fabric ? `Fabric: ${product.fabric}.` : "",
+      product.perfectFor ? `Perfect for: ${product.perfectFor}.` : "",
+      product.stylingTips ? `Styling tip: ${product.stylingTips}.` : "",
+    ].filter(Boolean);
+    const utterance = new SpeechSynthesisUtterance(parts.join(". "));
+    utterance.lang = "en-IN";
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // Stop speaking on unmount
+  useEffect(() => {
+    return () => { if (typeof window !== "undefined") window.speechSynthesis?.cancel(); };
+  }, []);
   const mainImage = product.images[activeImage] ?? product.images[0];
 
   // The arrows wrap, so neither one is ever a dead control — reaching the last
@@ -197,7 +230,29 @@ export default function ProductDetailClient({
             {todayViews} {todayViews === 1 ? "person" : "people"} viewed this today
           </div>
         )}
-        <div className="pdp-desc" dangerouslySetInnerHTML={{ __html: toDisplayHtml(product.description) }} />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div className="pdp-desc" style={{ flex: 1 }} dangerouslySetInnerHTML={{ __html: toDisplayHtml(product.description) }} />
+          <button
+            type="button"
+            className={`read-aloud-btn${speaking ? " active" : ""}`}
+            onClick={toggleReadAloud}
+            aria-label={speaking ? "Stop reading" : "Read aloud"}
+            title={speaking ? "Stop reading" : "Read description aloud"}
+          >
+            {speaking ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+            )}
+          </button>
+        </div>
 
         <div className="field-block">
           <div className="field-label"><span>Color — {color}</span></div>
