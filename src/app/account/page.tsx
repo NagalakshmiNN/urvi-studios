@@ -1,13 +1,15 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import AccountNav from "@/components/AccountNav";
+import WelcomeBanner from "@/components/WelcomeBanner";
 import { db, schema } from "@/db";
 import { eq, desc } from "drizzle-orm";
 import { getCustomerSession } from "@/lib/auth";
 import { formatINR } from "@/lib/format";
 import Link from "next/link";
 
-export default async function AccountOverviewPage() {
+export default async function AccountOverviewPage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const customerId = (await getCustomerSession())!;
   const customer = await db.query.customers.findFirst({ where: eq(schema.customers.id, customerId) });
   const recentOrders = await db.query.orders.findMany({
@@ -26,6 +28,7 @@ export default async function AccountOverviewPage() {
       <div className="container account-layout">
         <AccountNav active="Overview" />
         <div>
+          {welcome === "1" && <WelcomeBanner />}
           <div className="notice-box" style={{ marginBottom: 28 }}>
             {customer?.email} {customer?.phone ? `· ${customer.phone}` : ""}
           </div>
