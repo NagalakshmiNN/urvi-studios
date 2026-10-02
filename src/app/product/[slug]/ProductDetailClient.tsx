@@ -75,6 +75,14 @@ export default function ProductDetailClient({
     const utterance = new SpeechSynthesisUtterance(parts.join(". "));
     utterance.lang = "en-IN";
     utterance.rate = 0.95;
+    // Prefer a female Indian English voice
+    const voices = window.speechSynthesis.getVoices();
+    const indianFemale = voices.find((v) => v.lang.startsWith("en-IN") && v.name.toLowerCase().includes("female"))
+      || voices.find((v) => v.lang.startsWith("en-IN") && /rishi|aditi|priya|neerja|lekha|veena/i.test(v.name) === false)
+      || voices.find((v) => v.lang.startsWith("en-IN"))
+      || voices.find((v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female"))
+      || voices.find((v) => v.lang.startsWith("en") && /samantha|karen|moira|fiona|tessa|zira|susan|hazel/i.test(v.name));
+    if (indianFemale) utterance.voice = indianFemale;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
     setSpeaking(true);
