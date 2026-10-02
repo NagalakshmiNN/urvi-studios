@@ -38,6 +38,8 @@ const CATEGORY_PLACEHOLDER: Record<string, string> = {
   kurta: "/placeholders/kurta.svg",
   "fusion-edit": "/placeholders/fusion-edit.svg",
   "co-ords": "/placeholders/co-ords.svg",
+  "3-piece-set": "/placeholders/3-piece-set.svg",
+  "2-piece-set": "/placeholders/2-piece-set.svg",
 };
 
 export async function POST(request: Request) {

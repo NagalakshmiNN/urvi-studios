@@ -14,6 +14,8 @@ const SUB_LABELS: Record<string, string> = {
   kurta: "Kurta",
   "fusion-edit": "Fusion Edit",
   "co-ords": "Co-ords",
+  "3-piece-set": "3 Piece Set",
+  "2-piece-set": "2 Piece Set",
 };
 
 const SORTS = [
@@ -167,10 +169,6 @@ export default async function ShopPage({
         <div className="container">
           <div className="filter-bar">
             <Link href={chipHref("all", "all")} className={`chip ${cat === "all" && sub === "all" ? "active" : ""}`}>All</Link>
-            {["Everyday", "Office", "Occasion"].map((c) => (
-              <Link key={c} href={chipHref(c, "all")} className={`chip ${cat === c ? "active" : ""}`}>{c}</Link>
-            ))}
-            <span style={{ width: 1, background: "var(--line)", margin: "0 6px" }} />
             {categories.map((c) => (
               <Link key={c.slug} href={chipHref("all", c.slug)} className={`chip ${sub === c.slug ? "active" : ""}`}>{c.name}</Link>
             ))}

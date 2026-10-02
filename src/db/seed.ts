@@ -18,6 +18,8 @@ const CATEGORIES = [
   { slug: "kurta", name: "Kurta", parent: "Everyday", position: 5 },
   { slug: "fusion-edit", name: "Fusion Edit", parent: "Occasion", position: 6 },
   { slug: "co-ords", name: "Co-ords", parent: "Everyday", position: 7 },
+  { slug: "3-piece-set", name: "3 Piece Set", parent: "Everyday", position: 8 },
+  { slug: "2-piece-set", name: "2 Piece Set", parent: "Everyday", position: 9 },
 ];
 
 const PRODUCTS: Array<{
