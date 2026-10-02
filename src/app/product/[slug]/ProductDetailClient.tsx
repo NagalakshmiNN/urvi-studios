@@ -55,6 +55,41 @@ export default function ProductDetailClient({
   const [speaking, setSpeaking] = useState(false);
 
   // Read-aloud: use the browser's SpeechSynthesis API
+  // Preload voices — Chrome loads them asynchronously
+  const [voicesReady, setVoicesReady] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const load = () => {
+      if (window.speechSynthesis.getVoices().length > 0) setVoicesReady(true);
+    };
+    load();
+    window.speechSynthesis.addEventListener("voiceschanged", load);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
+  }, []);
+
+  function pickFemaleVoice(): SpeechSynthesisVoice | null {
+    const voices = window.speechSynthesis.getVoices();
+    // Known male voice names to skip
+    const maleNames = /\b(rishi|aaron|albert|daniel|david|fred|george|james|jorge|juan|luca|mark|oliver|reed|richard|rocko|thomas|tomas|yuri|grandpa|junior|eddy|flo)\b/i;
+    // Known female voice names to prefer
+    const femaleNames = /\b(aditi|priya|neerja|lekha|veena|heera|kajal|sushma|ananya|meera|samantha|karen|moira|fiona|tessa|zira|susan|hazel|victoria|kate|serena|martha|shelley|sandy|princess|grandma|superstar|bubbles|bells|cellos|trinoids|kathy|allison|ava|joana|luciana|alice|amelie|audrey)\b/i;
+
+    // 1. Indian English female by name
+    const inFemale = voices.find((v) => v.lang.startsWith("en-IN") && femaleNames.test(v.name));
+    if (inFemale) return inFemale;
+    // 2. Indian English — any that is NOT a known male
+    const inNotMale = voices.find((v) => v.lang.startsWith("en-IN") && !maleNames.test(v.name));
+    if (inNotMale) return inNotMale;
+    // 3. Any English female by name
+    const enFemale = voices.find((v) => v.lang.startsWith("en") && femaleNames.test(v.name));
+    if (enFemale) return enFemale;
+    // 4. Any English non-male
+    const enNotMale = voices.find((v) => v.lang.startsWith("en") && !maleNames.test(v.name));
+    if (enNotMale) return enNotMale;
+    // 5. Whatever is available
+    return null;
+  }
+
   function toggleReadAloud() {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     if (speaking) {
@@ -75,14 +110,10 @@ export default function ProductDetailClient({
     const utterance = new SpeechSynthesisUtterance(parts.join(". "));
     utterance.lang = "en-IN";
     utterance.rate = 0.95;
-    // Prefer a female Indian English voice
-    const voices = window.speechSynthesis.getVoices();
-    const indianFemale = voices.find((v) => v.lang.startsWith("en-IN") && v.name.toLowerCase().includes("female"))
-      || voices.find((v) => v.lang.startsWith("en-IN") && /rishi|aditi|priya|neerja|lekha|veena/i.test(v.name) === false)
-      || voices.find((v) => v.lang.startsWith("en-IN"))
-      || voices.find((v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female"))
-      || voices.find((v) => v.lang.startsWith("en") && /samantha|karen|moira|fiona|tessa|zira|susan|hazel/i.test(v.name));
-    if (indianFemale) utterance.voice = indianFemale;
+    utterance.pitch = 1.1; // slightly higher pitch for a softer feminine tone
+    // Pick the best female voice available
+    const voice = pickFemaleVoice();
+    if (voice) utterance.voice = voice;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
     setSpeaking(true);
