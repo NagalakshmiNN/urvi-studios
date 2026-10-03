@@ -96,6 +96,7 @@ export const products = pgTable("products", {
   targetMarkupPct: integer("target_markup_pct"),
   minMarkupPct: integer("min_markup_pct"),
   badge: text("badge"),
+  pieceCount: integer("piece_count"),  // 1, 2, or 3 — drives the shop page Pieces filter
   stock: integer("stock").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   categoryId: text("category_id").notNull().references(() => categories.id),
