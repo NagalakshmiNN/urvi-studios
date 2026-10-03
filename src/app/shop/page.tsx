@@ -40,10 +40,7 @@ function parseMulti(v?: string): string[] {
 
 // Piece-count filter: derives a piece label from the product's category slug.
 const PIECE_OPTIONS = ["1 Piece", "2 Piece", "3 Piece"];
-const PIECE_LABELS = ["1 Piece", "2 Piece", "3 Piece"] as const;
-function pieceLabel(catSlug: string, productName: string, dbPieceCount?: number | null): string {
-  // Explicit DB value takes priority when set
-  if (dbPieceCount && dbPieceCount >= 1 && dbPieceCount <= 3) return PIECE_LABELS[dbPieceCount - 1];
+function pieceLabel(catSlug: string, productName: string): string {
   // Category-slug mappings
   if (catSlug === "3-piece-set") return "3 Piece";
   if (catSlug === "2-piece-set" || catSlug === "co-ords") return "2 Piece";
@@ -105,10 +102,10 @@ export default async function ShopPage({
   });
 
   // Piece-count options (built from available products, before piece filter)
-  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug, p.name, p.pieceCount)));
+  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug, p.name)));
   const pieceOptions = PIECE_OPTIONS.filter((o) => piecesAvailable.has(o));
 
-  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug, p.name, p.pieceCount)));
+  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug, p.name)));
   if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
   if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
