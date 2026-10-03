@@ -40,14 +40,27 @@ function parseMulti(v?: string): string[] {
 
 // Piece-count filter: derives a piece label from the product's category slug.
 const PIECE_OPTIONS = ["1 Piece", "2 Piece", "3 Piece"];
-function pieceLabel(catSlug: string, productName: string): string {
-  // Category-slug mappings
+function pieceLabel(catSlug: string, productName: string, description?: string): string {
+  // Category-slug mappings (most reliable signal)
   if (catSlug === "3-piece-set") return "3 Piece";
   if (catSlug === "2-piece-set" || catSlug === "co-ords") return "2 Piece";
-  // Name / description keyword detection for mixed categories
+
+  // Description parsing: "Set Contains: 3 Piece" or "Set Contains: 2 Piece"
+  if (description) {
+    const descLower = description.toLowerCase();
+    if (/set\s+contains\s*[:\-–]?\s*3\s*piece/i.test(description)) return "3 Piece";
+    if (/set\s+contains\s*[:\-–]?\s*2\s*piece/i.test(description)) return "2 Piece";
+    // Also check for plain "3 piece" or "2 piece" anywhere in description
+    if (descLower.includes("3 piece") || descLower.includes("3-piece") || descLower.includes("3pc")) return "3 Piece";
+    if (descLower.includes("2 piece") || descLower.includes("2-piece") || descLower.includes("2pc")) return "2 Piece";
+  }
+
+  // Name keyword detection (check 3-piece patterns BEFORE "set" catch-all)
   const lower = productName.toLowerCase();
-  if (lower.includes("3 piece") || lower.includes("3-piece")) return "3 Piece";
-  if (lower.includes("set") || lower.includes("co-ord") || lower.includes("coord")) return "2 Piece";
+  if (lower.includes("3 piece") || lower.includes("3-piece") || lower.includes("3pc")) return "3 Piece";
+  if (lower.includes("with dupatta")) return "3 Piece";
+  if (lower.includes("set") || lower.includes("co-ord") || lower.includes("coord")
+      || lower.includes("2 piece") || lower.includes("2-piece") || lower.includes("2pc")) return "2 Piece";
   return "1 Piece";
 }
 
@@ -102,10 +115,10 @@ export default async function ShopPage({
   });
 
   // Piece-count options (built from available products, before piece filter)
-  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug, p.name)));
+  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug, p.name, p.description)));
   const pieceOptions = PIECE_OPTIONS.filter((o) => piecesAvailable.has(o));
 
-  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug, p.name)));
+  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug, p.name, p.description)));
   if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
   if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
