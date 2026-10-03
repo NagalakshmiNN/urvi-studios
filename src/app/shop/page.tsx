@@ -205,10 +205,20 @@ export default async function ShopPage({
       <section className="section" style={{ paddingTop: 30 }}>
         <div className="container">
           <div className="filter-bar">
-            <Link href={chipHref("all", "all")} className={`chip ${cat === "all" && sub === "all" ? "active" : ""}`}>All</Link>
-            {categories.map((c) => (
-              <Link key={c.slug} href={chipHref("all", c.slug)} className={`chip ${sub === c.slug ? "active" : ""}`}>{c.name}</Link>
-            ))}
+            <Link href={chipHref("all", "all")} className={`chip ${cat === "all" && sub === "all" && !piecesSel.length ? "active" : ""}`}>All</Link>
+            {categories.map((c) => {
+              // "2 Piece Set" and "3 Piece Set" categories have no products assigned;
+              // redirect their chips to the pieces refine filter instead.
+              if (c.slug === "2-piece-set") {
+                const href = (() => { const p = new URLSearchParams(); p.set("pieces", "2 Piece"); return `/shop?${p.toString()}`; })();
+                return <Link key={c.slug} href={href} className={`chip ${piecesSel.includes("2 Piece") && piecesSel.length === 1 ? "active" : ""}`}>{c.name}</Link>;
+              }
+              if (c.slug === "3-piece-set") {
+                const href = (() => { const p = new URLSearchParams(); p.set("pieces", "3 Piece"); return `/shop?${p.toString()}`; })();
+                return <Link key={c.slug} href={href} className={`chip ${piecesSel.includes("3 Piece") && piecesSel.length === 1 ? "active" : ""}`}>{c.name}</Link>;
+              }
+              return <Link key={c.slug} href={chipHref("all", c.slug)} className={`chip ${sub === c.slug ? "active" : ""}`}>{c.name}</Link>;
+            })}
           </div>
 
           {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0 || pieceOptions.length > 0) && (
