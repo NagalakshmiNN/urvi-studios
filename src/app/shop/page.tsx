@@ -37,17 +37,29 @@ function parseMulti(v?: string): string[] {
 // Common sizes get a sensible left-to-right order; anything outside this
 // list (a one-off label from the sheet) is sorted alphabetically after them
 // rather than dropped.
+
+// Piece-count filter: derives a piece label from the product's category slug.
+const PIECE_SLUGS: Record<string, string> = {
+  "3-piece-set": "3 Piece",
+  "2-piece-set": "2 Piece",
+};
+const PIECE_OPTIONS = ["1 Piece", "2 Piece", "3 Piece"];
+function pieceLabel(catSlug: string): string {
+  return PIECE_SLUGS[catSlug] || "1 Piece";
+}
+
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size"];
 
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sub?: string; sort?: string; fabric?: string; color?: string; size?: string }>;
+  searchParams: Promise<{ cat?: string; sub?: string; sort?: string; fabric?: string; color?: string; size?: string; pieces?: string }>;
 }) {
-  const { cat = "all", sub = "all", sort = "newest", fabric, color, size } = await searchParams;
+  const { cat = "all", sub = "all", sort = "newest", fabric, color, size, pieces } = await searchParams;
   const fabricSel = parseMulti(fabric);
   const colorSel = parseMulti(color);
   const sizeSel = parseMulti(size);
+  const piecesSel = parseMulti(pieces);
   const customerId = await getCustomerSession();
 
   const categories = await db.query.categories.findMany({ orderBy: (c, { asc }) => [asc(c.position)] });
@@ -86,6 +98,11 @@ export default async function ShopPage({
     return a.localeCompare(b);
   });
 
+  // Piece-count options (built from available products, before piece filter)
+  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug)));
+  const pieceOptions = PIECE_OPTIONS.filter((o) => piecesAvailable.has(o));
+
+  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug)));
   if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
   if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
@@ -112,6 +129,7 @@ export default async function ShopPage({
     if (fabricSel.length) p.set("fabric", fabricSel.join(FILTER_SEP));
     if (colorSel.length) p.set("color", colorSel.join(FILTER_SEP));
     if (sizeSel.length) p.set("size", sizeSel.join(FILTER_SEP));
+    if (piecesSel.length) p.set("pieces", piecesSel.join(FILTER_SEP));
     return p;
   }
 
@@ -136,8 +154,8 @@ export default async function ShopPage({
   // Clicking a refine chip that's already selected removes it (toggle);
   // clicking an unselected one adds it. Everything else in the URL — the
   // category, sort, and the other two refine dimensions — is preserved.
-  function refineHref(dimension: "fabric" | "color" | "size", value: string) {
-    const current = dimension === "fabric" ? fabricSel : dimension === "color" ? colorSel : sizeSel;
+  function refineHref(dimension: "fabric" | "color" | "size" | "pieces", value: string) {
+    const current = dimension === "fabric" ? fabricSel : dimension === "color" ? colorSel : dimension === "size" ? sizeSel : piecesSel;
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     const p = baseParams();
     if (next.length) p.set(dimension, next.join(FILTER_SEP));
@@ -151,11 +169,12 @@ export default async function ShopPage({
     p.delete("fabric");
     p.delete("color");
     p.delete("size");
+    p.delete("pieces");
     const qs = p.toString();
     return `/shop${qs ? "?" + qs : ""}`;
   }
 
-  const anyRefineActive = fabricSel.length > 0 || colorSel.length > 0 || sizeSel.length > 0;
+  const anyRefineActive = fabricSel.length > 0 || colorSel.length > 0 || sizeSel.length > 0 || piecesSel.length > 0;
 
   return (
     <>
@@ -176,9 +195,21 @@ export default async function ShopPage({
             ))}
           </div>
 
-          {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0) && (
-            <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length}>
+          {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0 || pieceOptions.length > 0) && (
+            <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length + piecesSel.length}>
             <div className="refine-bar">
+              {pieceOptions.length > 0 && (
+                <div className="refine-group">
+                  <span className="refine-label">Pieces</span>
+                  <div className="refine-chips">
+                    {pieceOptions.map((p) => (
+                      <Link key={p} href={refineHref("pieces", p)} className={`chip-sm ${piecesSel.includes(p) ? "active" : ""}`}>
+                        {p}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
               {sizeOptions.length > 0 && (
                 <div className="refine-group">
                   <span className="refine-label">Size</span>
