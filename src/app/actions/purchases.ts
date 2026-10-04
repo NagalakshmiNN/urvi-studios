@@ -156,40 +156,36 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
 
   let moved = 0;
   let skipped = 0;
-  let overridesCleared = 0;
+  let customKept = 0;
   for (const row of rows) {
     if (row.landedCost == null || row.landedCost <= 0) {
-      // Even without a landed cost, clear any stale per-product overrides
-      if (row.targetMarkupPct != null || row.minMarkupPct != null) {
-        await db
-          .update(schema.products)
-          .set({ targetMarkupPct: null, minMarkupPct: null, updatedAt: new Date() })
-          .where(eq(schema.products.id, row.id));
-        overridesCleared++;
-      }
       skipped++;
       continue;
     }
+
+    // Products with a custom per-product markup are individually priced —
+    // skip them so a bulk re-price never overwrites a hand-set price.
+    const hasCustomMarkup = row.targetMarkupPct != null || row.minMarkupPct != null;
+    if (hasCustomMarkup) {
+      customKept++;
+      continue;
+    }
+
     const suggested = suggestPricing(row.landedCost * 100, bands);
     const priceChanged = suggested != null && suggested.price !== row.price;
-    const hadOverride = row.targetMarkupPct != null || row.minMarkupPct != null;
 
-    if (!priceChanged && !hadOverride) continue;
+    if (!priceChanged) continue;
 
     await db
       .update(schema.products)
       .set({
-        ...(suggested && priceChanged
-          ? { price: suggested.price, maxRoundUpTo: suggested.price, minRoundUpTo: suggested.minPrice }
-          : {}),
-        // Reset per-product overrides — the band is now the rule again
-        targetMarkupPct: null,
-        minMarkupPct: null,
+        price: suggested!.price,
+        maxRoundUpTo: suggested!.price,
+        minRoundUpTo: suggested!.minPrice,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, row.id));
-    if (priceChanged) moved++;
-    if (hadOverride) overridesCleared++;
+    moved++;
   }
 
   revalidatePath("/admin/pricing");
@@ -197,11 +193,11 @@ export async function applyPricingAction(_prev: PricingFormState, formData: Form
   revalidatePath("/shop");
 
   const skippedNote = skipped > 0 ? ` ${skipped} left alone — no landed cost recorded.` : "";
-  const overrideNote = overridesCleared > 0 ? ` ${overridesCleared} custom markup${overridesCleared === 1 ? "" : "s"} cleared.` : "";
+  const customNote = customKept > 0 ? ` ${customKept} with custom markup kept as-is.` : "";
   return {
     success: moved === 0
-      ? `Nothing to change — every price already matches its band.${overrideNote}${skippedNote}`
-      : `${moved} price${moved === 1 ? "" : "s"} updated.${overrideNote}${skippedNote}`,
+      ? `Nothing to change — every band-priced product already matches.${customNote}${skippedNote}`
+      : `${moved} price${moved === 1 ? "" : "s"} updated.${customNote}${skippedNote}`,
   };
 }
 

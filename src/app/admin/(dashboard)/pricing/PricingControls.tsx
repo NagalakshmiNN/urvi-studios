@@ -152,7 +152,7 @@ export default function PricingControls({ rows, overrideCount = 0 }: { rows: Ban
           Products with no recorded landed cost are never touched.
           {overrideCount > 0 && (
             <>
-              {" "}<strong style={{ color: "var(--ink, inherit)" }}>{overrideCount}</strong> product{overrideCount === 1 ? " has" : "s have"} custom markup — those will keep their individual pricing.
+              {" "}<strong style={{ color: "var(--ink, inherit)" }}>{overrideCount}</strong> product{overrideCount === 1 ? " has" : "s have"} custom markup — those are protected and will not be changed.
             </>
           )}
         </p>

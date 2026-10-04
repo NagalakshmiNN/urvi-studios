@@ -92,7 +92,7 @@ export const products = pgTable("products", {
   minRoundUpTo: integer("min_round_up_to"), // "Minimum Round Up To"
   maxRoundUpTo: integer("max_round_up_to"), // "Maximum Round Up To" — sets `price` on import
   // Per-product markup overrides. NULL = use the band default. Set on the
-  // product edit page; reset to NULL when "Apply to catalogue" runs.
+  // product edit page. Protected during "Apply to catalogue" — only cleared manually.
   targetMarkupPct: integer("target_markup_pct"),
   minMarkupPct: integer("min_markup_pct"),
   badge: text("badge"),

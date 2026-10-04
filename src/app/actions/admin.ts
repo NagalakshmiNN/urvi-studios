@@ -134,21 +134,29 @@ export async function updateProductAction(_prev: AdminFormState, formData: FormD
   if (!productId) return { error: "Missing product." };
   if (!Number.isFinite(price) || price <= 0) return { error: "Please enter a valid price." };
 
-  // Stock is tracked per size now (see the Edit Product page) — this quick
-  // row edit no longer touches it, so a stray save here can never overwrite
-  // a real per-size count with a stale total.
-  //
-  // Compare-at price is left out for the same reason: the column was taken
-  // off this screen, and writing a field the form no longer collects would
-  // blank out every product's compare-at on the next Save. It stays editable
-  // on the full Edit Product page.
+  // When the selling price changes relative to maxRoundUpTo, keep the
+  // pricing fields consistent:
+  // - If price < maxRoundUpTo, the customer sees a discount: set
+  //   compareAtPrice to maxRoundUpTo so the old price shows as strikethrough.
+  // - If price >= maxRoundUpTo (or maxRoundUpTo not set), no discount:
+  //   clear compareAtPrice and set maxRoundUpTo = price.
+  const effectiveMax = maxRoundUpTo ?? price;
+  let computedCompareAt: number | null = null;
+  let finalMax = effectiveMax;
+  if (price < effectiveMax) {
+    computedCompareAt = effectiveMax;
+  } else {
+    finalMax = price;
+  }
+
   await db
     .update(schema.products)
     .set({
       price,
       landedCost,
       minRoundUpTo,
-      maxRoundUpTo,
+      maxRoundUpTo: finalMax,
+      compareAtPrice: computedCompareAt,
       badge: badge || null,
       isActive,
       updatedAt: new Date(),
@@ -699,21 +707,37 @@ export async function updateProductPriceAction(
   if (!productId) return { error: "Missing product." };
 
   const price = parseInt(String(formData.get("price") || ""), 10);
-  if (!Number.isFinite(price) || price < 1) return { error: "Price must be at least ₹1." };
+  if (!Number.isFinite(price) || price < 1) return { error: "Price must be at least \u20b91." };
 
-  const compareAtPrice = optionalInt(formData, "compareAtPrice");
+  const compareAtPriceInput = optionalInt(formData, "compareAtPrice");
   const landedCost = optionalInt(formData, "landedCost");
   const minRoundUpTo = optionalInt(formData, "minRoundUpTo");
   const maxRoundUpTo = optionalInt(formData, "maxRoundUpTo");
+
+  // Auto-calculate compareAtPrice from price vs maxRoundUpTo when the user
+  // hasn't explicitly typed a compare-at value.
+  let finalCompareAt = compareAtPriceInput;
+  const effectiveMax = maxRoundUpTo ?? price;
+  if (compareAtPriceInput == null) {
+    // No explicit compare-at: derive it from the relationship between
+    // price and max round up to.
+    if (price < effectiveMax) {
+      finalCompareAt = effectiveMax;
+    }
+    // If price >= effectiveMax, keep compareAtPrice null (no discount)
+  }
+
+  // If selling price is above maxRoundUpTo, bump maxRoundUpTo up
+  const finalMax = maxRoundUpTo != null && price > maxRoundUpTo ? price : maxRoundUpTo;
 
   await db
     .update(schema.products)
     .set({
       price: Math.round(price),
-      compareAtPrice,
+      compareAtPrice: finalCompareAt,
       landedCost,
       minRoundUpTo,
-      maxRoundUpTo,
+      maxRoundUpTo: finalMax,
       updatedAt: new Date(),
     })
     .where(eq(schema.products.id, productId));
@@ -725,5 +749,8 @@ export async function updateProductPriceAction(
   revalidatePath("/shop");
   if (product) revalidatePath(`/product/${product.slug}`);
 
-  return { success: `Price saved — ₹${Math.round(price).toLocaleString("en-IN")}.` };
+  const pctNote = landedCost && landedCost > 0
+    ? ` (${Math.round(((Math.round(price) - landedCost) / landedCost) * 100)}% over cost)`
+    : "";
+  return { success: `Price saved \u2014 \u20b9${Math.round(price).toLocaleString("en-IN")}${pctNote}.` };
 }

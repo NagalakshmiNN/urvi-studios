@@ -137,7 +137,7 @@ export default function ProductMarkupTable({ products }: { products: ProductRow[
 
       <p style={{ fontSize: 13.5, color: "var(--sage)", lineHeight: 1.7, marginBottom: 14 }}>
         Set a custom markup on individual products when a band is too broad. Leave blank to keep the band default.
-        Custom markups hold until the next <strong>Apply to catalogue</strong>, which resets every product back to its band.
+        Products with a custom markup are <strong>protected</strong> — "Apply to catalogue" will skip them and only re-price band-default products.
       </p>
 
       <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>

@@ -98,7 +98,7 @@ export default function ProductRow({ product }: { product: Product }) {
         </td>
         <td>{product.category.name}</td>
         <td>
-          <input form={formId} type="number" name="price" defaultValue={product.price} style={{ width: 80 }} className="admin-inline-input" />
+          <MarkupInput formId={formId} name="price" value={product.price} landedCost={product.landedCost} />
         </td>
         <td>
           <input form={formId} type="number" name="landedCost" defaultValue={product.landedCost ?? ""} style={{ width: 80 }} className="admin-inline-input" />
