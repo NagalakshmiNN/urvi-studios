@@ -313,8 +313,10 @@ export function generateInvoicePdf(order: InvoiceOrder, items: InvoiceItem[]): B
   // =========================================================================
   y += 5;
 
-  const summaryLabelX = pageWidth - margin - 70;
-  const summaryValX = pageWidth - margin;
+  // Align with the items table (column widths sum to 162mm from the left margin)
+  const tableRightEdge = margin + 10 + 50 + 14 + 20 + 12 + 28 + 28; // 177mm
+  const summaryLabelX = tableRightEdge - 60;
+  const summaryValX = tableRightEdge;
 
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
