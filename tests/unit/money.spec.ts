@@ -108,13 +108,13 @@ test.describe("the money picture", () => {
     { category: "Packaging", amountPaise: rupees(580), spentOn: "2026-06-04" },
   ];
 
-  test("reproduces the workbook's own cash position exactly", () => {
+  test("treats all expenses as the investment", () => {
     const p = buildMoneyPicture({ capital, expenses, orders: [], stock: [] });
-    expect(p.capitalInPaise).toBe(rupees(70577));
+    expect(p.investedPaise).toBe(rupees(97855)); // stock 94,888 + running 2,967
     expect(p.stockPurchasePaise).toBe(rupees(94888));
     expect(p.runningCostsPaise).toBe(rupees(2967)); // 2,387 freight + 580 packaging
-    // The figure the corrected workbook's Cash Flow sheet arrives at.
-    expect(p.cashPaise).toBe(rupees(-27278));
+    // With no sales and invested = expenses, cash from sales = 0.
+    expect(p.cashPaise).toBe(0); // no sales, invested = expenses, so cash = 0
   });
 
   test("counts stock bought as stock, not as a running cost", () => {
@@ -217,7 +217,7 @@ test.describe("the money picture", () => {
 
   test("an empty business is all zeroes, not NaN", () => {
     const p = buildMoneyPicture({ capital: [], expenses: [], orders: [], stock: [] });
-    for (const value of [p.capitalInPaise, p.revenuePaise, p.cashPaise, p.netWorthPaise, p.tradingProfitPaise]) {
+    for (const value of [p.investedPaise, p.revenuePaise, p.cashPaise, p.netWorthPaise, p.tradingProfitPaise]) {
       expect(Number.isFinite(value)).toBe(true);
       expect(value).toBe(0);
     }

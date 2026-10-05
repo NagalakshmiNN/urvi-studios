@@ -1,19 +1,24 @@
-// The whole-business picture: what was put in, what went out, what came back,
-// and what the business is actually worth today.
+// The whole-business picture: what went in, what came back, and what the
+// business is actually worth today.
 //
 // Everything here is pure — it takes rows and returns numbers — so the maths
 // can be tested directly without a browser or a database, which matters more
 // for this file than for most: these are the figures Nagalakshmi will use to
 // decide whether the business is working.
 //
-// A note on the one distinction that makes this honest. Money paid to a vendor
-// for stock has NOT been spent in the way a courier bill has been spent — it
-// has been converted into something sitting on the rail that can still be
-// sold. Lumping the two together is what makes a young retail business look
-// like it is haemorrhaging money when it is really just holding inventory. So
-// stock purchases are tracked as their own category and reported separately
-// from running costs, and the closing position shows both cash and the value
-// of what that cash turned into.
+// How this business works: there is no separate business bank account. Every
+// rupee that leaves a personal pocket — vendor payments, freight, packaging,
+// courier — goes directly to the business. So "invested" equals "spent", and
+// the capital_contributions table (kept for equity tracking between partners)
+// is not what drives this view. Instead the total of all expenses IS the
+// investment, and sales revenue is the cash the business has generated.
+//
+// Money paid to a vendor for stock has NOT been spent the way a courier bill
+// has been spent — it has been converted into something sitting on the rail
+// that can still be sold. So stock purchases are tracked as their own
+// category and reported separately from running costs, and the closing
+// position shows both what sales have brought back and the value of what the
+// investment turned into.
 
 import { parseActualSalePrice, formatPaise } from "@/lib/sale-price";
 
@@ -129,8 +134,8 @@ export type SaleRow = { total: number; actualSalePricePaise: number | null; paym
 export type StockRow = { stock: number; landedCost: number | null; price: number };
 
 export type MoneyPicture = {
-  /** Everything in paise, so nothing here has to be rounded until it's shown. */
-  capitalInPaise: number;
+  /** Total spent on everything — vendors, freight, running costs. This IS the investment. */
+  investedPaise: number;
   revenuePaise: number;
   stockPurchasePaise: number;
   runningCostsPaise: number;
@@ -140,9 +145,9 @@ export type MoneyPicture = {
   stockAtCostPaise: number;
   /** What those same pieces are listed at. */
   stockAtRetailPaise: number;
-  /** Capital + revenue − stock purchases − running costs. */
+  /** Sales revenue — the money customers have paid in. */
   cashPaise: number;
-  /** Cash plus the cost value of unsold stock: what the business is worth. */
+  /** Sales revenue plus the cost value of unsold stock. */
   netWorthPaise: number;
   /** Revenue less what those sold pieces cost us, less running costs. */
   tradingProfitPaise: number;
@@ -167,13 +172,13 @@ function saleRevenuePaise(o: SaleRow): number {
 }
 
 export function buildMoneyPicture(input: {
-  capital: CapitalRow[];
+  capital?: CapitalRow[];
   expenses: ExpenseRow[];
   orders: SaleRow[];
   stock: StockRow[];
 }): MoneyPicture {
-  const capitalInPaise = input.capital.reduce((n, c) => n + c.amountPaise, 0);
-
+  // "Invested" = total of all expenses. There is no separate business account,
+  // so every rupee paid out IS the investment — no capital_contributions step.
   let stockPurchasePaise = 0;
   const byCategory = new Map<string, number>();
   for (const e of input.expenses) {
@@ -187,6 +192,7 @@ export function buildMoneyPicture(input: {
     .map(([category, paise]) => ({ category, paise }))
     .sort((a, b) => b.paise - a.paise);
   const runningCostsPaise = runningCostsByCategory.reduce((n, c) => n + c.paise, 0);
+  const investedPaise = stockPurchasePaise + runningCostsPaise;
 
   const sales = input.orders.filter(countsAsSale);
   const revenuePaise = sales.reduce((n, o) => n + saleRevenuePaise(o), 0);
@@ -214,10 +220,12 @@ export function buildMoneyPicture(input: {
     stockAtRetailPaise += row.price * row.stock * 100;
   }
 
-  const cashPaise = capitalInPaise + revenuePaise - stockPurchasePaise - runningCostsPaise;
+  // invested = stock + running, so this simplifies to revenuePaise, but the
+  // full form makes the accounting identity visible.
+  const cashPaise = investedPaise + revenuePaise - stockPurchasePaise - runningCostsPaise;
 
   return {
-    capitalInPaise,
+    investedPaise,
     revenuePaise,
     stockPurchasePaise,
     runningCostsPaise,

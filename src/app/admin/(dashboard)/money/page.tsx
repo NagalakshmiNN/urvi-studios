@@ -1,45 +1,40 @@
 import { db } from "@/db";
 import Link from "next/link";
-import { buildMoneyPicture, formatPaise, STOCK_PURCHASE } from "@/lib/money";
+import { buildMoneyPicture, formatPaise } from "@/lib/money";
 import MoneyFlow, { type FlowRow } from "@/components/admin/MoneyFlow";
 
 // The whole-business picture, computed from this database rather than from a
 // spreadsheet — so it is right the moment anything is recorded, instead of
 // being right on the day someone last exported it.
 //
-// The one idea this page is built around: money paid to a vendor for stock has
-// not been spent the way a courier bill has been spent. It has been turned
-// into something on the rail that can still be sold. So the page reports cash
-// and stock separately, and only calls the difference a loss where it really
-// is one.
+// There is no separate business bank account — every vendor payment and
+// running cost comes directly from personal funds. So "Total invested" is
+// simply the sum of everything spent, and "Cash from sales" is the money
+// customers have put back in. Stock purchases are still shown separately
+// from running costs, because stock is an asset, not an expense.
 
 export default async function AdminMoneyMapPage() {
-  const [capital, expenses, orders, products] = await Promise.all([
-    db.query.capitalContributions.findMany(),
+  const [expenses, orders, products] = await Promise.all([
     db.query.expenses.findMany(),
     db.query.orders.findMany({ with: { items: true } }),
     db.query.products.findMany(),
   ]);
 
   const picture = buildMoneyPicture({
-    capital,
     expenses,
     orders,
     stock: products.map((p) => ({ stock: p.stock, landedCost: p.landedCost, price: p.price })),
   });
 
   const flowRows: FlowRow[] = [
-    { label: "Capital you put in", paise: picture.capitalInPaise, kind: "in" },
+    { label: "Total invested", paise: picture.investedPaise, kind: "in", note: "vendors + freight + running costs" },
     { label: "Sales", paise: picture.revenuePaise, kind: "in", note: "every channel" },
     { label: "Paid to vendors for stock", paise: picture.stockPurchasePaise, kind: "stock", note: "becomes stock, not a cost" },
     { label: "Running costs", paise: picture.runningCostsPaise, kind: "out", note: "packaging, courier, fees" },
   ];
 
-  const nothingRecorded =
-    picture.capitalInPaise === 0 && picture.stockPurchasePaise === 0 && picture.runningCostsPaise === 0;
-
-  const cashNegative = picture.cashPaise < 0;
-  const worthNegative = picture.netWorthPaise < 0;
+  const nothingRecorded = picture.investedPaise === 0 && picture.revenuePaise === 0;
+  const behindBreakeven = picture.netWorthPaise < picture.investedPaise;
 
   return (
     <>
@@ -53,19 +48,16 @@ export default async function AdminMoneyMapPage() {
 
       {nothingRecorded && (
         <p className="notice-box">
-          Nothing has been recorded on the money-out side yet, so this page is only counting sales. Add what you
-          put in under <strong>Money In</strong> and what you&apos;ve paid out under <strong>Record a spend</strong>,
-          and everything below fills in.
+          Nothing has been recorded yet. Record what you&apos;ve paid out under{" "}
+          <strong>Record a spend</strong> and everything below fills in automatically.
         </p>
       )}
 
       <div className="metric-grid" style={{ marginBottom: 24 }}>
         <div className="metric-card">
-          <div className="label">Cash position</div>
-          <div className="value" style={{ color: cashNegative ? "#a5333a" : "inherit" }}>
-            {formatPaise(picture.cashPaise)}
-          </div>
-          <div className="metric-sub">what&apos;s left of the money in, after buying stock and paying costs</div>
+          <div className="label">Total invested</div>
+          <div className="value">{formatPaise(picture.investedPaise)}</div>
+          <div className="metric-sub">everything paid out — vendors, freight, and running costs</div>
         </div>
         <div className="metric-card">
           <div className="label">Stock on the rail</div>
@@ -74,10 +66,8 @@ export default async function AdminMoneyMapPage() {
         </div>
         <div className="metric-card">
           <div className="label">What the business is worth</div>
-          <div className="value" style={{ color: worthNegative ? "#a5333a" : "inherit" }}>
-            {formatPaise(picture.netWorthPaise)}
-          </div>
-          <div className="metric-sub">cash plus the cost value of unsold stock</div>
+          <div className="value">{formatPaise(picture.netWorthPaise)}</div>
+          <div className="metric-sub">sales received plus unsold stock at cost</div>
         </div>
         <div className="metric-card">
           <div className="label">Trading profit so far</div>
@@ -88,12 +78,14 @@ export default async function AdminMoneyMapPage() {
         </div>
       </div>
 
-      {cashNegative && !worthNegative && (
+      {behindBreakeven && (
         <p className="notice-box">
-          Cash reads negative because more has gone out than has come in — but most of it went into stock, which is
-          still yours to sell. That&apos;s the normal shape of a young retail business, not a hole:{" "}
-          <strong>{formatPaise(picture.stockAtCostPaise)}</strong> of it is sitting on the rail, listed at{" "}
-          <strong>{formatPaise(picture.stockAtRetailPaise)}</strong>.
+          You&apos;ve invested <strong>{formatPaise(picture.investedPaise)}</strong> so far. The business has{" "}
+          <strong>{formatPaise(picture.cashPaise)}</strong> in sales and{" "}
+          <strong>{formatPaise(picture.stockAtCostPaise)}</strong> in stock at cost — a total of{" "}
+          <strong>{formatPaise(picture.netWorthPaise)}</strong> against{" "}
+          <strong>{formatPaise(picture.investedPaise)}</strong> invested. The gap closes every time a piece sells
+          at its markup.
         </p>
       )}
 
@@ -144,8 +136,8 @@ export default async function AdminMoneyMapPage() {
         <table className="admin-table money-ledger">
           <tbody>
             <tr>
-              <td>Capital you put in</td>
-              <td className="pos">+{formatPaise(picture.capitalInPaise)}</td>
+              <td>Total invested</td>
+              <td className="pos">+{formatPaise(picture.investedPaise)}</td>
             </tr>
             <tr>
               <td>Sales, every channel</td>
@@ -160,7 +152,7 @@ export default async function AdminMoneyMapPage() {
               <td className="neg">−{formatPaise(picture.runningCostsPaise)}</td>
             </tr>
             <tr className="total">
-              <td>Cash in hand</td>
+              <td>Cash from sales</td>
               <td>{formatPaise(picture.cashPaise)}</td>
             </tr>
             <tr>
@@ -192,10 +184,10 @@ export default async function AdminMoneyMapPage() {
         )}
 
         <p style={{ fontSize: 12, color: "var(--sage)", marginTop: 16, lineHeight: 1.7 }}>
-          Money paid to a vendor buys stock rather than disappearing, which is why it&apos;s shown as its own line
-          and added back at cost on the row above. Record a vendor payment under{" "}
-          <Link href="/admin/money/expenses">Record a spend</Link> with the kind set to{" "}
-          <strong>{STOCK_PURCHASE}</strong> and it lands in the right place automatically.
+          &ldquo;Total invested&rdquo; is the sum of everything paid out — vendor invoices, freight, and all
+          running costs. Money paid to a vendor buys stock rather than disappearing, which is why it&apos;s shown
+          as its own line and added back at cost on the row above. Use{" "}
+          <Link href="/admin/money/capital">Money In</Link> to track who put in what (your share vs Shilpa&apos;s).
         </p>
       </div>
     </>
