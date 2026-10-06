@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect, useState } from "react";
 import { addAddressAction } from "@/app/actions/address";
+import { CITIES_BY_STATE } from "@/lib/indian-cities";
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -17,11 +18,15 @@ export default function AddAddressForm() {
   const [state, formAction, pending] = useActionState(addAddressAction, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedState, setSelectedState] = useState("");
+
+  const citySuggestions = selectedState ? (CITIES_BY_STATE[selectedState] || []) : [];
 
   useEffect(() => {
     if (!state?.error && !pending) {
       formRef.current?.reset();
       setErrors({});
+      setSelectedState("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
@@ -36,14 +41,16 @@ export default function AddAddressForm() {
 
     if (!line1) e.line1 = "Address is required.";
     else if (line1.length < 5) e.line1 = "Please enter a complete address.";
+    else if (!/[A-Za-z0-9].*[A-Za-z0-9].*[A-Za-z0-9]/.test(line1))
+      e.line1 = "Address must contain real words — not just symbols.";
 
     if (!phone) e.phone = "Phone number is required.";
     else if (!/^[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, "")))
       e.phone = "Enter a valid 10-digit Indian mobile number.";
 
     if (!city) e.city = "City is required.";
-    else if (!/^[A-Za-z\s.'-]{2,}$/.test(city))
-      e.city = "City should contain only letters.";
+    else if (!/^[A-Za-z\s.'-]{3,}$/.test(city))
+      e.city = "Please enter a valid city name (at least 3 letters).";
 
     if (!stateVal) e.state = "State is required.";
 
@@ -86,17 +93,27 @@ export default function AddAddressForm() {
       </div>
       <div className="form-row">
         <div className="form-group">
-          <label>City <span className="required">*</span></label>
-          <input type="text" name="city" required placeholder="e.g. Bangalore" />
-          {errors.city && <p className="field-error">{errors.city}</p>}
-        </div>
-        <div className="form-group">
           <label>State <span className="required">*</span></label>
-          <select name="state" required defaultValue="">
+          <select name="state" required value={selectedState} onChange={(e) => setSelectedState(e.target.value)}>
             <option value="" disabled>Select state</option>
             {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
           {errors.state && <p className="field-error">{errors.state}</p>}
+        </div>
+        <div className="form-group">
+          <label>City <span className="required">*</span></label>
+          <input
+            type="text"
+            name="city"
+            required
+            placeholder={selectedState ? "Type to search city…" : "Select state first"}
+            list="city-suggestions"
+            autoComplete="off"
+          />
+          <datalist id="city-suggestions">
+            {citySuggestions.map((c) => <option key={c} value={c} />)}
+          </datalist>
+          {errors.city && <p className="field-error">{errors.city}</p>}
         </div>
         <div className="form-group">
           <label>Pincode <span className="required">*</span></label>

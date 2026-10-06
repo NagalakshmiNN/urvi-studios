@@ -22,10 +22,13 @@ export async function addAddressAction(_prev: AddressState, formData: FormData):
     return { error: "Please fill in every field." };
   }
   if (line1.length < 5) return { error: "Please enter a complete address (at least 5 characters)." };
+  if (!/[A-Za-z0-9].*[A-Za-z0-9].*[A-Za-z0-9]/.test(line1)) {
+    return { error: "Address must contain real words — not just symbols." };
+  }
   if (!/^[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, ""))) {
     return { error: "Enter a valid 10-digit Indian mobile number." };
   }
-  if (!/^[A-Za-z\s.''-]{2,}$/.test(city)) return { error: "City should contain only letters." };
+  if (!/^[A-Za-z\s.''-]{3,}$/.test(city)) return { error: "Please enter a valid city name (at least 3 letters)." };
   if (!/^\d{6}$/.test(pincode)) return { error: "Enter a valid 6-digit pincode." };
 
   const existingCount = await db.query.addresses.findMany({ where: eq(schema.addresses.customerId, customerId) });

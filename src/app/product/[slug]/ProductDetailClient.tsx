@@ -53,6 +53,13 @@ export default function ProductDetailClient({
   const [activeImage, setActiveImage] = useState(0);
   const [todayViews, setTodayViews] = useState(0);
   const [speaking, setSpeaking] = useState(false);
+  const [showAdded, setShowAdded] = useState(false);
+
+  useEffect(() => {
+    if (!showAdded) return;
+    const t = setTimeout(() => setShowAdded(false), 2000);
+    return () => clearTimeout(t);
+  }, [showAdded]);
 
   // Read-aloud: use the browser's SpeechSynthesis API
   // Preload voices — Chrome loads them asynchronously
@@ -177,6 +184,7 @@ export default function ProductDetailClient({
   }, [sizeStock]);
 
   function handleAdd() {
+    setShowAdded(true);
     addToCart({
       productId: product.id,
       sku: product.sku,
@@ -357,6 +365,7 @@ export default function ProductDetailClient({
             Buy Now
           </button>
         </div>
+        {showAdded && <p className="added-to-bag-msg">Added to bag ✓</p>}
 
         <SizeGuide open={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} currentSize={size} />
 

@@ -542,6 +542,14 @@ p { line-height: 1.7; color: var(--earth); }
 }
 .product-card .add-link:hover { color: var(--gold); border-color: var(--gold); }
 .product-card .add-link:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--line); color: var(--sage); }
+.product-card .added-to-bag-msg {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sage);
+  text-align: center;
+  margin-top: 4px;
+  animation: fadeInUp 0.3s ease;
+}
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--sage); }
 
@@ -610,7 +618,18 @@ p { line-height: 1.7; color: var(--earth); }
 .qty-stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 2px; }
 .qty-stepper button { width: 38px; height: 42px; background: none; border: none; font-size: 16px; color: var(--olive); }
 .qty-stepper span { width: 34px; text-align: center; font-size: 14px; }
-.pdp-actions { display: flex; gap: 12px; margin-bottom: 30px; }
+.pdp-actions { display: flex; gap: 12px; margin-bottom: 8px; }
+.added-to-bag-msg {
+  font-size: 13px;
+  color: var(--sage);
+  text-align: center;
+  margin: 0 0 20px;
+  animation: fadeInUp 0.3s ease;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .pdp-meta { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13.5px; color: var(--earth); }
 .pdp-meta dt { font-weight: 600; color: var(--olive); margin-top: 10px; }
 .pdp-meta dd { margin: 2px 0 0; color: var(--earth); }

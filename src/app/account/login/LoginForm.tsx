@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { loginAction } from "@/app/actions/auth";
 
 export default function LoginForm({ next, email }: { next?: string; email?: string }) {
@@ -29,7 +30,7 @@ export default function LoginForm({ next, email }: { next?: string; email?: stri
         </div>
       </div>
       <div style={{ textAlign: "right", marginTop: -4, marginBottom: 16 }}>
-        <a href="/account/forgot-password" className="forgot-link">Forgot Password?</a>
+        <Link href="/account/forgot-password" className="forgot-link">Forgot Password?</Link>
       </div>
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
         {pending ? "Logging in…" : "Login"}

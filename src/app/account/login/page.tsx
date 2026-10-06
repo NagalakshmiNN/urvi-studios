@@ -2,8 +2,8 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import LoginForm from "./LoginForm";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; email?: string }> }) {
-  const { next, email } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; email?: string; registered?: string }> }) {
+  const { next, email, registered } = await searchParams;
   return (
     <>
       <SiteHeader />
@@ -12,6 +12,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <div className="auth-card">
           <div className="eyebrow" style={{ textAlign: "center", display: "block", marginBottom: 8 }}>Your Account</div>
           <h1>Login</h1>
+          {registered === "1" && (
+            <div className="notice-box success" style={{ marginBottom: 16 }}>
+              Account created successfully! Please login with your credentials.
+            </div>
+          )}
           <LoginForm next={next} email={email} />
             <p className="auth-switch">
               New to Urvi Studios? <a href={`/account/register${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Create an account</a>

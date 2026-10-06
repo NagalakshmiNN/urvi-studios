@@ -38,7 +38,23 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
 
   if (!name || name.length < 2) return { error: "Please enter your full name." };
   if (!EMAIL_RE.test(email)) return { error: "Please enter a valid email address." };
+  // Validate email domain — reject trivially short domains like "a.com"
+  const emailDomain = email.split("@")[1];
+  if (emailDomain) {
+    const domainParts = emailDomain.split(".");
+    if (domainParts.length < 2 || domainParts[0].length < 2) {
+      return { error: "Please enter a valid email address with a real domain." };
+    }
+  }
+  // Phone validation: if provided, must be a 10-digit Indian mobile
+  if (phone && !/^[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, ""))) {
+    return { error: "Enter a valid 10-digit Indian mobile number starting with 6-9." };
+  }
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
+  if (!/\d/.test(password)) return { error: "Password must include at least one digit." };
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { error: "Password must include at least one special character." };
+  }
 
   const existing = await db.query.customers.findFirst({ where: eq(schema.customers.email, email) });
   if (existing) return { error: "An account with this email already exists — try logging in instead." };
@@ -46,10 +62,8 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const passwordHash = await hashPassword(password);
   const [customer] = await db.insert(schema.customers).values({ name, email, phone, passwordHash }).returning();
 
-  await createCustomerSession(customer.id);
-  // Append welcome flag so the account page can show a success toast
-  const welcomeNext = next === "/account" ? "/account?welcome=1" : next;
-  redirect(welcomeNext);
+  // Redirect to login page with success message instead of auto-login
+  redirect("/account/login?registered=1&email=" + encodeURIComponent(email));
 }
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
