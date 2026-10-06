@@ -48,14 +48,17 @@ export async function proxy(request: NextRequest) {
 
   // ---------------------------------------------------------- /account/*
   if (pathname.startsWith("/account")) {
-    const isAuthPage = pathname === "/account/login" || pathname === "/account/register";
+    const isLoginOrRegister = pathname === "/account/login" || pathname === "/account/register";
+    const isPublicAccountPage = isLoginOrRegister
+      || pathname === "/account/forgot-password"
+      || pathname.startsWith("/account/reset-password");
     const loggedIn = await hasValidSession(request, "urvi_session", "customer");
-    if (!isAuthPage && !loggedIn) {
+    if (!isPublicAccountPage && !loggedIn) {
       const url = new URL("/account/login", request.url);
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
-    if (isAuthPage && loggedIn) {
+    if (isLoginOrRegister && loggedIn) {
       return NextResponse.redirect(new URL("/account", request.url));
     }
   }
