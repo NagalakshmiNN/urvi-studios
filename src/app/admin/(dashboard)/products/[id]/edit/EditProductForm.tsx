@@ -25,6 +25,7 @@ type Product = {
   stock: number;
   isActive: boolean;
   categoryId: string;
+  parentTags: string | null;
   images: { url: string }[];
   sizes: { label: string; stock: number }[];
   colors: { name: string; hex: string }[];
@@ -42,7 +43,7 @@ export default function EditProductForm({
   bandInfo,
 }: {
   product: Product;
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; slug: string; parent: string | null }[];
   bandInfo: BandInfo | null;
 }) {
   const [state, formAction, pending] = useActionState(updateProductFullAction, undefined);
@@ -57,6 +58,21 @@ export default function EditProductForm({
   );
   const [minPctInput, setMinPctInput] = useState(
     product.minMarkupPct != null ? String(product.minMarkupPct) : ""
+  );
+
+  // ---- Category management state ----
+  const [selectedCategoryId, setSelectedCategoryId] = useState(product.categoryId);
+  const currentCategory = categories.find((c) => c.id === selectedCategoryId);
+  const currentParent = currentCategory?.parent || "Everyday";
+  // parentTags: which parent sections this product appears in (multi-select)
+  const initialParents = product.parentTags
+    ? product.parentTags.split("|").filter(Boolean)
+    : currentParent ? [currentParent] : ["Everyday"];
+  const [selectedParents, setSelectedParents] = useState<string[]>(initialParents);
+  // For sub-category browsing, show whichever parent is relevant
+  const [browseParent, setBrowseParent] = useState(currentParent);
+  const subCategories = categories.filter(
+    (c) => c.parent === browseParent && c.slug !== "2-piece-set" && c.slug !== "3-piece-set"
   );
 
   const preview = useMemo(() => {
@@ -102,12 +118,8 @@ export default function EditProductForm({
             <label>Product name</label>
             <input type="text" name="name" required defaultValue={product.name} />
           </div>
-          <div className="form-group">
-            <label>Category</label>
-            <select name="categoryId" required defaultValue={product.categoryId}>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+          <input type="hidden" name="categoryId" value={selectedCategoryId} />
+          <input type="hidden" name="parentTags" value={selectedParents.join("|")} />
           <div className="form-group">
             <label>Description</label>
             <RichTextEditor name="description" defaultValue={product.description} />
@@ -147,6 +159,128 @@ export default function EditProductForm({
             {pending ? "Saving…" : "Save Changes"}
           </button>
         </form>
+      </div>
+
+      {/* ---- Category Management ---- */}
+      <div className="admin-card" style={{ marginTop: 24 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 4 }}>Category</h3>
+        <p className="field-hint" style={{ marginTop: 0, marginBottom: 16, lineHeight: 1.5 }}>
+          Tick the sections this product should appear in on the shop page. A kurta that works
+          for everyday and office wear? Tick both. Then pick the primary sub-category below.
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "block", color: "var(--earth, #51462F)" }}>
+            Appears under (select all that apply)
+          </label>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {["Everyday", "Office", "Occasion"].map((p) => {
+              const checked = selectedParents.includes(p);
+              return (
+                <label
+                  key={p}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 18px",
+                    borderRadius: 6,
+                    border: checked ? "2px solid var(--olive, #3F4827)" : "1px solid var(--sand, #d5cfc4)",
+                    background: checked ? "var(--olive, #3F4827)" : "white",
+                    color: checked ? "white" : "var(--earth, #51462F)",
+                    fontWeight: checked ? 600 : 400,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      setSelectedParents((prev) => {
+                        const next = prev.includes(p)
+                          ? prev.filter((x) => x !== p)
+                          : [...prev, p];
+                        // Must have at least one parent selected
+                        return next.length > 0 ? next : prev;
+                      });
+                    }}
+                    style={{ width: "auto", accentColor: checked ? "white" : "var(--olive, #3F4827)" }}
+                  />
+                  {p}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "block", color: "var(--earth, #51462F)" }}>
+            Primary sub-category
+          </label>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {["Everyday", "Office", "Occasion"].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setBrowseParent(p)}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 4,
+                  border: "none",
+                  background: browseParent === p ? "var(--sand, #EFE4D0)" : "transparent",
+                  color: "var(--earth, #51462F)",
+                  fontWeight: browseParent === p ? 600 : 400,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {subCategories.length > 0 ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {subCategories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(c.id)}
+                  style={{
+                    padding: "6px 16px",
+                    borderRadius: 4,
+                    border: selectedCategoryId === c.id ? "2px solid var(--gold, #A98238)" : "1px solid var(--sand, #d5cfc4)",
+                    background: selectedCategoryId === c.id ? "var(--gold, #A98238)" : "white",
+                    color: selectedCategoryId === c.id ? "white" : "var(--earth, #51462F)",
+                    fontWeight: selectedCategoryId === c.id ? 600 : 400,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "var(--sage)", fontSize: 13, margin: 0 }}>
+              No sub-categories under {browseParent}.
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          padding: "8px 14px",
+          background: "var(--sand, #f5f3ee)",
+          borderRadius: 6,
+          fontSize: 13,
+          color: "var(--earth, #51462F)",
+        }}>
+          Appears in: <strong>{selectedParents.join(", ")}</strong>
+          {currentCategory && (<> · Sub-category: <strong>{currentCategory.name}</strong></>)}
+        </div>
       </div>
 
       {/* ---- Price & Markup side by side ---- */}

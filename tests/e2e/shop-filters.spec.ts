@@ -42,7 +42,7 @@ test("lists the catalog with a piece count that matches the grid", async ({ page
   const cards = page.locator(".product-grid .product-card");
   const count = await cards.count();
   expect(count).toBeGreaterThan(0);
-  await expect(page.locator(".toolbar")).toContainText(`${count} pieces`);
+  await expect(page.locator(".toolbar")).toContainText(`${count} styles`);
 });
 
 test("filters by category section and by individual category", async ({ page }) => {
@@ -163,7 +163,7 @@ test.describe("refine chips", () => {
 
   test("a combination with no matches shows the empty message, not a blank page", async ({ page }) => {
     await page.goto("/shop?fabric=Zzz%20Test%20Linen&size=XL");
-    await expect(page.locator(".empty-state")).toContainText("No pieces match this filter");
+    await expect(page.locator(".empty-state")).toContainText("No styles match this filter");
     await expect(page.locator(".product-card")).toHaveCount(0);
   });
 

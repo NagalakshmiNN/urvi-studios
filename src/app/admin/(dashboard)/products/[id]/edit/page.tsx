@@ -11,7 +11,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const [product, categories, bands] = await Promise.all([
     db.query.products.findFirst({
       where: eq(schema.products.id, id),
-      with: { images: true, sizes: { orderBy: (s, { asc }) => [asc(s.position)] }, colors: true },
+      with: { images: true, sizes: { orderBy: (s, { asc }) => [asc(s.position)] }, colors: true, category: true },
     }),
     db.query.categories.findMany({ orderBy: (c, { asc }) => [asc(c.position)] }),
     loadBands(),
@@ -37,7 +37,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       </div>
       <EditProductForm
         product={product}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, parent: c.parent }))}
         bandInfo={bandInfo}
       />
     </>

@@ -10,7 +10,7 @@ export default async function NewProductPage() {
         <h1>Add Product</h1>
       </div>
       <div className="admin-card admin-form-card">
-        <NewProductForm categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
+        <NewProductForm categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, parent: c.parent }))} />
       </div>
     </>
   );

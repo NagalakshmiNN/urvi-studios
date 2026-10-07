@@ -99,6 +99,10 @@ export const products = pgTable("products", {
   stock: integer("stock").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   categoryId: text("category_id").notNull().references(() => categories.id),
+  // Pipe-separated parent categories this product appears under on the shop
+  // page. e.g. "Everyday|Office|Occasion". When null, derived from the
+  // primary category's parent at query time.
+  parentTags: text("parent_tags"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

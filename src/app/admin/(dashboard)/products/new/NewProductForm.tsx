@@ -6,7 +6,7 @@ import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
 import RichTextEditor from "@/components/RichTextEditor";
 
-export default function NewProductForm({ categories }: { categories: { id: string; name: string }[] }) {
+export default function NewProductForm({ categories }: { categories: { id: string; name: string; slug: string; parent: string | null }[] }) {
   const [state, formAction, pending] = useActionState(createProductAction, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   // Bumped on every successful add so the rich Description editor (which
@@ -14,6 +14,14 @@ export default function NewProductForm({ categories }: { categories: { id: strin
   // reset() below already clears) also clears back to empty for the next
   // product instead of silently keeping the last one's text.
   const [resetKey, setResetKey] = useState(0);
+
+  // ---- Category management state ----
+  const [selectedParents, setSelectedParents] = useState<string[]>(["Everyday"]);
+  const [browseParent, setBrowseParent] = useState("Everyday");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const subCategories = categories.filter(
+    (c) => c.parent === browseParent && c.slug !== "2-piece-set" && c.slug !== "3-piece-set"
+  );
 
   useEffect(() => {
     if (state?.success) {
@@ -31,14 +39,111 @@ export default function NewProductForm({ categories }: { categories: { id: strin
         <label>Product name</label>
         <input type="text" name="name" required />
       </div>
-      <div className="form-group">
-        <label>Category</label>
-        <select name="categoryId" required defaultValue="">
-          <option value="" disabled>Choose a category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+      <input type="hidden" name="categoryId" value={selectedCategoryId} />
+      <input type="hidden" name="parentTags" value={selectedParents.join("|")} />
+      <div style={{
+        border: "1px solid var(--sand, #d5cfc4)",
+        borderRadius: 8,
+        padding: "16px 18px",
+        marginBottom: 16,
+        background: "var(--ivory, #faf8f2)",
+      }}>
+        <label style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, display: "block", color: "var(--earth, #51462F)" }}>
+          Category
+        </label>
+        <div style={{ marginBottom: 12 }}>
+          <span style={{ fontSize: 12, color: "var(--sage)", display: "block", marginBottom: 6 }}>Appears under (select all that apply)</span>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {["Everyday", "Office", "Occasion"].map((p) => {
+              const checked = selectedParents.includes(p);
+              return (
+                <label
+                  key={p}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "7px 16px",
+                    borderRadius: 6,
+                    border: checked ? "2px solid var(--olive, #3F4827)" : "1px solid var(--sand, #d5cfc4)",
+                    background: checked ? "var(--olive, #3F4827)" : "white",
+                    color: checked ? "white" : "var(--earth, #51462F)",
+                    fontWeight: checked ? 600 : 400,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      setSelectedParents((prev) => {
+                        const next = prev.includes(p)
+                          ? prev.filter((x) => x !== p)
+                          : [...prev, p];
+                        return next.length > 0 ? next : prev;
+                      });
+                    }}
+                    style={{ width: "auto", accentColor: checked ? "white" : "var(--olive, #3F4827)" }}
+                  />
+                  {p}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <span style={{ fontSize: 12, color: "var(--sage)", display: "block", marginBottom: 6 }}>Primary sub-category</span>
+          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+            {["Everyday", "Office", "Occasion"].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setBrowseParent(p)}
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 4,
+                  border: "none",
+                  background: browseParent === p ? "var(--sand, #EFE4D0)" : "transparent",
+                  color: "var(--earth, #51462F)",
+                  fontWeight: browseParent === p ? 600 : 400,
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {subCategories.length > 0 ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {subCategories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(c.id)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 4,
+                    border: selectedCategoryId === c.id ? "2px solid var(--gold, #A98238)" : "1px solid var(--sand, #d5cfc4)",
+                    background: selectedCategoryId === c.id ? "var(--gold, #A98238)" : "white",
+                    color: selectedCategoryId === c.id ? "white" : "var(--earth, #51462F)",
+                    fontWeight: selectedCategoryId === c.id ? 600 : 400,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "var(--sage)", fontSize: 12, margin: 0 }}>
+              No sub-categories under {browseParent}.
+            </p>
+          )}
+        </div>
       </div>
       <div className="form-group">
         <label>Description</label>

@@ -60,6 +60,8 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   const minRoundUpTo = parseInt(String(formData.get("minRoundUpTo") || ""), 10) || null;
   const maxRoundUpTo = parseInt(String(formData.get("maxRoundUpTo") || ""), 10) || null;
   const categoryId = String(formData.get("categoryId") || "");
+  const parentTagsRaw = String(formData.get("parentTags") || "").trim();
+  const parentTags = parentTagsRaw || null;
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const sizeLabels = formData.getAll("sizeLabel").map(String);
   const sizeStocks = formData.getAll("sizeStock").map(String);
@@ -101,6 +103,7 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
       badge: badge || null,
       stock: totalStock,
       categoryId,
+      parentTags,
     })
     .returning();
 
@@ -180,6 +183,8 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   const stylingTips = String(formData.get("stylingTips") || "").trim();
   const badge = String(formData.get("badge") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
+  const parentTagsRaw = String(formData.get("parentTags") || "").trim();
+  const parentTags = parentTagsRaw || null;
   const isActive = formData.get("isActive") === "on";
   const imageUrls = String(formData.get("images") || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const sizeLabels = formData.getAll("sizeLabel").map(String);
@@ -216,6 +221,7 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
       badge: badge || null,
       stock: totalStock,
       categoryId,
+      parentTags,
       isActive,
       updatedAt: new Date(),
     })

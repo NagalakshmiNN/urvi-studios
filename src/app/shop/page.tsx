@@ -15,8 +15,6 @@ const SUB_LABELS: Record<string, string> = {
   kurta: "Kurta",
   "fusion-edit": "Fusion Edit",
   "co-ords": "Co-ords",
-  "3-piece-set": "3 Piece Set",
-  "2-piece-set": "2 Piece Set",
 };
 
 const SORTS = [
@@ -38,45 +36,19 @@ function parseMulti(v?: string): string[] {
 // list (a one-off label from the sheet) is sorted alphabetically after them
 // rather than dropped.
 
-// Piece-count filter: derives a piece label from the product's category slug.
-const PIECE_OPTIONS = ["1 Piece", "2 Piece", "3 Piece"];
-function pieceLabel(catSlug: string, productName: string, description?: string): string {
-  // Category-slug mappings (most reliable signal)
-  if (catSlug === "3-piece-set") return "3 Piece";
-  if (catSlug === "2-piece-set" || catSlug === "co-ords") return "2 Piece";
-
-  // Description parsing: "Set Contains: 3 Piece" or "Set Contains: 2 Piece"
-  if (description) {
-    const descLower = description.toLowerCase();
-    if (/set\s+contains\s*[:\-–]?\s*3\s*piece/i.test(description)) return "3 Piece";
-    if (/set\s+contains\s*[:\-–]?\s*2\s*piece/i.test(description)) return "2 Piece";
-    // Also check for plain "3 piece" or "2 piece" anywhere in description
-    if (descLower.includes("3 piece") || descLower.includes("3-piece") || descLower.includes("3pc")) return "3 Piece";
-    if (descLower.includes("2 piece") || descLower.includes("2-piece") || descLower.includes("2pc")) return "2 Piece";
-  }
-
-  // Name keyword detection (check 3-piece patterns BEFORE "set" catch-all)
-  const lower = productName.toLowerCase();
-  if (lower.includes("3 piece") || lower.includes("3-piece") || lower.includes("3pc")) return "3 Piece";
-  if (lower.includes("with dupatta")) return "3 Piece";
-  if (lower.includes("set") || lower.includes("co-ord") || lower.includes("coord")
-      || lower.includes("2 piece") || lower.includes("2-piece") || lower.includes("2pc")) return "2 Piece";
-  return "1 Piece";
-}
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size"];
 
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sub?: string; sort?: string; fabric?: string; color?: string; size?: string; pieces?: string }>;
+  searchParams: Promise<{ cat?: string; sub?: string; sort?: string; fabric?: string; color?: string; size?: string; }>;
 }) {
-  const { cat = "all", sub = "all", sort = "newest", fabric, color, size, pieces } = await searchParams;
+  const { cat = "all", sub = "all", sort = "newest", fabric, color, size } = await searchParams;
   const fabricSel = parseMulti(fabric);
   const colorSel = parseMulti(color);
   const sizeSel = parseMulti(size);
-  const piecesSel = parseMulti(pieces);
-  const customerId = await getCustomerSession();
+    const customerId = await getCustomerSession();
 
   const categories = await db.query.categories.findMany({ orderBy: (c, { asc }) => [asc(c.position)] });
 
@@ -88,7 +60,12 @@ export default async function ShopPage({
   if (sub !== "all") {
     products = products.filter((p) => p.category.slug === sub);
   } else if (cat !== "all") {
-    products = products.filter((p) => p.category.parent === cat);
+    // parentTags is pipe-separated (e.g. "Everyday|Office"); when null,
+    // fall back to the sub-category's own parent for pre-migration products.
+    products = products.filter((p) => {
+      const tags = p.parentTags ? p.parentTags.split("|") : [p.category.parent];
+      return tags.includes(cat);
+    });
   }
 
   // Refine options (fabric/color/size) are built from whatever the category
@@ -114,11 +91,7 @@ export default async function ShopPage({
     return a.localeCompare(b);
   });
 
-  // Piece-count options (built from available products, before piece filter)
-  const piecesAvailable = new Set(products.map((p) => pieceLabel(p.category.slug, p.name, p.description)));
-  const pieceOptions = PIECE_OPTIONS.filter((o) => piecesAvailable.has(o));
 
-  if (piecesSel.length) products = products.filter((p) => piecesSel.includes(pieceLabel(p.category.slug, p.name, p.description)));
   if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
   if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
@@ -145,7 +118,7 @@ export default async function ShopPage({
     if (fabricSel.length) p.set("fabric", fabricSel.join(FILTER_SEP));
     if (colorSel.length) p.set("color", colorSel.join(FILTER_SEP));
     if (sizeSel.length) p.set("size", sizeSel.join(FILTER_SEP));
-    if (piecesSel.length) p.set("pieces", piecesSel.join(FILTER_SEP));
+
     return p;
   }
 
@@ -170,8 +143,8 @@ export default async function ShopPage({
   // Clicking a refine chip that's already selected removes it (toggle);
   // clicking an unselected one adds it. Everything else in the URL — the
   // category, sort, and the other two refine dimensions — is preserved.
-  function refineHref(dimension: "fabric" | "color" | "size" | "pieces", value: string) {
-    const current = dimension === "fabric" ? fabricSel : dimension === "color" ? colorSel : dimension === "size" ? sizeSel : piecesSel;
+  function refineHref(dimension: "fabric" | "color" | "size", value: string) {
+    const current = dimension === "fabric" ? fabricSel : dimension === "color" ? colorSel : sizeSel;
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     const p = baseParams();
     if (next.length) p.set(dimension, next.join(FILTER_SEP));
@@ -185,57 +158,58 @@ export default async function ShopPage({
     p.delete("fabric");
     p.delete("color");
     p.delete("size");
-    p.delete("pieces");
     const qs = p.toString();
     return `/shop${qs ? "?" + qs : ""}`;
   }
 
-  const anyRefineActive = fabricSel.length > 0 || colorSel.length > 0 || sizeSel.length > 0 || piecesSel.length > 0;
+  // Parent-category href: switching parent clears sub-category
+  function catHref(nextCat: string) {
+    const p = baseParams();
+    if (nextCat !== "all") p.set("cat", nextCat);
+    else p.delete("cat");
+    p.delete("sub");
+    const qs = p.toString();
+    return `/shop${qs ? "?" + qs : ""}`;
+  }
+
+  // Sub-categories that belong to the currently selected parent
+  const subCatsForParent = cat !== "all"
+    ? categories.filter((c) => c.parent === cat && c.slug !== "2-piece-set" && c.slug !== "3-piece-set")
+    : [];
+
+  const anyRefineActive = fabricSel.length > 0 || colorSel.length > 0 || sizeSel.length > 0;
 
   return (
     <>
-      <SiteHeader active="Shop All" />
+      {/* active nav link matches the cat param */}
+      <SiteHeader active={cat === "Everyday" ? "Everyday" : cat === "Office" ? "Office" : cat === "Occasion" ? "Occasion" : "Shop All"} />
       <div className="page-hero container">
         <div className="eyebrow">The Collection</div>
         <h1>{title}</h1>
         <p className="lede" style={{ margin: "0 auto" }}>
-          Curated from manufacturers across India — festive, office, casual and fusion pieces, refreshed regularly.
+          Curated from manufacturers across India — festive, office, casual and fusion styles, refreshed regularly.
         </p>
       </div>
       <section className="section" style={{ paddingTop: 30 }}>
         <div className="container">
           <div className="filter-bar">
-            <Link href={chipHref("all", "all")} className={`chip ${cat === "all" && sub === "all" && !piecesSel.length ? "active" : ""}`}>All</Link>
-            {categories.map((c) => {
-              // "2 Piece Set" and "3 Piece Set" categories have no products assigned;
-              // redirect their chips to the pieces refine filter instead.
-              if (c.slug === "2-piece-set") {
-                const href = (() => { const p = new URLSearchParams(); p.set("pieces", "2 Piece"); return `/shop?${p.toString()}`; })();
-                return <Link key={c.slug} href={href} className={`chip ${piecesSel.includes("2 Piece") && piecesSel.length === 1 ? "active" : ""}`}>{c.name}</Link>;
-              }
-              if (c.slug === "3-piece-set") {
-                const href = (() => { const p = new URLSearchParams(); p.set("pieces", "3 Piece"); return `/shop?${p.toString()}`; })();
-                return <Link key={c.slug} href={href} className={`chip ${piecesSel.includes("3 Piece") && piecesSel.length === 1 ? "active" : ""}`}>{c.name}</Link>;
-              }
-              return <Link key={c.slug} href={chipHref("all", c.slug)} className={`chip ${sub === c.slug ? "active" : ""}`}>{c.name}</Link>;
-            })}
+            <Link href={catHref("all")} className={`chip ${cat === "all" && sub === "all" ? "active" : ""}`}>All</Link>
+            <Link href={catHref("Everyday")} className={`chip ${cat === "Everyday" ? "active" : ""}`}>Everyday</Link>
+            <Link href={catHref("Office")} className={`chip ${cat === "Office" ? "active" : ""}`}>Office</Link>
+            <Link href={catHref("Occasion")} className={`chip ${cat === "Occasion" ? "active" : ""}`}>Occasion</Link>
           </div>
+          {cat !== "all" && subCatsForParent.length > 0 && (
+            <div className="filter-bar" style={{ marginTop: 8 }}>
+              {subCatsForParent.map((c) => (
+                <Link key={c.slug} href={chipHref(cat, c.slug)} className={`chip chip-sm ${sub === c.slug ? "active" : ""}`}>{c.name}</Link>
+              ))}
+            </div>
+          )}
 
-          {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0 || pieceOptions.length > 0) && (
-            <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length + piecesSel.length}>
+          {(fabricOptions.length > 0 || colorFamilies.length > 0 || sizeOptions.length > 0) && (
+            <RefineFilters activeCount={sizeSel.length + colorSel.length + fabricSel.length}>
             <div className="refine-bar">
-              {pieceOptions.length > 0 && (
-                <div className="refine-group">
-                  <span className="refine-label">Pieces</span>
-                  <div className="refine-chips">
-                    {pieceOptions.map((p) => (
-                      <Link key={p} href={refineHref("pieces", p)} className={`chip-sm ${piecesSel.includes(p) ? "active" : ""}`}>
-                        {p}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+
               {sizeOptions.length > 0 && (
                 <div className="refine-group">
                   <span className="refine-label">Size</span>
@@ -287,7 +261,7 @@ export default async function ShopPage({
           )}
 
           <div className="toolbar">
-            <span style={{ fontSize: 13, color: "var(--sage)" }}>{products.length} pieces</span>
+            <span style={{ fontSize: 13, color: "var(--sage)" }}>{products.length} styles</span>
             <div style={{ display: "flex", gap: 8 }}>
               {SORTS.map((s) => (
                 <Link key={s.value} href={sortHref(s.value)} className={`chip ${sort === s.value ? "active" : ""}`} style={{ borderRadius: 2 }}>
@@ -304,7 +278,7 @@ export default async function ShopPage({
               ))}
             </div>
           ) : (
-            <div className="empty-state">No pieces match this filter just yet — check back soon.</div>
+            <div className="empty-state">No styles match this filter just yet — check back soon.</div>
           )}
         </div>
       </section>
