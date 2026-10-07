@@ -5,6 +5,7 @@ import { createProductAction } from "@/app/actions/admin";
 import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
 import RichTextEditor from "@/components/RichTextEditor";
+import { FABRIC_TYPES } from "@/lib/fabric-types";
 
 export default function NewProductForm({ categories }: { categories: { id: string; name: string; slug: string; parent: string | null }[] }) {
   const [state, formAction, pending] = useActionState(createProductAction, undefined);
@@ -18,6 +19,7 @@ export default function NewProductForm({ categories }: { categories: { id: strin
   // ---- Category management state ----
   const [selectedParents, setSelectedParents] = useState<string[]>(["Everyday"]);
   const [browseParent, setBrowseParent] = useState("Everyday");
+  const [selectedFabrics, setSelectedFabrics] = useState<string[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const subCategories = categories.filter(
     (c) => c.parent === browseParent && c.slug !== "2-piece-set" && c.slug !== "3-piece-set"
@@ -41,6 +43,7 @@ export default function NewProductForm({ categories }: { categories: { id: strin
       </div>
       <input type="hidden" name="categoryId" value={selectedCategoryId} />
       <input type="hidden" name="parentTags" value={selectedParents.join("|")} />
+      <input type="hidden" name="fabricTags" value={selectedFabrics.join("|")} />
       <div style={{
         border: "1px solid var(--sand, #d5cfc4)",
         borderRadius: 8,
@@ -152,6 +155,53 @@ export default function NewProductForm({ categories }: { categories: { id: strin
       <div className="form-group">
         <label>Fabric</label>
         <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" />
+        <div style={{
+          marginTop: 10,
+          padding: "12px 14px",
+          border: "1px solid var(--sand, #d5cfc4)",
+          borderRadius: 6,
+          background: "var(--ivory, #faf8f2)",
+        }}>
+          <span style={{ fontSize: 12, color: "var(--sage)", display: "block", marginBottom: 8 }}>
+            Tick every fabric this product is made of
+          </span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {FABRIC_TYPES.map((ft) => {
+              const checked = selectedFabrics.includes(ft);
+              return (
+                <label
+                  key={ft}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 12px",
+                    borderRadius: 4,
+                    border: checked ? "2px solid var(--gold, #A98238)" : "1px solid var(--sand, #d5cfc4)",
+                    background: checked ? "var(--gold, #A98238)" : "white",
+                    color: checked ? "white" : "var(--earth, #51462F)",
+                    fontWeight: checked ? 600 : 400,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    userSelect: "none" as const,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      setSelectedFabrics((prev) =>
+                        prev.includes(ft) ? prev.filter((x) => x !== ft) : [...prev, ft]
+                      )
+                    }
+                    style={{ width: "auto", accentColor: checked ? "white" : "var(--gold, #A98238)" }}
+                  />
+                  {ft}
+                </label>
+              );
+            })}
+          </div>
+        </div>
       </div>
       <div className="form-group">
         <label>Ease / styling</label>

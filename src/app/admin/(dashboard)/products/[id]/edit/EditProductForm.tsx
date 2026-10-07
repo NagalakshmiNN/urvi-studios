@@ -6,6 +6,7 @@ import { updateProductMarkupAction, type PricingFormState } from "@/app/actions/
 import ImageUploader from "@/components/ImageUploader";
 import SizeStockEditor from "@/components/SizeStockEditor";
 import RichTextEditor from "@/components/RichTextEditor";
+import { FABRIC_TYPES } from "@/lib/fabric-types";
 
 type Product = {
   id: string;
@@ -26,6 +27,7 @@ type Product = {
   isActive: boolean;
   categoryId: string;
   parentTags: string | null;
+  fabricTags: string | null;
   images: { url: string }[];
   sizes: { label: string; stock: number }[];
   colors: { name: string; hex: string }[];
@@ -75,6 +77,12 @@ export default function EditProductForm({
     (c) => c.parent === browseParent && c.slug !== "2-piece-set" && c.slug !== "3-piece-set"
   );
 
+  // ---- Fabric tags state ----
+  const initialFabrics = product.fabricTags
+    ? product.fabricTags.split("|").filter(Boolean)
+    : [];
+  const [selectedFabrics, setSelectedFabrics] = useState<string[]>(initialFabrics);
+
   const preview = useMemo(() => {
     if (product.landedCost == null || product.landedCost <= 0) return null;
 
@@ -120,6 +128,7 @@ export default function EditProductForm({
           </div>
           <input type="hidden" name="categoryId" value={selectedCategoryId} />
           <input type="hidden" name="parentTags" value={selectedParents.join("|")} />
+          <input type="hidden" name="fabricTags" value={selectedFabrics.join("|")} />
           <div className="form-group">
             <label>Description</label>
             <RichTextEditor name="description" defaultValue={product.description} />
@@ -127,6 +136,50 @@ export default function EditProductForm({
           <div className="form-group">
             <label>Fabric</label>
             <textarea name="fabric" rows={2} placeholder="e.g. Pure silk with zari border" defaultValue={product.fabric} />
+            <p className="field-hint">Descriptive text shown on the product page.</p>
+          </div>
+          <div className="form-group">
+            <label>Fabric type (for filtering)</label>
+            <p className="field-hint" style={{ marginTop: 0, marginBottom: 8 }}>
+              Tick every fabric this product is made of. Customers filter by these on the shop page.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {FABRIC_TYPES.map((fab) => {
+                const checked = selectedFabrics.includes(fab);
+                return (
+                  <label
+                    key={fab}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "5px 14px",
+                      borderRadius: 4,
+                      border: checked ? "2px solid var(--gold, #A98238)" : "1px solid var(--sand, #d5cfc4)",
+                      background: checked ? "var(--gold, #A98238)" : "white",
+                      color: checked ? "white" : "var(--earth, #51462F)",
+                      fontWeight: checked ? 600 : 400,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      userSelect: "none" as const,
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setSelectedFabrics((prev) =>
+                          prev.includes(fab) ? prev.filter((x) => x !== fab) : [...prev, fab]
+                        );
+                      }}
+                      style={{ width: "auto", accentColor: checked ? "white" : "var(--gold, #A98238)" }}
+                    />
+                    {fab}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <div className="form-group">
             <label>Ease / styling</label>

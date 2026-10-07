@@ -103,6 +103,9 @@ export const products = pgTable("products", {
   // page. e.g. "Everyday|Office|Occasion". When null, derived from the
   // primary category's parent at query time.
   parentTags: text("parent_tags"),
+  // Pipe-separated fabric types for structured filtering on the shop page.
+  // e.g. "Cotton|Georgette". The free-text `fabric` column stays for descriptions.
+  fabricTags: text("fabric_tags"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

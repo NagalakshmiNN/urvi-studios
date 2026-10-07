@@ -6,6 +6,7 @@ import { getCustomerSession } from "@/lib/auth";
 import Link from "next/link";
 import RefineFilters from "@/components/RefineFilters";
 import { buildColorFamilyOptions, expandColorSelection } from "@/lib/color-families";
+import { FABRIC_TYPES } from "@/lib/fabric-types";
 
 const SUB_LABELS: Record<string, string> = {
   "festive-wear": "Festive Wear",
@@ -72,8 +73,12 @@ export default async function ShopPage({
   // filter left standing, before fabric/color/size are applied — so the
   // chips offered always reflect what's actually available to pick from
   // here, not stale options left over from a different category.
-  const fabricOptions = Array.from(new Set(products.map((p) => p.fabric.trim()).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b)
+  // Show only the standard fabric types that at least one visible product
+  // has been tagged with (via fabricTags). Products that haven't been tagged
+  // yet simply don't contribute to the list — they'll appear once their
+  // fabric tags are set in the admin.
+  const fabricOptions = FABRIC_TYPES.filter((ft) =>
+    products.some((p) => p.fabricTags && p.fabricTags.split("|").includes(ft))
   );
   const individualColors = products.reduce((map, p) => {
     for (const c of p.colors) if (!map.has(c.name)) map.set(c.name, c.hex);
@@ -92,7 +97,7 @@ export default async function ShopPage({
   });
 
 
-  if (fabricSel.length) products = products.filter((p) => fabricSel.includes(p.fabric.trim()));
+  if (fabricSel.length) products = products.filter((p) => p.fabricTags ? fabricSel.some((f) => p.fabricTags!.split("|").includes(f)) : false);
   if (colorSel.length) products = products.filter((p) => p.colors.some((c) => expandedColorNames.some((en) => en.toLowerCase() === c.name.toLowerCase())));
   if (sizeSel.length) products = products.filter((p) => p.sizes.some((s) => sizeSel.includes(s.label)));
 
