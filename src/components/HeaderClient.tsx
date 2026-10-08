@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cartCount, onCartChange } from "@/lib/cart";
 
 export default function HeaderClient({ customerName }: { customerName: string | null }) {
   const [count, setCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const update = () => setCount(cartCount());
@@ -14,10 +17,18 @@ export default function HeaderClient({ customerName }: { customerName: string | 
     return onCartChange(update);
   }, []);
 
+  /* Close the drawer on every client-side navigation */
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname, searchParams]);
+
   useEffect(() => {
     const nav = document.getElementById("main-nav");
     if (!nav) return;
     nav.classList.toggle("open", menuOpen);
+    /* Prevent background scroll when drawer is open */
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [menuOpen]);
 
   return (
@@ -45,13 +56,34 @@ export default function HeaderClient({ customerName }: { customerName: string | 
           <span className="cart-count" style={{ display: count > 0 ? "flex" : "none" }}>{count}</span>
         </Link>
       )}
-      <button className="menu-toggle" aria-label="Menu" onClick={() => setMenuOpen((v) => !v)}>
+      <button className="menu-toggle" aria-label={menuOpen ? "Close menu" : "Open menu"} onClick={() => setMenuOpen((v) => !v)}>
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
+          {menuOpen ? (
+            <>
+              <line x1="5" y1="5" x2="19" y2="19" />
+              <line x1="19" y1="5" x2="5" y2="19" />
+            </>
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
         </svg>
       </button>
+      {menuOpen && (
+        <div
+          className="menu-backdrop"
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            zIndex: 199,
+          }}
+        />
+      )}
       <style jsx>{`
         .desktop-only { display: inline-flex; }
         @media (max-width: 680px) {
