@@ -9,7 +9,7 @@ import ReconcileButton from "./ReconcileButton";
 import { formatPaise } from "@/lib/sale-price";
 import { whatsappLink } from "@/lib/whatsapp";
 import { statusCustomerLine } from "@/lib/order-status-copy";
-import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
+import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS, SALE_BY_LABELS } from "@/lib/order-channels";
 import { SITE } from "@/lib/site-config";
 import { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
 
@@ -145,6 +145,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <p style={{ fontSize: 12.5, color: "var(--sage)", marginTop: 4 }}>
           Channel: {SOURCE_LABELS[order.source] ?? order.source} ·{" "}
           {FULFILMENT_LABELS[order.fulfilmentMethod] ?? order.fulfilmentMethod}
+          {order.saleBy && <> · Sale by: {SALE_BY_LABELS[order.saleBy] ?? order.saleBy}</>}
         </p>
       </div>
     </>

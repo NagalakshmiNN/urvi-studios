@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { formatINR } from "@/lib/format";
 import { formatPaise } from "@/lib/sale-price";
-import { SOURCE_LABELS, PAYMENT_MODE_LABELS } from "@/lib/order-channels";
+import { SOURCE_LABELS, PAYMENT_MODE_LABELS, SALE_BY_LABELS } from "@/lib/order-channels";
 import { statusLabel } from "@/lib/order-status-copy";
 import Link from "next/link";
 import TidyUnpaidOrders from "./TidyUnpaidOrders";
@@ -105,7 +105,10 @@ export default async function AdminOrdersPage({
                     {o.customerPhone}
                   </Link>
                 </td>
-                <td>{SOURCE_LABELS[o.source] ?? o.source}</td>
+                <td>
+                  {SOURCE_LABELS[o.source] ?? o.source}
+                  {o.saleBy && <><br /><span style={{ color: "var(--sage)", fontSize: 11.5 }}>{SALE_BY_LABELS[o.saleBy] ?? o.saleBy}</span></>}
+                </td>
                 <td style={{ fontSize: 12.5 }}>
                   {o.fulfilmentMethod === "pickup" ? "Collected in person" : "Delivery"}
                 </td>

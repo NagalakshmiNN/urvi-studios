@@ -19,6 +19,7 @@ function revalidateMoneyViews() {
   revalidatePath("/admin/money");
   revalidatePath("/admin/money/expenses");
   revalidatePath("/admin/money/capital");
+  revalidatePath("/admin/money/overview");
   revalidatePath("/admin");
 }
 

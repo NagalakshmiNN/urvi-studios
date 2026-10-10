@@ -46,3 +46,16 @@ export function isPickup(order: { fulfilmentMethod?: string | null }): boolean {
 export function isInPerson(order: { source?: string | null }): boolean {
   return order.source === "walk_in";
 }
+
+// Who made or facilitated the sale — an in-person sale is always
+// attributable to Lakshmi or Shilpa, website orders to the site itself.
+export const SALE_BY_OPTIONS: { value: string; label: string }[] = [
+  { value: "Lakshmi", label: "Lakshmi" },
+  { value: "Shilpa", label: "Shilpa" },
+];
+
+export const SALE_BY_LABELS: Record<string, string> = {
+  Lakshmi: "Lakshmi",
+  Shilpa: "Shilpa",
+  Website: "Website",
+};

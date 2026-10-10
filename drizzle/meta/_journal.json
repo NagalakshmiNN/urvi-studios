@@ -50,6 +50,13 @@
       "when": 1791349192851,
       "tag": "0006_add_fabric_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791633874944,
+      "tag": "0007_add_sale_by",
+      "breakpoints": true
     }
   ]
 }

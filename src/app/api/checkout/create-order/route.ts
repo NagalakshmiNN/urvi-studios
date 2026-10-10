@@ -127,6 +127,7 @@ export async function POST(request: Request) {
       state: isPickup ? "" : customer.state,
       pincode: isPickup ? "" : customer.pincode,
       notes: customer.notes || null,
+      saleBy: "Website",
     })
     .returning();
 

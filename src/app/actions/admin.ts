@@ -570,6 +570,8 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
       : "delivery";
   const paymentModeRaw = String(formData.get("paymentMode") || "").trim();
   const paymentMode = ["cash", "upi", "card"].includes(paymentModeRaw) ? paymentModeRaw : null;
+  const saleByRaw = String(formData.get("saleBy") || "").trim();
+  const saleBy = ["Lakshmi", "Shilpa"].includes(saleByRaw) ? saleByRaw : null;
 
   if (!customerName) return { error: "Please enter the customer's name." };
   if (!customerPhone) return { error: "Please enter the customer's phone number." };
@@ -637,6 +639,7 @@ export async function createManualOrderAction(_prev: AdminFormState, formData: F
       state: state || "",
       pincode: pincode || "",
       notes: notes || null,
+      saleBy,
     })
     .returning();
 

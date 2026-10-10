@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { createManualOrderAction } from "@/app/actions/admin";
 import { formatINR } from "@/lib/format";
-import { MANUAL_SOURCES, PAYMENT_MODES } from "@/lib/order-channels";
+import { MANUAL_SOURCES, PAYMENT_MODES, SALE_BY_OPTIONS } from "@/lib/order-channels";
 import ProductThumb from "@/components/admin/ProductThumb";
 
 type Product = {
@@ -31,6 +31,7 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
   const [source, setSource] = useState("walk_in");
   const [fulfilment, setFulfilment] = useState<"delivery" | "pickup">("pickup");
   const [paid, setPaid] = useState(true);
+  const [saleBy, setSaleBy] = useState("");
 
   // A walk-in is always handed over there and then; anything phoned or
   // messaged in still needs delivering unless told otherwise.
@@ -94,6 +95,15 @@ export default function ManualOrderForm({ products }: { products: Product[] }) {
           >
             <option value="pickup">Collected in person</option>
             <option value="delivery">To be delivered</option>
+          </select>
+        </div>
+        <div className="form-group" style={{ flex: 2 }}>
+          <label>Sale by</label>
+          <select name="saleBy" value={saleBy} onChange={(e) => setSaleBy(e.target.value)}>
+            <option value="">Who made this sale?</option>
+            {SALE_BY_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
           </select>
         </div>
       </div>

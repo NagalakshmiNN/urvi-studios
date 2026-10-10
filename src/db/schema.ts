@@ -184,6 +184,9 @@ export const orders = pgTable("orders", {
   // against UPI and card receipts. Null for website orders, where the payment
   // method above already says how it was paid.
   paymentMode: text("payment_mode"), // "cash" | "upi" | "card" | null
+  // Who made / facilitated this sale — Lakshmi, Shilpa, or the website itself.
+  // Auto-set to "Website" for online orders; admin picks the person for manual ones.
+  saleBy: text("sale_by"),
   // What the order actually sold for, in PAISE (integer, so two decimal places
   // are exact). Null until an admin records it.
   actualSalePricePaise: integer("actual_sale_price_paise"),
