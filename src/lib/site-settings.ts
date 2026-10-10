@@ -3,10 +3,16 @@ import { eq } from "drizzle-orm";
 
 /** Read a site setting by key. Returns null if the key doesn't exist. */
 export async function getSiteSetting(key: string): Promise<string | null> {
-  const row = await db.query.siteSettings.findFirst({
-    where: eq(schema.siteSettings.key, key),
-  });
-  return row?.value ?? null;
+  try {
+    const row = await db.query.siteSettings.findFirst({
+      where: eq(schema.siteSettings.key, key),
+    });
+    return row?.value ?? null;
+  } catch {
+    // Table may not exist yet (migration pending) — return null so callers
+    // fall back to their defaults instead of crashing the page.
+    return null;
+  }
 }
 
 /** Read a boolean site setting (stored as "true"/"false"). Defaults to false. */

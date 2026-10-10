@@ -23,9 +23,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     where: eq(schema.orders.orderNumber, orderNumber),
     with: { items: { with: { product: { with: { images: true } } } } },
   });
-  const warehouses = await db.query.warehouses.findMany({
-    orderBy: (w, { asc }) => [asc(w.label)],
-  });
+  let warehouses: any[] = [];
+  try {
+    warehouses = await db.query.warehouses.findMany({
+      orderBy: (w, { asc }) => [asc(w.label)],
+    });
+  } catch {
+    // Table may not exist yet (migration pending)
+  }
 
   if (!order) notFound();
 

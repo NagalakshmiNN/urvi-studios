@@ -91,7 +91,12 @@ export default async function AdminSettingsPage() {
   if (!admin) redirect("/admin/login");
 
   const betaBannerEnabled = await getBoolSetting("beta_banner_enabled");
-  const allWarehouses = await db.query.warehouses.findMany({ orderBy: (w, { asc }) => [asc(w.label)] });
+  let allWarehouses: any[] = [];
+  try {
+    allWarehouses = await db.query.warehouses.findMany({ orderBy: (w, { asc }) => [asc(w.label)] });
+  } catch {
+    // Table may not exist yet (migration pending)
+  }
 
   return (
     <>
