@@ -7,6 +7,7 @@ import { getCustomerSession } from "@/lib/auth";
 import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import { notFound } from "next/navigation";
+import { courierStatusLabel } from "@/lib/shadowfax";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
@@ -63,6 +64,47 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
             {order.city}, {order.state} {order.pincode}<br />
             {order.customerPhone}
           </p>
+
+          {order.awbNumber && (
+            <div style={{ marginTop: 24 }}>
+              <h3 style={{ marginBottom: 10 }}>Tracking</h3>
+              <div style={{
+                padding: "16px 20px",
+                borderRadius: 8,
+                border: "1px solid var(--sand, #EFE4D0)",
+                background: "var(--ivory, #F7F0E4)",
+                fontSize: 14,
+                lineHeight: 1.8,
+              }}>
+                <div>
+                  <span style={{ color: "var(--sage)", fontSize: 13 }}>Courier:</span>{" "}
+                  <strong>Shadowfax</strong>
+                </div>
+                <div>
+                  <span style={{ color: "var(--sage)", fontSize: 13 }}>AWB Number:</span>{" "}
+                  <code style={{ fontSize: 13, letterSpacing: "0.03em" }}>{order.awbNumber}</code>
+                </div>
+                <div>
+                  <span style={{ color: "var(--sage)", fontSize: 13 }}>Status:</span>{" "}
+                  <span style={{
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: order.courierStatus === "delivered"
+                      ? "rgba(63, 72, 39, 0.12)"
+                      : "rgba(169, 130, 56, 0.12)",
+                    color: order.courierStatus === "delivered"
+                      ? "var(--olive, #3F4827)"
+                      : "var(--gold, #A98238)",
+                  }}>
+                    {courierStatusLabel(order.courierStatus)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <SiteFooter />

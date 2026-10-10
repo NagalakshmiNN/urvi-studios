@@ -199,6 +199,14 @@ export const orders = pgTable("orders", {
   refundedAt: timestamp("refunded_at"),
   refundedPaise: integer("refunded_paise").notNull().default(0),
 
+  // ---- Courier / Shadowfax tracking ----
+  /** The air waybill number assigned by Shadowfax for this shipment. */
+  awbNumber: text("awb_number"),
+  /** Shadowfax's internal order ID, used for API calls. */
+  shadowfaxOrderId: text("shadowfax_order_id"),
+  /** Latest courier status from Shadowfax (e.g. 'picked', 'ofd', 'delivered'). */
+  courierStatus: text("courier_status"),
+
   subtotal: integer("subtotal").notNull(),
   shipping: integer("shipping").notNull(),
   discount: integer("discount").notNull().default(0),
@@ -529,6 +537,26 @@ export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// --------------------------------------------------------------- Warehouses
+//
+// Saved pickup / return addresses for courier shipments. Each warehouse
+// has a label (e.g. "Warehouse 1 — Koramangala"), contact info and a
+// full address. One can be marked as the default.
+
+export const warehouses = pgTable("warehouses", {
+  id: id(),
+  label: text("label").notNull(),
+  contactName: text("contact_name").notNull(),
+  contactPhone: text("contact_phone").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2").default(""),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  pincode: text("pincode").notNull(),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: createdAt(),
 });
 
 // ---------------------------------------------------------------- Relations

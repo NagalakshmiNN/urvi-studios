@@ -64,6 +64,20 @@
       "when": 1791652495100,
       "tag": "0008_add_site_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791653003767,
+      "tag": "0009_add_shadowfax_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791654000000,
+      "tag": "0010_add_warehouses",
+      "breakpoints": true
     }
   ]
 }

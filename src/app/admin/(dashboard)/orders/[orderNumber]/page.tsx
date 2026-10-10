@@ -12,6 +12,7 @@ import { statusCustomerLine } from "@/lib/order-status-copy";
 import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS, SALE_BY_LABELS } from "@/lib/order-channels";
 import { SITE } from "@/lib/site-config";
 import { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
+import ShippingCard from "./ShippingCard";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
@@ -22,6 +23,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     where: eq(schema.orders.orderNumber, orderNumber),
     with: { items: { with: { product: { with: { images: true } } } } },
   });
+  const warehouses = await db.query.warehouses.findMany({
+    orderBy: (w, { asc }) => [asc(w.label)],
+  });
+
   if (!order) notFound();
 
   // A true automatic WhatsApp push to the customer needs a WhatsApp
@@ -95,6 +100,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           currentPaise={order.actualSalePricePaise}
         />
       </div>
+
+      <ShippingCard
+          orderId={order.id}
+          orderNumber={order.orderNumber}
+          awbNumber={order.awbNumber ?? null}
+          shadowfaxOrderId={order.shadowfaxOrderId ?? null}
+          courierStatus={order.courierStatus ?? null}
+          fulfilmentMethod={order.fulfilmentMethod}
+          addressLine1={order.addressLine1}
+          city={order.city}
+          pincode={order.pincode}
+          warehouses={warehouses}
+        />
 
       <div className="admin-card">
         <h3 style={{ marginBottom: 10 }}>Customer & Shipping</h3>
