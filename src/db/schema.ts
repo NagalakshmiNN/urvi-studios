@@ -519,6 +519,18 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ------------------------------------------------------------ Site Settings
+//
+// A simple key-value store for site-wide configuration that can be
+// toggled from the admin panel without a code deploy.
+
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---------------------------------------------------------------- Relations
 
 export const customersRelations = relations(customers, ({ many }) => ({

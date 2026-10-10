@@ -57,6 +57,13 @@
       "when": 1791633874944,
       "tag": "0007_add_sale_by",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791652495100,
+      "tag": "0008_add_site_settings",
+      "breakpoints": true
     }
   ]
 }

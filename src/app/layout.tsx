@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import BetaBanner from "@/components/BetaBanner";
+import { getBoolSetting } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
   title: {
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
   icons: { icon: "/logo-black.png" },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const showBeta = await getBoolSetting("beta_banner_enabled");
   return (
     <html lang="en">
       <head>
@@ -39,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         {children}
-        <BetaBanner />
+        {showBeta && <BetaBanner />}
       </body>
     </html>
   );
