@@ -183,11 +183,9 @@ export async function createShipment(
     return {
       pickup_type: "seller" as const,
       name: w.contactName,
-      contact_number: w.contactPhone.replace(/^\+91/, "").replace(/\D/g, ""),
+      contact: w.contactPhone.replace(/^\+91/, "").replace(/\D/g, ""),
       address_line_1: w.addressLine1,
-      address_line_2: w.addressLine2 || "",
       city: w.city,
-      state: w.state,
       pincode: w.pincode,
     };
   }
@@ -207,9 +205,9 @@ export async function createShipment(
     order_type: "marketplace",
     customer_details: {
       name: input.customer.name,
-      contact_number: input.customer.phone.replace(/^\+91/, "").replace(/\D/g, ""),
+      contact: input.customer.phone.replace(/^\+91/, "").replace(/\D/g, ""),
       address_line_1: input.customer.addressLine1,
-      address_line_2: input.customer.addressLine2 || "",
+      address2: input.customer.addressLine2 || "",
       city: input.customer.city,
       state: input.customer.state,
       pincode: input.customer.pincode,
@@ -219,7 +217,7 @@ export async function createShipment(
       product_value: input.productValue,
       payment_mode: input.paymentMode,
       cod_amount: input.paymentMode === "cod" ? (input.codAmount ?? input.productValue) : 0,
-      weight: input.weightKg ?? 0.5,
+      actual_weight: input.weightKg ?? 0.5,
     },
     ...(pickupBlock ? { pickup_details: pickupBlock } : {}),
     ...(returnBlock ? { return_details: returnBlock } : {}),
