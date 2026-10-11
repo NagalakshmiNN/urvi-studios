@@ -14,6 +14,8 @@
 // is how a return stops matching.
 
 import { db } from "@/db";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
 import { istDay, type Period, type SaleOrder, type ExpenseEntry, type CapitalEntry, type PurchaseEntry } from "./financial-report";
 
 export async function loadFinancialData(period: Period): Promise<{
@@ -23,7 +25,7 @@ export async function loadFinancialData(period: Period): Promise<{
   purchases: PurchaseEntry[];
 }> {
   const [orders, expenses, capital, purchases] = await Promise.all([
-    db.query.orders.findMany({ with: { items: true } }),
+    db.query.orders.findMany({ where: eq(schema.orders.isTest, false), with: { items: true } }),
     db.query.expenses.findMany(),
     db.query.capitalContributions.findMany(),
     db.query.purchases.findMany({ with: { vendor: true } }),

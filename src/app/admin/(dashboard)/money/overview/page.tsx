@@ -1,5 +1,5 @@
 import { db, schema } from "@/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { formatPaise, STOCK_PURCHASE } from "@/lib/money";
 import CapitalForm from "../capital/CapitalForm";
@@ -32,7 +32,7 @@ export default async function MoneyOverviewPage() {
     db.query.expenses.findMany({
       orderBy: [desc(schema.expenses.spentOn)],
     }),
-    db.query.orders.findMany(),
+    db.query.orders.findMany({ where: eq(schema.orders.isTest, false) }),
   ]);
 
   // ── Partner contributions ──

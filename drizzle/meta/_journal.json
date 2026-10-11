@@ -78,6 +78,13 @@
       "when": 1791654000000,
       "tag": "0010_add_warehouses",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791700000000,
+      "tag": "0011_add_is_test",
+      "breakpoints": true
     }
   ]
 }

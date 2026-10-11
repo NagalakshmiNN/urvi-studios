@@ -774,3 +774,25 @@ export async function updateProductPriceAction(
     : "";
   return { success: `Price saved \u2014 \u20b9${Math.round(price).toLocaleString("en-IN")}${pctNote}.` };
 }
+
+
+// ── Toggle test order flag ──
+
+export async function toggleTestOrderAction(orderId: string) {
+  await requireAdmin();
+
+  const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, orderId) });
+  if (!order) return { error: "Order not found" };
+
+  await db
+    .update(schema.orders)
+    .set({ isTest: !order.isTest, updatedAt: new Date() })
+    .where(eq(schema.orders.id, orderId));
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${order.orderNumber}`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/money");
+
+  return { success: true, isTest: !order.isTest };
+}

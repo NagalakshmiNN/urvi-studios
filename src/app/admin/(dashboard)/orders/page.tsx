@@ -97,7 +97,10 @@ export default async function AdminOrdersPage({
                 <td style={{ textAlign: "center" }}>
                   <InvoiceDownloadButton orderNumber={o.orderNumber} />
                 </td>
-                <td><Link href={`/admin/orders/${o.orderNumber}`} style={{ color: "var(--olive)", fontWeight: 600 }}>{o.orderNumber}</Link></td>
+                <td>
+                  <Link href={`/admin/orders/${o.orderNumber}`} style={{ color: "var(--olive)", fontWeight: 600 }}>{o.orderNumber}</Link>
+                  {o.isTest && <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "rgba(180,50,50,0.1)", color: "#b43232", fontWeight: 600 }}>TEST</span>}
+                </td>
                 <td>
                   {o.customerName}
                   <br />

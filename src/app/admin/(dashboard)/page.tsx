@@ -1,5 +1,5 @@
 import { db, schema } from "@/db";
-import { desc, sql, lt } from "drizzle-orm";
+import { and, desc, sql, lt, eq } from "drizzle-orm";
 import { formatINR } from "@/lib/format";
 import Link from "next/link";
 import MonthlyRevenueChart from "@/components/admin/MonthlyRevenueChart";
@@ -9,15 +9,15 @@ import { SOURCE_LABELS } from "@/lib/order-channels";
 import PaymentsHealth from "./PaymentsHealth";
 
 export default async function AdminDashboardPage() {
-  const [{ count: orderCount } = { count: 0 }] = await db.select({ count: sql<number>`count(*)` }).from(schema.orders);
+  const [{ count: orderCount } = { count: 0 }] = await db.select({ count: sql<number>`count(*)` }).from(schema.orders).where(eq(schema.orders.isTest, false));
   const [{ revenue } = { revenue: 0 }] = await db
     .select({ revenue: sql<number>`coalesce(sum(${schema.orders.total}), 0)` })
     .from(schema.orders)
-    .where(sql`${schema.orders.paymentStatus} = 'PAID'`);
+    .where(and(eq(schema.orders.isTest, false), sql`${schema.orders.paymentStatus} = 'PAID'`));
   const [{ count: pendingCount } = { count: 0 }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.orders)
-    .where(sql`${schema.orders.status} in ('PLACED', 'CONFIRMED')`);
+    .where(and(eq(schema.orders.isTest, false), sql`${schema.orders.status} in ('PLACED', 'CONFIRMED')`));
   const lowStock = await db.query.products.findMany({
     where: lt(schema.products.stock, 5),
     with: { images: true },
@@ -28,7 +28,7 @@ export default async function AdminDashboardPage() {
   // Every order with its lines, for the month-by-month chart and the channel
   // split. No filter on `source` — a website checkout and a piece handed over
   // at the door are both sales, and the totals would be wrong without both.
-  const allOrders = await db.query.orders.findMany({ with: { items: true } });
+  const allOrders = await db.query.orders.findMany({ where: eq(schema.orders.isTest, false), with: { items: true } });
   const months = monthlyPerformance(allOrders);
   const channels = revenueByChannel(allOrders);
   const paidOrders = allOrders.filter(countsAsSale);

@@ -1,4 +1,6 @@
 import { db } from "@/db";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
 import { formatINR } from "@/lib/format";
 import Link from "next/link";
 
@@ -13,7 +15,7 @@ export default async function AdminCustomersPage({
 }) {
   const { show = "all" } = await searchParams;
 
-  const orders = await db.query.orders.findMany({ orderBy: (o, { desc }) => [desc(o.createdAt)] });
+  const orders = await db.query.orders.findMany({ where: eq(schema.orders.isTest, false), orderBy: (o, { desc }) => [desc(o.createdAt)] });
 
   type Customer = {
     phone: string;

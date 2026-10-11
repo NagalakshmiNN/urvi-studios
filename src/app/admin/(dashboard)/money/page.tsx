@@ -1,4 +1,6 @@
 import { db } from "@/db";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
 import Link from "next/link";
 import { buildMoneyPicture, formatPaise } from "@/lib/money";
 import MoneyFlow, { type FlowRow } from "@/components/admin/MoneyFlow";
@@ -16,7 +18,7 @@ import MoneyFlow, { type FlowRow } from "@/components/admin/MoneyFlow";
 export default async function AdminMoneyMapPage() {
   const [expenses, orders, products] = await Promise.all([
     db.query.expenses.findMany(),
-    db.query.orders.findMany({ with: { items: true } }),
+    db.query.orders.findMany({ where: eq(schema.orders.isTest, false), with: { items: true } }),
     db.query.products.findMany(),
   ]);
 

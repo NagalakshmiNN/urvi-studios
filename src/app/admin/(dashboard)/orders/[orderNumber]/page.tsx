@@ -13,6 +13,7 @@ import { SOURCE_LABELS, FULFILMENT_LABELS, PAYMENT_MODE_LABELS, SALE_BY_LABELS }
 import { SITE } from "@/lib/site-config";
 import { ProductLabel, firstImageUrl } from "@/components/admin/ProductThumb";
 import ShippingCard from "./ShippingCard";
+import TestOrderToggle from "./TestOrderToggle";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
@@ -51,7 +52,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   return (
     <>
       <div className="admin-header">
-        <h1>{order.orderNumber}</h1>
+        <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {order.orderNumber}
+          <TestOrderToggle orderId={order.id} isTest={order.isTest} />
+        </h1>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {customerWhatsappHref && (
             <a href={customerWhatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: "8px 14px", fontSize: 12.5 }}>

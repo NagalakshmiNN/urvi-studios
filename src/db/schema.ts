@@ -206,6 +206,8 @@ export const orders = pgTable("orders", {
   shadowfaxOrderId: text("shadowfax_order_id"),
   /** Latest courier status from Shadowfax (e.g. 'picked', 'ofd', 'delivered'). */
   courierStatus: text("courier_status"),
+  /** True for test / dummy orders that should be excluded from reports and Money Map. */
+  isTest: boolean("is_test").notNull().default(false),
 
   subtotal: integer("subtotal").notNull(),
   shipping: integer("shipping").notNull(),
