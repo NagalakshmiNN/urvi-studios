@@ -108,10 +108,20 @@ export default function ShippingCard({
           returnId || undefined,
         );
         if (result.success) {
-          setAwb(result.awbNumber || null);
-          setSfxId(result.shadowfaxOrderId || null);
+          const newAwb = result.awbNumber || null;
+          const newSfxId = result.shadowfaxOrderId || null;
+          setAwb(newAwb);
+          setSfxId(newSfxId);
           setStatus("new");
-          setMessage("\u2713 Shipment created");
+          if (newSfxId) {
+            setMessage(`\u2713 Shipment created${newAwb ? ` \u2014 AWB: ${newAwb}` : ""}`);
+          } else {
+            // API said success but no order ID came back \u2014 flag it
+            setMessage(
+              "Shadowfax returned success but no order ID. " +
+              "Check Shadowfax dashboard or try refreshing the page."
+            );
+          }
         } else {
           setMessage(result.error || "Failed to create shipment");
         }
@@ -157,15 +167,13 @@ export default function ShippingCard({
     });
   }
 
-  // Shadowfax public tracking page
-  const trackingUrl = awb
-    ? `https://tracker.shadowfax.in/#/tracking/${awb}`
-    : null;
+  // Shadowfax public tracking page (official page where you enter AWB)
+  const trackingUrl = "https://www.shadowfax.in/track";
 
   return (
     <div className="admin-card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 16 }}>\ud83d\udce6</span> Shipping
+        <span style={{ fontSize: 16 }}>{"\ud83d\udce6"}</span> Shipping
       </h3>
 
       {!hasShipment ? (
@@ -190,7 +198,7 @@ export default function ShippingCard({
                   href="/admin/settings"
                   style={{ color: "var(--olive, #3F4827)", textDecoration: "underline" }}
                 >
-                  Settings \u2192 Warehouses
+                  Settings {"\u2192"} Warehouses
                 </a>{" "}
                 and add at least one warehouse, then come back here to create the shipment.
               </p>
@@ -209,7 +217,7 @@ export default function ShippingCard({
                 >
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.label} \u2014 {w.city} {w.pincode}
+                      {w.label} {"\u2014"} {w.city} {w.pincode}
                     </option>
                   ))}
                 </select>
@@ -244,7 +252,7 @@ export default function ShippingCard({
                       <option value="">Same as pickup</option>
                       {warehouses.map((w) => (
                         <option key={w.id} value={w.id}>
-                          {w.label} \u2014 {w.city} {w.pincode}
+                          {w.label} {"\u2014"} {w.city} {w.pincode}
                         </option>
                       ))}
                     </select>
@@ -320,9 +328,9 @@ export default function ShippingCard({
           </div>
 
           {/* ── Tracking link ── */}
-          {trackingUrl && (
+          {awb && (
             <div style={{ marginTop: 8 }}>
-              <span style={{ color: "var(--sage)" }}>Tracking:</span>{" "}
+              <span style={{ color: "var(--sage)" }}>Track:</span>{" "}
               <a
                 href={trackingUrl}
                 target="_blank"
@@ -333,8 +341,11 @@ export default function ShippingCard({
                   fontSize: 13,
                 }}
               >
-                {trackingUrl}
+                Track on Shadowfax {"→"}
               </a>
+              <span style={{ color: "var(--sage)", fontSize: 12, marginLeft: 6 }}>
+                (enter AWB: {awb})
+              </span>
             </div>
           )}
 

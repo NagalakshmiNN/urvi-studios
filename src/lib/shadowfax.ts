@@ -241,6 +241,7 @@ export async function createShipment(
     const data = await res.json();
 
     if (!res.ok) {
+      console.error("[shadowfax] createShipment failed:", res.status, JSON.stringify(data));
       return {
         success: false,
         error: data?.message || data?.detail || JSON.stringify(data),
@@ -248,13 +249,29 @@ export async function createShipment(
       };
     }
 
+    // Extract order ID — Shadowfax nests it in different places across API versions
+    const orderId = data.order_id ?? data.data?.order_id ?? data.id ?? data.data?.id;
+    const awbNumber = data.awb_number ?? data.data?.awb_number ?? null;
+
+    console.log("[shadowfax] createShipment response:", JSON.stringify(data));
+
+    if (!orderId) {
+      // API returned 200 but no order ID — treat as failure
+      return {
+        success: false,
+        error: `Shadowfax returned 200 but no order ID. Response: ${JSON.stringify(data).slice(0, 300)}`,
+        raw: data,
+      };
+    }
+
     return {
       success: true,
-      awbNumber: data.awb_number || data.data?.awb_number,
-      shadowfaxOrderId: String(data.order_id || data.data?.order_id || ""),
+      awbNumber: awbNumber || undefined,
+      shadowfaxOrderId: String(orderId),
       raw: data,
     };
   } catch (err) {
+    console.error("[shadowfax] createShipment error:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Network error",
