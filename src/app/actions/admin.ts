@@ -12,6 +12,7 @@ import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
 import { sanitizeDescription } from "@/lib/sanitize-description";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
+import { statusesFor } from "@/lib/order-status-copy";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
 import { canDeleteOrder } from "@/lib/order-cleanup";
@@ -294,6 +295,10 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
 
   const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, orderId), with: { items: true } });
   if (!order) return;
+
+  // Only allow known statuses for this fulfilment method.
+  const allowed = statusesFor(order.fulfilmentMethod);
+  if (!allowed.includes(status)) return;
 
   if (STATUSES_THAT_IMPLY_SOLD.has(status) && !order.stockDeducted) {
     for (const item of order.items) {

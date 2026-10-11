@@ -20,11 +20,23 @@ type NotifyOrder = {
   city: string;
   state: string;
   pincode: string;
+  subtotal?: number;
+  discount?: number;
   total: number;
+  couponCode?: string | null;
   paymentMethod: string;
   paymentStatus: string;
   fulfilmentMethod?: string | null;
 };
+
+function discountSummary(order: NotifyOrder): string {
+  if (!order.discount || order.discount <= 0) return "";
+  const code = order.couponCode ? ` (code: ${order.couponCode})` : "";
+  const sub = order.subtotal ? `Subtotal: ${formatINR(order.subtotal)}
+` : "";
+  return `${sub}Discount${code}: -${formatINR(order.discount)}
+`;
+}
 
 export async function sendOrderNotification(order: NotifyOrder, lines: NotifyLine[]) {
   const itemLines = lines
@@ -41,7 +53,7 @@ export async function sendOrderNotification(order: NotifyOrder, lines: NotifyLin
   const address = [order.addressLine1, order.city, order.state, order.pincode].filter(Boolean).join(", ") || "No address on file yet";
 
   const text =
-    `New order ${order.orderNumber}\n\n${itemLines}\n\nTotal: ${formatINR(order.total)}\n${paidLine}\n\n` +
+    `New order ${order.orderNumber}\n\n${itemLines}\n\n${discountSummary(order)}Total: ${formatINR(order.total)}\n${paidLine}\n\n` +
     `Customer: ${order.customerName}\nPhone: ${order.customerPhone}\nEmail: ${order.customerEmail || "—"}\n` +
     `Address: ${address}\n\n` +
     `View in admin: https://urvi-studios.netlify.app/admin/orders/${order.orderNumber}`;
@@ -85,7 +97,7 @@ export async function sendCustomerOrderConfirmation(order: NotifyOrder, lines: N
 
   const text =
     `Hi ${order.customerName},\n\nThanks for shopping with Urvi Studios! We've received your order ${order.orderNumber}.\n\n` +
-    `${itemLines}\n\nTotal: ${formatINR(order.total)}\n\n${deliveryLine}\n` +
+    `${itemLines}\n\n${discountSummary(order)}Total: ${formatINR(order.total)}\n\n${deliveryLine}\n` +
     accountNote +
     `\n${nextStepsLine}\n\n` +
     `Track it any time: ${SITE.siteUrl}/account/orders/${order.orderNumber}\n\n— Urvi Studios`;

@@ -45,7 +45,7 @@ const CUSTOMER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const ADMIN_MAX_AGE_SECONDS = 60 * 60 * 12; // 12 hours
 
 export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 10);
+  return bcrypt.hash(password, 12);
 }
 
 export async function verifyPassword(password: string, hash: string) {

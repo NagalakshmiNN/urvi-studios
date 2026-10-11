@@ -17,6 +17,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!asset) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const buffer = Buffer.from(asset.dataBase64, "base64");
+
+  // Guard against serving very large blobs that would spike memory.
+  const TEN_MB = 10 * 1024 * 1024;
+  if (buffer.length > TEN_MB) {
+    return NextResponse.json({ error: "Image too large." }, { status: 413 });
+  }
+
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": asset.contentType,
