@@ -44,9 +44,12 @@ async function safeJson(res: Response): Promise<{ ok: true; data: any } | { ok: 
   try {
     return { ok: true, data: JSON.parse(text) };
   } catch {
-    // Response wasn't JSON — likely an HTML error page
-    const preview = text.slice(0, 200).replace(/\s+/g, " ").trim();
-    return { ok: false, error: `Shadowfax returned non-JSON (HTTP ${res.status}): ${preview}` };
+    // Response wasn't JSON — likely an HTML error page.
+    // Show a human-friendly message instead of raw HTML.
+    if (res.status === 404) {
+      return { ok: false, error: "This shipment was not found on Shadowfax. It may have been cancelled or deleted on their dashboard." };
+    }
+    return { ok: false, error: `Shadowfax returned an unexpected response (HTTP ${res.status}). Try again in a moment.` };
   }
 }
 
