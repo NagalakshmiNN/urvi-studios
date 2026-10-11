@@ -113,8 +113,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           shadowfaxOrderId={order.shadowfaxOrderId ?? null}
           courierStatus={order.courierStatus ?? null}
           fulfilmentMethod={order.fulfilmentMethod}
+          customerName={order.customerName}
+          customerPhone={order.customerPhone}
           addressLine1={order.addressLine1}
           city={order.city}
+          state={order.state}
           pincode={order.pincode}
           warehouses={warehouses}
         />

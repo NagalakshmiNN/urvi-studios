@@ -7,7 +7,12 @@ import { courierStatusLabel } from "@/lib/shadowfax";
 interface WarehouseOption {
   id: string;
   label: string;
+  contactName: string;
+  contactPhone: string;
+  addressLine1: string;
+  addressLine2?: string | null;
   city: string;
+  state: string;
   pincode: string;
   isDefault: boolean;
 }
@@ -19,10 +24,46 @@ interface ShippingCardProps {
   shadowfaxOrderId: string | null;
   courierStatus: string | null;
   fulfilmentMethod: string;
+  customerName: string;
+  customerPhone: string;
   addressLine1: string;
   city: string;
+  state: string;
   pincode: string;
   warehouses: WarehouseOption[];
+}
+
+function AddressBlock({ label, lines }: { label: string; lines: string[] }) {
+  return (
+    <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+      <div
+        style={{
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: "var(--sage)",
+          marginBottom: 4,
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 13,
+          lineHeight: 1.6,
+          padding: "8px 12px",
+          background: "rgba(0,0,0,0.03)",
+          borderRadius: 6,
+          border: "1px solid rgba(0,0,0,0.06)",
+        }}
+      >
+        {lines.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ShippingCard({
@@ -32,8 +73,11 @@ export default function ShippingCard({
   shadowfaxOrderId: initialSfxId,
   courierStatus: initialStatus,
   fulfilmentMethod,
+  customerName,
+  customerPhone,
   addressLine1,
   city,
+  state,
   pincode,
   warehouses,
 }: ShippingCardProps) {
@@ -52,6 +96,7 @@ export default function ShippingCard({
   if (fulfilmentMethod === "pickup") return null;
 
   const hasShipment = !!sfxId;
+  const selectedWarehouse = warehouses.find((w) => w.id === pickupId);
 
   function handleCreate() {
     setMessage("");
@@ -66,12 +111,12 @@ export default function ShippingCard({
           setAwb(result.awbNumber || null);
           setSfxId(result.shadowfaxOrderId || null);
           setStatus("new");
-          setMessage("✓ Shipment created");
+          setMessage("\u2713 Shipment created");
         } else {
           setMessage(result.error || "Failed to create shipment");
         }
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : "Something went wrong — please try again");
+        setMessage(err instanceof Error ? err.message : "Something went wrong \u2014 please try again");
       }
     });
   }
@@ -84,7 +129,7 @@ export default function ShippingCard({
         if (result.success) {
           setStatus(result.currentStatus || status);
           if (result.awbNumber) setAwb(result.awbNumber);
-          setMessage("✓ Status refreshed");
+          setMessage("\u2713 Status refreshed");
         } else {
           setMessage(result.error || "Could not fetch tracking");
         }
@@ -102,7 +147,7 @@ export default function ShippingCard({
         const result = await cancelShipmentAction(orderId);
         if (result.success) {
           setStatus("cancelled");
-          setMessage("✓ Shipment cancelled");
+          setMessage("\u2713 Shipment cancelled");
         } else {
           setMessage(result.error || "Could not cancel");
         }
@@ -112,90 +157,152 @@ export default function ShippingCard({
     });
   }
 
+  // Shadowfax public tracking page
+  const trackingUrl = awb
+    ? `https://tracker.shadowfax.in/#/tracking/${awb}`
+    : null;
+
   return (
     <div className="admin-card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 16 }}>📦</span> Shipping
+        <span style={{ fontSize: 16 }}>\ud83d\udce6</span> Shipping
       </h3>
 
       {!hasShipment ? (
         <>
-          <p style={{ fontSize: 13, color: "var(--sage)", lineHeight: 1.7, marginBottom: 14 }}>
-            Ship to: {addressLine1}, {city} {pincode}
-          </p>
-
-          {warehouses.length > 0 && (
-            <div style={{ marginBottom: 14, fontSize: 13 }}>
-              <label style={{ display: "block", color: "var(--sage)", fontSize: 12, marginBottom: 4 }}>
-                Pickup warehouse
-              </label>
-              <select
-                value={pickupId}
-                onChange={(e) => setPickupId(e.target.value)}
-                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, minWidth: 200 }}
-              >
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.label} — {w.city} {w.pincode}
-                  </option>
-                ))}
-              </select>
-
-              {!showReturnPicker ? (
-                <button
-                  onClick={() => setShowReturnPicker(true)}
-                  style={{
-                    display: "block",
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: "var(--sage)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    padding: 0,
-                  }}
+          {/* ── No warehouses: block shipment creation ── */}
+          {warehouses.length === 0 ? (
+            <div
+              style={{
+                padding: "14px 16px",
+                background: "rgba(180, 50, 50, 0.06)",
+                borderRadius: 8,
+                border: "1px solid rgba(180, 50, 50, 0.15)",
+                fontSize: 13,
+                lineHeight: 1.6,
+              }}
+            >
+              <strong style={{ color: "#b43232" }}>No warehouse address configured</strong>
+              <p style={{ margin: "6px 0 0", color: "var(--sage)" }}>
+                Shadowfax needs a pickup address to schedule collection.
+                Go to{" "}
+                <a
+                  href="/admin/settings"
+                  style={{ color: "var(--olive, #3F4827)", textDecoration: "underline" }}
                 >
-                  Use a different return address
-                </button>
-              ) : (
-                <div style={{ marginTop: 10 }}>
-                  <label style={{ display: "block", color: "var(--sage)", fontSize: 12, marginBottom: 4 }}>
-                    Return warehouse
-                  </label>
-                  <select
-                    value={returnId}
-                    onChange={(e) => setReturnId(e.target.value)}
-                    style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, minWidth: 200 }}
-                  >
-                    <option value="">Same as pickup</option>
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.label} — {w.city} {w.pincode}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                  Settings \u2192 Warehouses
+                </a>{" "}
+                and add at least one warehouse, then come back here to create the shipment.
+              </p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* ── Warehouse picker ── */}
+              <div style={{ marginBottom: 14, fontSize: 13 }}>
+                <label style={{ display: "block", color: "var(--sage)", fontSize: 12, marginBottom: 4 }}>
+                  Pickup warehouse
+                </label>
+                <select
+                  value={pickupId}
+                  onChange={(e) => setPickupId(e.target.value)}
+                  style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, minWidth: 200 }}
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.label} \u2014 {w.city} {w.pincode}
+                    </option>
+                  ))}
+                </select>
 
-          <button
-            className="btn"
-            onClick={handleCreate}
-            disabled={isPending}
-            style={{
-              background: "var(--olive, #3F4827)",
-              color: "var(--ivory, #F7F0E4)",
-              border: "none",
-              padding: "10px 20px",
-              borderRadius: 6,
-              cursor: isPending ? "wait" : "pointer",
-              fontSize: 13,
-            }}
-          >
-            {isPending ? "Creating shipment…" : "Create Shipment on Shadowfax"}
-          </button>
+                {!showReturnPicker ? (
+                  <button
+                    onClick={() => setShowReturnPicker(true)}
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: "var(--sage)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      padding: 0,
+                    }}
+                  >
+                    Use a different return address
+                  </button>
+                ) : (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", color: "var(--sage)", fontSize: 12, marginBottom: 4 }}>
+                      Return warehouse
+                    </label>
+                    <select
+                      value={returnId}
+                      onChange={(e) => setReturnId(e.target.value)}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, minWidth: 200 }}
+                    >
+                      <option value="">Same as pickup</option>
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.label} \u2014 {w.city} {w.pincode}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Address confirmation: pickup + shipping side by side ── */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 14,
+                  marginBottom: 16,
+                }}
+              >
+                {selectedWarehouse && (
+                  <AddressBlock
+                    label="Pickup from"
+                    lines={[
+                      selectedWarehouse.label,
+                      selectedWarehouse.contactName,
+                      selectedWarehouse.contactPhone,
+                      selectedWarehouse.addressLine1,
+                      ...(selectedWarehouse.addressLine2 ? [selectedWarehouse.addressLine2] : []),
+                      `${selectedWarehouse.city}, ${selectedWarehouse.state} ${selectedWarehouse.pincode}`,
+                    ]}
+                  />
+                )}
+                <AddressBlock
+                  label="Ship to"
+                  lines={[
+                    customerName,
+                    customerPhone,
+                    addressLine1,
+                    `${city}, ${state} ${pincode}`,
+                  ]}
+                />
+              </div>
+
+              <button
+                className="btn"
+                onClick={handleCreate}
+                disabled={isPending}
+                style={{
+                  background: "var(--olive, #3F4827)",
+                  color: "var(--ivory, #F7F0E4)",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: 6,
+                  cursor: isPending ? "wait" : "pointer",
+                  fontSize: 13,
+                }}
+              >
+                {isPending ? "Creating shipment\u2026" : "Create Shipment on Shadowfax"}
+              </button>
+            </>
+          )}
         </>
       ) : (
         <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
@@ -211,6 +318,25 @@ export default function ShippingCard({
               <code style={{ fontSize: 12.5 }}>{sfxId}</code>
             </div>
           </div>
+
+          {/* ── Tracking link ── */}
+          {trackingUrl && (
+            <div style={{ marginTop: 8 }}>
+              <span style={{ color: "var(--sage)" }}>Tracking:</span>{" "}
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "var(--olive, #3F4827)",
+                  textDecoration: "underline",
+                  fontSize: 13,
+                }}
+              >
+                {trackingUrl}
+              </a>
+            </div>
+          )}
 
           <div style={{ marginTop: 10 }}>
             <span style={{ color: "var(--sage)" }}>Status:</span>{" "}
@@ -246,7 +372,7 @@ export default function ShippingCard({
               disabled={isPending}
               style={{ padding: "6px 14px", fontSize: 12 }}
             >
-              {isPending ? "Refreshing…" : "↻ Refresh Status"}
+              {isPending ? "Refreshing\u2026" : "\u21bb Refresh Status"}
             </button>
             {status !== "delivered" && status !== "cancelled" && status !== "rto_delivered" && (
               <button
@@ -267,7 +393,7 @@ export default function ShippingCard({
           style={{
             marginTop: 10,
             fontSize: 12.5,
-            color: message.startsWith("✓") ? "var(--olive)" : "#b43232",
+            color: message.startsWith("\u2713") ? "var(--olive)" : "#b43232",
           }}
         >
           {message}
