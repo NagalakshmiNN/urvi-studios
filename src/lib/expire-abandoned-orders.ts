@@ -1,36 +1,51 @@
-// Automatic expiry of abandoned Razorpay checkouts.
+// Automatic expiry of abandoned checkouts.
 //
-// An order is created BEFORE Razorpay opens (so we have something to match
-// the payment back to). If the customer abandons the modal, the row stays
-// in PLACED / PENDING / stockDeducted=false forever. This module marks
-// those rows ABANDONED after a configurable window (default 30 minutes).
+// ---- Pay-first flow (2026-10+) ----
+//
+// A checkout_sessions row holds the cart and customer data until payment is
+// confirmed. If the customer abandons the Razorpay modal, the session row
+// stays around forever. This module deletes those stale sessions after a
+// configurable window (default 45 minutes).
+//
+// It also handles legacy PENDING orders created before the pay-first
+// migration, marking them ABANDONED after the same window.
 //
 // Called opportunistically at the start of each new checkout — no cron or
-// scheduled function needed. The query is cheap (index on created_at, small
-// result set) and idempotent.
+// scheduled function needed. The query is cheap and idempotent.
 
 import { and, eq, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 
-/** How many minutes an unpaid Razorpay order survives before being expired. */
-const ABANDON_MINUTES = 30;
+/** How many minutes an unpaid checkout survives before being expired. */
+const ABANDON_MINUTES = 45;
 
 /**
- * Mark stale unpaid Razorpay orders as ABANDONED.
+ * Clean up stale checkout sessions and legacy unpaid orders.
  *
- * Only touches orders that are:
- *  - paymentMethod = "razorpay"
- *  - paymentStatus = "PENDING"
- *  - stockDeducted = false  (never confirmed)
- *  - older than ABANDON_MINUTES
+ * 1. Deletes checkout_sessions older than ABANDON_MINUTES.
+ * 2. Marks legacy PENDING Razorpay orders as ABANDONED (backward-compat).
  *
- * Returns the count of orders expired this run.
+ * Returns the total count of items expired this run.
  */
-export async function expireAbandonedOrders(): Promise<number> {
+export async function expireAbandonedCheckouts(): Promise<number> {
   try {
-    const cutoff = sql`NOW() - INTERVAL '${sql.raw(String(ABANDON_MINUTES))} minutes'`;
+    let count = 0;
 
-    const expired = await db
+    // 1. Delete stale checkout sessions (the new pay-first path).
+    const expiredSessions = await db
+      .delete(schema.checkoutSessions)
+      .where(
+        lt(schema.checkoutSessions.createdAt, sql`NOW() - INTERVAL '45 minutes'`)
+      )
+      .returning({ id: schema.checkoutSessions.id });
+
+    if (expiredSessions.length > 0) {
+      console.log(`[expire-abandoned] Deleted ${expiredSessions.length} stale checkout session(s).`);
+      count += expiredSessions.length;
+    }
+
+    // 2. Mark legacy PENDING Razorpay orders as ABANDONED (pre pay-first).
+    const expiredOrders = await db
       .update(schema.orders)
       .set({
         status: "ABANDONED",
@@ -42,19 +57,23 @@ export async function expireAbandonedOrders(): Promise<number> {
           eq(schema.orders.paymentStatus, "PENDING"),
           eq(schema.orders.stockDeducted, false),
           eq(schema.orders.status, "PLACED"),
-          lt(schema.orders.createdAt, sql`NOW() - INTERVAL '30 minutes'`)
+          lt(schema.orders.createdAt, sql`NOW() - INTERVAL '45 minutes'`)
         )
       )
       .returning({ id: schema.orders.id });
 
-    if (expired.length > 0) {
-      console.log(`[expire-abandoned] Marked ${expired.length} stale order(s) as ABANDONED.`);
+    if (expiredOrders.length > 0) {
+      console.log(`[expire-abandoned] Marked ${expiredOrders.length} stale legacy order(s) as ABANDONED.`);
+      count += expiredOrders.length;
     }
 
-    return expired.length;
+    return count;
   } catch (err) {
     // Never let cleanup break the actual checkout.
     console.error("[expire-abandoned] Error:", err);
     return 0;
   }
 }
+
+/** @deprecated Use expireAbandonedCheckouts instead. */
+export const expireAbandonedOrders = expireAbandonedCheckouts;

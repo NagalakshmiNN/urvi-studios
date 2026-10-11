@@ -8,14 +8,14 @@ import { SITE } from "@/lib/site-config";
 import { formatINR } from "@/lib/format";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "@/lib/order-notify";
 import { sendWhatsApp } from "@/lib/whatsapp";
-import { expireAbandonedOrders } from "@/lib/expire-abandoned-orders";
+import { expireAbandonedCheckouts } from "@/lib/expire-abandoned-orders";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
-  // Housekeeping: expire any Razorpay orders abandoned more than 30 minutes
+  // Housekeeping: expire checkout sessions abandoned more than 45 minutes
   // ago. Runs opportunistically on each new checkout — cheap and idempotent.
-  expireAbandonedOrders().catch(() => {});
+  expireAbandonedCheckouts().catch(() => {});
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
@@ -102,50 +102,50 @@ export async function POST(request: Request) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   const razorpayConfigured = Boolean(keyId && keySecret);
 
-  // Persist the order up front (PENDING). Stock is only decremented once
-  // payment is actually confirmed (see verify-payment), so a browser that
-  // never completes checkout never reserves inventory.
-  const [order] = await db
-    .insert(schema.orders)
-    .values({
-      orderNumber,
-      customerId: customerId || null,
-      status: "PLACED",
-      paymentStatus: "PENDING",
-      paymentMethod: razorpayConfigured ? "razorpay" : "whatsapp_cod",
-      subtotal: pricing.subtotal,
-      shipping: pricing.shipping,
-      discount: pricing.discount,
-      total: pricing.total,
-      couponCode: pricing.couponCode,
-      fulfilmentMethod: isPickup ? "pickup" : "delivery",
-      customerName: customer.name,
-      customerEmail: customer.email,
-      customerPhone: customer.phone,
-      addressLine1: isPickup ? "" : customer.address,
-      city: isPickup ? "" : customer.city,
-      state: isPickup ? "" : customer.state,
-      pincode: isPickup ? "" : customer.pincode,
-      notes: customer.notes || null,
-      saleBy: "Website",
-    })
-    .returning();
-
-  await db.insert(schema.orderItems).values(
-    pricing.lines.map((l) => ({
-      orderId: order.id,
-      productId: l.productId,
-      productName: l.productName,
-      sku: l.sku,
-      size: l.size,
-      color: l.color,
-      qty: l.qty,
-      landedCostAtSale: l.landedCost,
-      price: l.price,
-    }))
-  );
-
+  // ---- WhatsApp / COD path: create the order immediately ----
+  // No online payment step — the order IS the endpoint, so it is persisted
+  // now and the customer completes payment offline.
   if (!razorpayConfigured) {
+    const [order] = await db
+      .insert(schema.orders)
+      .values({
+        orderNumber,
+        customerId: customerId || null,
+        status: "PLACED",
+        paymentStatus: "PENDING",
+        paymentMethod: "whatsapp_cod",
+        subtotal: pricing.subtotal,
+        shipping: pricing.shipping,
+        discount: pricing.discount,
+        total: pricing.total,
+        couponCode: pricing.couponCode,
+        fulfilmentMethod: isPickup ? "pickup" : "delivery",
+        customerName: customer.name,
+        customerEmail: customer.email,
+        customerPhone: customer.phone,
+        addressLine1: isPickup ? "" : customer.address,
+        city: isPickup ? "" : customer.city,
+        state: isPickup ? "" : customer.state,
+        pincode: isPickup ? "" : customer.pincode,
+        notes: customer.notes || null,
+        saleBy: "Website",
+      })
+      .returning();
+
+    await db.insert(schema.orderItems).values(
+      pricing.lines.map((l) => ({
+        orderId: order.id,
+        productId: l.productId,
+        productName: l.productName,
+        sku: l.sku,
+        size: l.size,
+        color: l.color,
+        qty: l.qty,
+        landedCostAtSale: l.landedCost,
+        price: l.price,
+      }))
+    );
+
     const lines = pricing.lines.map((l) => `• ${l.productName} [ID: ${l.sku}] (${l.size}, ${l.color}) x${l.qty} — ${formatINR(l.price * l.qty)}`).join("\n");
     const msg =
       `New order ${orderNumber} from ${customer.name}\n\n${lines}\n\nTotal: ${formatINR(pricing.total)}` +
@@ -155,31 +155,19 @@ export async function POST(request: Request) {
         ? "Collecting in person — no delivery needed"
         : `Address: ${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}`) +
       (customer.notes ? `\nNotes: ${customer.notes}` : "");
-    // Offer every number a customer could reach the shop on — whichever's
-    // easiest for them, since all three go to someone who can confirm the
-    // order.
     const whatsappUrls = SITE.whatsappOrderNumbers.map((n) => ({
       name: n.name,
       url: `https://wa.me/${n.number}?text=${encodeURIComponent(msg)}`,
     }));
 
-    // The customer still has to tap through to actually send that WhatsApp
-    // message, so this email is the reliable half of the intimation — it
-    // fires the moment the order is placed, whether or not they follow
-    // through on WhatsApp.
     const notifyLines = pricing.lines.map((l) => ({ productName: l.productName, sku: l.sku, size: l.size, color: l.color, qty: l.qty, price: l.price }));
     await sendOrderNotification({ ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" }, notifyLines);
-    // This IS the completed order for the WhatsApp/COD path (no separate
-    // payment-verification step), so the customer's own confirmation goes
-    // out right away too — the Razorpay path sends its equivalent only once
-    // payment actually verifies (see verify-payment).
     await sendCustomerOrderConfirmation(
       { ...order, paymentMethod: "whatsapp_cod", paymentStatus: "PENDING" },
       notifyLines,
       newAccountEmail ? { newAccountEmail } : undefined
     );
 
-    // WhatsApp alert for WhatsApp/COD orders (fire-and-forget).
     const codItemSummary = notifyLines.map((l) => `• ${l.productName} (${l.size}) x${l.qty}`).join("\n");
     sendWhatsApp(
       `New order ${orderNumber} (WhatsApp/COD)!\n\n` +
@@ -191,6 +179,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ configured: false, orderNumber, whatsappUrls, accountCreated: Boolean(newAccountEmail), customerEmail: order.customerEmail });
   }
+
+  // ---- Razorpay path: DO NOT create an order yet ----
+  //
+  // The order record is created ONLY when payment is confirmed (see
+  // confirm-paid-order.ts). This stops unpaid checkouts from appearing in
+  // the admin as real orders.
+  //
+  // A checkout session holds the cart and customer data in the meantime.
+  // The webhook or the browser's verify-payment call consumes it.
 
   const amountPaise = Math.round(pricing.total * 100);
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
@@ -206,7 +203,43 @@ export async function POST(request: Request) {
   }
 
   const rzpOrder = await rzpRes.json();
-  await db.update(schema.orders).set({ razorpayOrderId: rzpOrder.id }).where(eq(schema.orders.id, order.id));
+
+  // Store everything in a checkout session — consumed when payment confirms.
+  const payload = JSON.stringify({
+    customerName: customer.name,
+    customerEmail: customer.email,
+    customerPhone: customer.phone,
+    addressLine1: isPickup ? "" : customer.address,
+    city: isPickup ? "" : customer.city,
+    state: isPickup ? "" : customer.state,
+    pincode: isPickup ? "" : customer.pincode,
+    notes: customer.notes || null,
+    subtotal: pricing.subtotal,
+    shipping: pricing.shipping,
+    discount: pricing.discount,
+    total: pricing.total,
+    couponCode: pricing.couponCode,
+    fulfilmentMethod: isPickup ? "pickup" : "delivery",
+    saleBy: "Website",
+    newAccountEmail,
+    lines: pricing.lines.map((l) => ({
+      productId: l.productId,
+      productName: l.productName,
+      sku: l.sku,
+      size: l.size,
+      color: l.color,
+      qty: l.qty,
+      price: l.price,
+      landedCost: l.landedCost,
+    })),
+  });
+
+  await db.insert(schema.checkoutSessions).values({
+    orderNumber,
+    razorpayOrderId: rzpOrder.id,
+    customerId: customerId || null,
+    payload,
+  });
 
   return NextResponse.json({
     configured: true,
@@ -215,6 +248,6 @@ export async function POST(request: Request) {
     key_id: keyId,
     orderNumber,
     accountCreated: Boolean(newAccountEmail),
-    customerEmail: order.customerEmail,
+    customerEmail: customer.email,
   });
 }

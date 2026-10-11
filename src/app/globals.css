@@ -822,7 +822,7 @@ p { line-height: 1.7; color: var(--earth); }
 .admin-login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--sand); padding: 20px; }
 .admin-login-shell .auth-card { margin: 0; }
 .admin-shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
-.admin-sidebar { background: var(--black); color: var(--sand); padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+.admin-sidebar { background: var(--black); color: var(--sand); padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .admin-sidebar .brand { color: var(--ivory); margin-bottom: 30px; }
 .admin-sidebar nav { display: flex; flex-direction: column; gap: 2px; }
 .admin-sidebar a { padding: 10px 12px; border-radius: 3px; font-size: 13px; color: rgba(247,240,228,0.75); }

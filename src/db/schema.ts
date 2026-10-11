@@ -528,6 +528,34 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// -------------------------------------------------------- Checkout Sessions
+//
+// Temporary holding area for Razorpay checkouts. An order record is NOT
+// created until payment is confirmed — this table holds the cart and
+// customer data in the meantime so the webhook or the browser's verify
+// call can materialise the real order once the money has arrived.
+//
+// Rows are consumed (deleted) the moment a payment confirms, and any row
+// still here after 45 minutes is a checkout the customer walked away from
+// — cleaned up opportunistically, same as the old PENDING-order expiry.
+
+export const checkoutSessions = pgTable("checkout_sessions", {
+  id: id(),
+  /** Pre-generated order number — becomes the real order's number on confirm. */
+  orderNumber: text("order_number").notNull().unique(),
+  /** Razorpay's order id, the key the webhook uses to find us. */
+  razorpayOrderId: text("razorpay_order_id").notNull(),
+  /** The customer account, if one was created or already existed. */
+  customerId: text("customer_id").references(() => customers.id),
+  /**
+   * Everything needed to create the order + line items, as a JSON string.
+   * Parsed once when payment confirms. Shape: see CheckoutSessionPayload
+   * in src/lib/confirm-paid-order.ts.
+   */
+  payload: text("payload").notNull(),
+  createdAt: createdAt(),
+});
+
 // ------------------------------------------------------------ Site Settings
 //
 // A simple key-value store for site-wide configuration that can be

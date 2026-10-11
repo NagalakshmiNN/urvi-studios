@@ -56,6 +56,16 @@ const MIGRATIONS = [
     "is_default" boolean NOT NULL DEFAULT false,
     "created_at" timestamp DEFAULT now() NOT NULL
   )`,
+
+  // 0011 — checkout_sessions (pay-first flow)
+  `CREATE TABLE IF NOT EXISTS "checkout_sessions" (
+    "id" text PRIMARY KEY NOT NULL,
+    "order_number" text NOT NULL UNIQUE,
+    "razorpay_order_id" text NOT NULL,
+    "customer_id" text REFERENCES "customers"("id"),
+    "payload" text NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL
+  )`,
 ];
 
 export async function GET(request: NextRequest) {
