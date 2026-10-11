@@ -1,5 +1,5 @@
 /**
- * One-time migration endpoint — runs pending schema migrations (0008–0010)
+ * One-time migration endpoint — runs pending schema migrations (0005–0010)
  * that Netlify's auto-migration may have missed.
  *
  * Protected by the same bootstrap token. Idempotent — safe to call more
@@ -17,6 +17,17 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const MIGRATIONS = [
+  // 0005 — parent_tags on products
+  `ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "parent_tags" text`,
+
+  // 0006 — fabric_tags on products
+  `ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "fabric_tags" text`,
+
+  // 0007 — sale_by + actual_sale_price_paise on orders
+  `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "sale_by" text`,
+  `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "actual_sale_price_paise" integer`,
+  `UPDATE "orders" SET "sale_by" = 'Website' WHERE "source" = 'online' AND "sale_by" IS NULL`,
+
   // 0008 — site_settings
   `CREATE TABLE IF NOT EXISTS "site_settings" (
     "key" text PRIMARY KEY NOT NULL,
