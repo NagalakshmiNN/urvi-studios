@@ -33,6 +33,23 @@ function headers() {
   };
 }
 
+/**
+ * Safely parse a fetch response as JSON.
+ * Shadowfax sometimes returns HTML error pages (e.g. for cancelled/deleted
+ * orders), which causes res.json() to throw. This helper catches that and
+ * returns a structured error instead.
+ */
+async function safeJson(res: Response): Promise<{ ok: true; data: any } | { ok: false; error: string }> {
+  const text = await res.text();
+  try {
+    return { ok: true, data: JSON.parse(text) };
+  } catch {
+    // Response wasn't JSON — likely an HTML error page
+    const preview = text.slice(0, 200).replace(/\s+/g, " ").trim();
+    return { ok: false, error: `Shadowfax returned non-JSON (HTTP ${res.status}): ${preview}` };
+  }
+}
+
 // ---------------------------------------------------------- Status mapping
 
 /**
@@ -236,7 +253,12 @@ export async function createShipment(
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    const parsed = await safeJson(res);
+    if (!parsed.ok) {
+      console.error("[shadowfax] createShipment failed:", parsed.error);
+      return { success: false, error: parsed.error };
+    }
+    const data = parsed.data;
 
     if (!res.ok) {
       console.error("[shadowfax] createShipment failed:", res.status, JSON.stringify(data));
@@ -305,7 +327,11 @@ export async function trackShipment(
       { method: "GET", headers: headers() }
     );
 
-    const data = await res.json();
+    const parsed = await safeJson(res);
+    if (!parsed.ok) {
+      return { success: false, error: parsed.error };
+    }
+    const data = parsed.data;
 
     if (!res.ok) {
       return {
@@ -363,7 +389,11 @@ export async function cancelShipment(
         body: JSON.stringify({ reason }),
       }
     );
-    const data = await res.json();
+    const parsed = await safeJson(res);
+    if (!parsed.ok) {
+      return { success: false, error: parsed.error };
+    }
+    const data = parsed.data;
     if (!res.ok) {
       return {
         success: false,
