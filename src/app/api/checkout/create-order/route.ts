@@ -13,6 +13,7 @@ import { expireAbandonedCheckouts } from "@/lib/expire-abandoned-orders";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  try {
   // Housekeeping: expire checkout sessions abandoned more than 45 minutes
   // ago. Runs opportunistically on each new checkout — cheap and idempotent.
   expireAbandonedCheckouts().catch(() => {});
@@ -250,4 +251,13 @@ export async function POST(request: Request) {
     accountCreated: Boolean(newAccountEmail),
     customerEmail: customer.email,
   });
+
+  } catch (err: unknown) {
+    console.error("[create-order] Unhandled error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: `Order failed: ${message}` },
+      { status: 500 }
+    );
+  }
 }

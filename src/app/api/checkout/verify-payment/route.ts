@@ -18,6 +18,7 @@ function signatureMatches(expected: string, received: string): boolean {
 }
 
 export async function POST(request: Request) {
+  try {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   if (!keySecret) return NextResponse.json({ verified: false, error: "Not configured." }, { status: 500 });
 
@@ -50,4 +51,13 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ verified: true, orderNumber: result.orderNumber });
+
+  } catch (err: unknown) {
+    console.error("[verify-payment] Unhandled error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { verified: false, error: `Verification failed: ${message}` },
+      { status: 500 }
+    );
+  }
 }
