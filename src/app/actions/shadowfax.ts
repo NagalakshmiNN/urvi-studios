@@ -28,6 +28,7 @@ export async function createShipmentAction(
   pickupWarehouseId?: string,
   returnWarehouseId?: string,
 ): Promise<CreateShipmentResult & { configured: boolean }> {
+  try {
   await requireAdmin();
 
   // Check that Shadowfax is configured
@@ -137,6 +138,14 @@ export async function createShipmentAction(
   }
 
   return { ...result, configured: true };
+  } catch (err) {
+    console.error('[createShipmentAction] unhandled error:', err);
+    return {
+      success: false,
+      configured: true,
+      error: err instanceof Error ? err.message : 'Unexpected error creating shipment',
+    };
+  }
 }
 
 // ---------------------------------------------------- Track shipment action
@@ -144,6 +153,7 @@ export async function createShipmentAction(
 export async function fetchTrackingAction(
   orderId: string
 ): Promise<TrackingResult & { configured: boolean }> {
+  try {
   await requireAdmin();
 
   if (!process.env.SHADOWFAX_API_TOKEN) {
@@ -190,6 +200,14 @@ export async function fetchTrackingAction(
   }
 
   return { ...result, configured: true };
+  } catch (err) {
+    console.error('[fetchTrackingAction] unhandled error:', err);
+    return {
+      success: false,
+      configured: true,
+      error: err instanceof Error ? err.message : 'Unexpected error fetching tracking',
+    };
+  }
 }
 
 // -------------------------------------------------- Cancel shipment action
@@ -198,6 +216,7 @@ export async function cancelShipmentAction(
   orderId: string,
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
+  try {
   await requireAdmin();
 
   const order = await db.query.orders.findFirst({
@@ -219,6 +238,13 @@ export async function cancelShipmentAction(
   }
 
   return result;
+  } catch (err) {
+    console.error('[cancelShipmentAction] unhandled error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unexpected error cancelling shipment',
+    };
+  }
 }
 
 

@@ -56,18 +56,22 @@ export default function ShippingCard({
   function handleCreate() {
     setMessage("");
     startTransition(async () => {
-      const result = await createShipmentAction(
-        orderId,
-        pickupId || undefined,
-        returnId || undefined,
-      );
-      if (result.success) {
-        setAwb(result.awbNumber || null);
-        setSfxId(result.shadowfaxOrderId || null);
-        setStatus("new");
-        setMessage("✓ Shipment created");
-      } else {
-        setMessage(result.error || "Failed to create shipment");
+      try {
+        const result = await createShipmentAction(
+          orderId,
+          pickupId || undefined,
+          returnId || undefined,
+        );
+        if (result.success) {
+          setAwb(result.awbNumber || null);
+          setSfxId(result.shadowfaxOrderId || null);
+          setStatus("new");
+          setMessage("✓ Shipment created");
+        } else {
+          setMessage(result.error || "Failed to create shipment");
+        }
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : "Something went wrong — please try again");
       }
     });
   }
@@ -75,13 +79,17 @@ export default function ShippingCard({
   function handleRefresh() {
     setMessage("");
     startTransition(async () => {
-      const result = await fetchTrackingAction(orderId);
-      if (result.success) {
-        setStatus(result.currentStatus || status);
-        if (result.awbNumber) setAwb(result.awbNumber);
-        setMessage("✓ Status refreshed");
-      } else {
-        setMessage(result.error || "Could not fetch tracking");
+      try {
+        const result = await fetchTrackingAction(orderId);
+        if (result.success) {
+          setStatus(result.currentStatus || status);
+          if (result.awbNumber) setAwb(result.awbNumber);
+          setMessage("✓ Status refreshed");
+        } else {
+          setMessage(result.error || "Could not fetch tracking");
+        }
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : "Could not fetch tracking");
       }
     });
   }
@@ -90,12 +98,16 @@ export default function ShippingCard({
     if (!confirm("Cancel this shipment with Shadowfax? This cannot be undone.")) return;
     setMessage("");
     startTransition(async () => {
-      const result = await cancelShipmentAction(orderId);
-      if (result.success) {
-        setStatus("cancelled");
-        setMessage("✓ Shipment cancelled");
-      } else {
-        setMessage(result.error || "Could not cancel");
+      try {
+        const result = await cancelShipmentAction(orderId);
+        if (result.success) {
+          setStatus("cancelled");
+          setMessage("✓ Shipment cancelled");
+        } else {
+          setMessage(result.error || "Could not cancel");
+        }
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : "Could not cancel shipment");
       }
     });
   }
