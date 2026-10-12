@@ -9,6 +9,7 @@ import { formatINR } from "@/lib/format";
 import { sendOrderNotification, sendCustomerOrderConfirmation } from "@/lib/order-notify";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { expireAbandonedCheckouts } from "@/lib/expire-abandoned-orders";
+import { sendNewOrderAlert } from "@/lib/telegram";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -178,6 +179,15 @@ export async function POST(request: Request) {
       `Phone: ${customer.phone}`
     ).catch(() => {});
 
+    sendNewOrderAlert({
+      orderNumber,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      total: pricing.total,
+      paymentMethod: "WhatsApp/COD",
+      paymentStatus: "PENDING",
+      items: notifyLines.map((l) => ({ productName: l.productName, size: l.size, qty: l.qty })),
+    }).catch(() => {});
     return NextResponse.json({ configured: false, orderNumber, whatsappUrls, accountCreated: Boolean(newAccountEmail), customerEmail: order.customerEmail });
   }
 

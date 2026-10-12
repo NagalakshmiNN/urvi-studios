@@ -39,6 +39,7 @@ import { sendOrderNotification, sendCustomerOrderConfirmation } from "./order-no
 import { revalidateStockViews } from "./revalidate-stock";
 import { sendWhatsApp } from "./whatsapp";
 import { formatINR } from "./format";
+import { sendNewOrderAlert } from "./telegram";
 
 export type ConfirmResult =
   | { ok: true; state: "confirmed" | "already"; orderNumber: string }
@@ -273,6 +274,15 @@ export async function confirmPaidOrder(opts: {
     `Phone: ${order.customerPhone}`
   ).catch(() => {});
 
+  sendNewOrderAlert({
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    total: order.total,
+    paymentStatus: 'PAID',
+    items: notifyLines.map((l) => ({ productName: l.productName, size: l.size, qty: l.qty })),
+  }).catch(() => {});
+
   revalidateStockViews();
 
   console.log(`[confirm-paid-order] Created and confirmed ${order.orderNumber} from checkout session.`);
@@ -314,6 +324,15 @@ async function deductStockAndNotify(
     `Customer: ${order.customerName}\n` +
     `Phone: ${order.customerPhone}`
   ).catch(() => {});
+
+  sendNewOrderAlert({
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    total: order.total,
+    paymentStatus: 'PAID',
+    items: items.map((i) => ({ productName: i.productName, size: i.size, qty: i.qty })),
+  }).catch(() => {});
 
   revalidateStockViews();
 }

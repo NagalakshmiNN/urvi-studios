@@ -12,6 +12,7 @@ import { adjustStockForLine } from "@/lib/stock";
 import { isBlankHtml } from "@/lib/richtext";
 import { sanitizeDescription } from "@/lib/sanitize-description";
 import { sendCustomerStatusUpdate } from "@/lib/order-notify";
+import { sendStatusAlert } from "@/lib/telegram";
 import { statusesFor } from "@/lib/order-status-copy";
 import { fetchOrderPayments, capturedPayment, describePayments, checkConnection, type ConnectionCheck } from "@/lib/razorpay-api";
 import { confirmPaidOrder } from "@/lib/confirm-paid-order";
@@ -324,6 +325,7 @@ export async function updateOrderStatusAction(orderId: string, status: string) {
   // customer-facing copy, e.g. an order with no email on file).
   if (order.status !== status) {
     await sendCustomerStatusUpdate(order, status);
+    sendStatusAlert(order.orderNumber, order.customerName, status).catch(() => {});
   }
 
   revalidatePath(`/admin/orders/${order.orderNumber}`);
