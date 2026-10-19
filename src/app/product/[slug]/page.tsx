@@ -6,6 +6,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailClient from "./ProductDetailClient";
+import ReviewForm from "@/components/ReviewForm";
 import { sanitizeDescription } from "@/lib/sanitize-description";
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -31,6 +32,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       where: (w, { eq, and }) => and(eq(w.customerId, customerId), eq(w.productId, product.id)),
     });
     wishlisted = !!w;
+  }
+
+  let hasExistingReview = false;
+  if (customerId) {
+    const existing = await db.query.reviews.findFirst({
+      where: (r, { eq, and }) => and(eq(r.customerId, customerId), eq(r.productId, product.id)),
+    });
+    hasExistingReview = !!existing;
   }
 
   const related = await db.query.products.findMany({
@@ -87,6 +96,16 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       )}
+
+      <div className="container">
+        <div style={{ maxWidth: 700 }}>
+          <ReviewForm
+            productId={product.id}
+            isLoggedIn={!!customerId}
+            hasExistingReview={hasExistingReview}
+          />
+        </div>
+      </div>
 
       {related.length > 0 && (
         <section className="section" style={{ background: "var(--sand)" }}>

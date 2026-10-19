@@ -1,0 +1,107 @@
+import Link from "next/link";
+import { db } from "@/db";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
+
+export const metadata = {
+  title: "Customer Reviews | URVI Studios",
+  description: "Read what our customers say about URVI Studios — real reviews from verified buyers.",
+};
+
+export default async function TestimonialsPage() {
+  const reviews = await db.query.reviews.findMany({
+    where: (r, { eq }) => eq(r.status, "APPROVED"),
+    with: { product: true },
+    orderBy: (r, { desc }) => [desc(r.createdAt)],
+  });
+
+  const avgRating = reviews.length
+    ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+    : 0;
+
+  return (
+    <>
+      <SiteHeader />
+
+      <section className="section" style={{ paddingTop: 40 }}>
+        <div className="container" style={{ maxWidth: 800 }}>
+          <div className="breadcrumb" style={{ marginBottom: 24 }}>
+            <Link href="/">Home</Link> / <span>Customer Reviews</span>
+          </div>
+
+          <div className="section-head" style={{ textAlign: "center", marginBottom: 36 }}>
+            <div className="eyebrow">From Our Customers</div>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 30, margin: "8px 0 0" }}>
+              What They&apos;re Saying
+            </h1>
+            {reviews.length > 0 && (
+              <div style={{ marginTop: 14, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+                <span className="stars" style={{ fontSize: 22 }}>
+                  {"★".repeat(Math.round(avgRating))}{"☆".repeat(5 - Math.round(avgRating))}
+                </span>
+                <span style={{ fontSize: 14, color: "var(--sage)" }}>
+                  {avgRating.toFixed(1)} from {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {reviews.length === 0 && (
+            <p style={{ textAlign: "center", color: "var(--sage)", padding: "40px 0" }}>
+              No reviews yet — be the first to share your experience!
+            </p>
+          )}
+
+          <div className="testimonials-grid">
+            {reviews.map((r) => (
+              <div key={r.id} className="testimonial-card">
+                {r.photoUrl && (
+                  <img
+                    src={r.photoUrl}
+                    alt={`Review by ${r.customerName}`}
+                    className="testimonial-photo"
+                  />
+                )}
+                <div className="testimonial-body">
+                  <div className="stars" style={{ marginBottom: 6 }}>
+                    {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
+                  </div>
+                  {r.title && (
+                    <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 6px" }}>{r.title}</h3>
+                  )}
+                  <p style={{ fontSize: 13.5, color: "var(--earth)", lineHeight: 1.55, margin: 0 }}>
+                    {r.body}
+                  </p>
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: "var(--olive)" }}>
+                      {r.customerName}
+                    </span>
+                    {r.verifiedPurchase && (
+                      <span style={{
+                        fontSize: 10.5,
+                        color: "#4c8c3c",
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                        fontWeight: 600,
+                      }}>
+                        Verified Purchase
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/product/${r.product.slug}`}
+                    style={{ fontSize: 12, color: "var(--sage)", marginTop: 4, display: "inline-block" }}
+                  >
+                    on {r.product.name} →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter />
+    </>
+  );
+}

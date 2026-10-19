@@ -646,6 +646,28 @@ p { line-height: 1.7; color: var(--earth); }
 .review-card .verified { font-size: 10.5px; color: var(--sage); text-transform: uppercase; letter-spacing: 1px; margin-left: 8px; }
 .review-card .title { font-weight: 600; margin: 6px 0 4px; font-size: 14px; }
 .review-card .body-text { font-size: 13.5px; color: var(--earth); }
+.review-form-prompt { font-size: 13.5px; color: var(--sage); padding: 14px 0; }
+.review-form-prompt a { color: var(--gold); text-decoration: underline; }
+.review-form { margin-top: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--sand); }
+.review-stars-select { display: flex; align-items: center; gap: 2px; }
+.review-star { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--line); padding: 0; line-height: 1; transition: color 0.15s; }
+.review-star.filled { color: var(--gold); }
+.review-star:hover { color: var(--gold); }
+.review-photo-label { display: inline-block; margin-top: 2px; }
+.testimonials-grid { display: grid; gap: 20px; }
+.testimonial-card { background: var(--sand); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.testimonial-photo { width: 100%; max-height: 220px; object-fit: cover; }
+.testimonial-body { padding: 18px 20px; }
+@media (min-width: 600px) { .testimonials-grid { grid-template-columns: 1fr 1fr; } }
+.reviews-carousel { text-align: center; padding: 10px 0; }
+.carousel-review { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.carousel-controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 20px; }
+.carousel-arrow { background: none; border: 1px solid var(--line); width: 34px; height: 34px; border-radius: 50%; font-size: 20px; color: var(--olive); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+.carousel-arrow:hover { background: var(--sand); }
+.carousel-dots { display: flex; gap: 6px; }
+.carousel-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: var(--line); cursor: pointer; padding: 0; transition: background 0.2s; }
+.carousel-dot.active { background: var(--gold); }
 
 /* ---------------- Cart ---------------- */
 .cart-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 50px; padding: 50px 0 90px; align-items: flex-start; }

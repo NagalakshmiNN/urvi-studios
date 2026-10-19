@@ -8,6 +8,7 @@ import { getCustomerSession } from "@/lib/auth";
 import { STYLE_GUIDES } from "@/lib/style-guides";
 import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
+import ReviewsCarousel from "@/components/ReviewsCarousel";
 import { SIZE_CHART } from "@/lib/size-guide";
 
 const CATEGORY_IMAGE_LIMIT = 6;
@@ -95,6 +96,24 @@ export default async function HomePage() {
     const rows = await db.query.wishlistItems.findMany({ where: (w, { eq }) => eq(w.customerId, customerId) });
     wishlistedIds = new Set(rows.map((r) => r.productId));
   }
+
+  // Top-rated approved reviews for the homepage carousel
+  const topReviews = await db.query.reviews.findMany({
+    where: (r, { eq }) => eq(r.status, "APPROVED"),
+    with: { product: true },
+    orderBy: (r, { desc }) => [desc(r.rating), desc(r.createdAt)],
+    limit: 8,
+  });
+  const carouselReviews = topReviews.map((r) => ({
+    id: r.id,
+    customerName: r.customerName,
+    rating: r.rating,
+    title: r.title,
+    body: r.body,
+    verifiedPurchase: r.verifiedPurchase,
+    productName: r.product.name,
+    productSlug: r.product.slug,
+  }));
 
   return (
     <>
@@ -282,6 +301,21 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {carouselReviews.length > 0 && (
+        <section className="section" style={{ background: "var(--ivory)" }}>
+          <div className="container" style={{ maxWidth: 700 }}>
+            <div className="section-head" style={{ textAlign: "center" }}>
+              <div className="eyebrow">Real Stories</div>
+              <h2>What Our Customers Say</h2>
+            </div>
+            <ReviewsCarousel reviews={carouselReviews} />
+            <div style={{ textAlign: "center", marginTop: 20 }}>
+              <a href="/testimonials" className="btn btn-outline btn-small">Read All Reviews</a>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <div className="container">
