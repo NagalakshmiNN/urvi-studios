@@ -46,7 +46,7 @@ export default function HeaderClient({ customerName }: { customerName: string | 
           </svg>
         </Link>
       )}
-      {customerName && (
+      {count > 0 && (
         <Link href="/cart" className="icon-btn" aria-label="Cart">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
             <circle cx="9" cy="21" r="1" />
