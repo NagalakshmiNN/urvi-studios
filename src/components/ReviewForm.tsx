@@ -30,7 +30,7 @@ export default function ReviewForm({
   if (!isLoggedIn) {
     return (
       <div className="review-form-prompt">
-        <a href="/login">Log in</a> to write a review.
+        <a href="/account/login">Log in</a> to write a review.
       </div>
     );
   }
