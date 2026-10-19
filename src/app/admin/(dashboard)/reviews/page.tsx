@@ -1,6 +1,8 @@
 import { db } from "@/db";
 import ReviewActions from "./ReviewActions";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminReviewsPage() {
   const reviews = await db.query.reviews.findMany({
     with: {

@@ -3,6 +3,8 @@ import { db } from "@/db";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Customer Reviews | URVI Studios",
   description: "Read what our customers say about URVI Studios — real reviews from verified buyers.",
