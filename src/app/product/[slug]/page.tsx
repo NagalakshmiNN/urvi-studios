@@ -22,6 +22,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   const reviews = await db.query.reviews.findMany({
     where: (r, { eq, and }) => and(eq(r.productId, product.id), eq(r.status, "APPROVED")),
+    with: { media: { orderBy: (m, { asc }) => [asc(m.sortOrder)] } },
     orderBy: (r, { desc }) => [desc(r.createdAt)],
   });
   const avgRating = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
@@ -84,15 +85,29 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 <div style={{ fontSize: 12.5, color: "var(--sage)" }}>{reviews.length} review{reviews.length !== 1 ? "s" : ""}</div>
               </div>
             </div>
-            {reviews.map((r) => (
-              <div key={r.id} className="review-card">
-                <span className="who">{r.customerName}</span>
-                {r.verifiedPurchase && <span className="verified">Verified Purchase</span>}
-                <div className="stars" style={{ marginTop: 6 }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
-                {r.title && <div className="title">{r.title}</div>}
-                <div className="body-text">{r.body}</div>
-              </div>
-            ))}
+            {reviews.map((r) => {
+              const photos = r.media.filter((m) => m.kind === "photo");
+              const video = r.media.find((m) => m.kind === "video");
+              const audio = r.media.find((m) => m.kind === "audio");
+              return (
+                <div key={r.id} className="review-card">
+                  <span className="who">{r.customerName}</span>
+                  {r.verifiedPurchase && <span className="verified">Verified Purchase</span>}
+                  <div className="stars" style={{ marginTop: 6 }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
+                  {r.title && <div className="title">{r.title}</div>}
+                  <div className="body-text">{r.body}</div>
+                  {(photos.length > 0 || video || audio) && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                      {photos.map((p) => (
+                        <img key={p.id} src={`/api/images/${p.assetId}`} alt="Review photo" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }} />
+                      ))}
+                      {video && <video src={`/api/images/${video.assetId}`} controls preload="metadata" style={{ maxWidth: 180, maxHeight: 120, borderRadius: 6 }} />}
+                      {audio && <audio src={`/api/images/${audio.assetId}`} controls preload="metadata" style={{ height: 36 }} />}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -19,9 +19,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const buffer = Buffer.from(asset.dataBase64, "base64");
 
   // Guard against serving very large blobs that would spike memory.
-  const TEN_MB = 10 * 1024 * 1024;
-  if (buffer.length > TEN_MB) {
-    return NextResponse.json({ error: "Image too large." }, { status: 413 });
+  const FIFTY_MB = 50 * 1024 * 1024;
+  if (buffer.length > FIFTY_MB) {
+    return NextResponse.json({ error: "Asset too large." }, { status: 413 });
   }
 
   return new NextResponse(buffer, {

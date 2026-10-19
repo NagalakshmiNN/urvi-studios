@@ -505,6 +505,18 @@ export const reviews = pgTable("reviews", {
   createdAt: createdAt(),
 });
 
+// --------------------------------------------------------- Review Media
+// Multiple photos, one video, one audio per review.
+
+export const reviewMedia = pgTable("review_media", {
+  id: id(),
+  reviewId: text("review_id").notNull().references(() => reviews.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // "photo" | "video" | "audio"
+  assetId: text("asset_id").notNull().references(() => productImageAssets.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: createdAt(),
+});
+
 
 // --------------------------------------------------------- Product Views
 //
@@ -648,9 +660,15 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
   product: one(products, { fields: [wishlistItems.productId], references: [products.id] }),
 }));
 
-export const reviewsRelations = relations(reviews, ({ one }) => ({
+export const reviewsRelations = relations(reviews, ({ one, many }) => ({
   product: one(products, { fields: [reviews.productId], references: [products.id] }),
   customer: one(customers, { fields: [reviews.customerId], references: [customers.id] }),
+  media: many(reviewMedia),
+}));
+
+export const reviewMediaRelations = relations(reviewMedia, ({ one }) => ({
+  review: one(reviews, { fields: [reviewMedia.reviewId], references: [reviews.id] }),
+  asset: one(productImageAssets, { fields: [reviewMedia.assetId], references: [productImageAssets.id] }),
 }));
 
 export const vendorsRelations = relations(vendors, ({ many }) => ({
