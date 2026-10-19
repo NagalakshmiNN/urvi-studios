@@ -186,6 +186,21 @@ type AnalyticsData = {
   recentErrors: { id: string; kind: string; message: string; pageUrl: string; userAgent: string; createdAt: string }[];
 };
 
+type GA4Data = {
+  ok: boolean;
+  summary: {
+    sessions: number;
+    totalUsers: number;
+    newUsers: number;
+    avgSessionDuration: number;
+    bounceRate: number;
+  };
+  sessionsByDay: { day: string; sessions: number; users: number }[];
+  trafficSources: { channel: string; sessions: number; users: number }[];
+  topPages: { path: string; views: number }[];
+  devices: { category: string; sessions: number; users: number }[];
+};
+
 const PRESETS: { label: string; from: string; to: string }[] = [
   { label: "Last 7 days", from: daysAgo(7), to: TODAY },
   { label: "Last 30 days", from: daysAgo(30), to: TODAY },
@@ -206,21 +221,52 @@ const METHOD_LABELS: Record<string, string> = {
   manual: "Manual / Walk-in",
 };
 
+const DEVICE_COLORS: Record<string, string> = {
+  desktop: C.blue,
+  mobile: C.teal,
+  tablet: C.gold,
+};
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
 export default function AnalyticsDashboard() {
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(TODAY);
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [ga4, setGa4] = useState<GA4Data | null>(null);
+  const [ga4Error, setGa4Error] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async (f: string, t: string) => {
     setLoading(true);
     setError("");
+    setGa4Error("");
     try {
-      const res = await fetch(`/api/admin/analytics?from=${f}&to=${t}`);
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? "Failed to load analytics");
-      setData(json);
+      // Fetch DB analytics and GA4 in parallel
+      const [dbRes, ga4Res] = await Promise.all([
+        fetch(`/api/admin/analytics?from=${f}&to=${t}`),
+        fetch(`/api/admin/ga4?from=${f}&to=${t}`).catch(() => null),
+      ]);
+
+      const dbJson = await dbRes.json();
+      if (!dbJson.ok) throw new Error(dbJson.error ?? "Failed to load analytics");
+      setData(dbJson);
+
+      // GA4 is best-effort — don't let it break the page
+      if (ga4Res) {
+        const ga4Json = await ga4Res.json();
+        if (ga4Json.ok) {
+          setGa4(ga4Json);
+        } else {
+          setGa4Error(ga4Json.error ?? "GA4 unavailable");
+        }
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -287,6 +333,112 @@ export default function AnalyticsDashboard() {
         <p style={{ color: C.sage, padding: 20 }}>Loading…</p>
       ) : (
         <>
+          {/* ============================================================
+              GA4 WEBSITE TRAFFIC SECTION
+              ============================================================ */}
+          {ga4 ? (
+            <>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: C.olive, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.teal, display: "inline-block" }} />
+                Website Traffic
+                <span style={{ fontSize: 11, fontWeight: 400, color: C.sage, marginLeft: 4 }}>via Google Analytics</span>
+              </h2>
+
+              {/* GA4 summary cards */}
+              <div className="metric-grid">
+                <div className="metric-card">
+                  <div className="label">Sessions</div>
+                  <div className="value">{ga4.summary.sessions.toLocaleString("en-IN")}</div>
+                </div>
+                <div className="metric-card">
+                  <div className="label">Visitors</div>
+                  <div className="value">{ga4.summary.totalUsers.toLocaleString("en-IN")}</div>
+                  <div className="metric-sub">{ga4.summary.newUsers} new</div>
+                </div>
+                <div className="metric-card">
+                  <div className="label">Avg. Session</div>
+                  <div className="value">{formatDuration(ga4.summary.avgSessionDuration)}</div>
+                </div>
+                <div className="metric-card">
+                  <div className="label">Bounce Rate</div>
+                  <div className="value">{ga4.summary.bounceRate}%</div>
+                </div>
+              </div>
+
+              {/* Sessions by day */}
+              <div className="admin-card" style={{ marginBottom: 20 }}>
+                <h3 style={{ marginBottom: 4 }}>Daily Sessions</h3>
+                <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 14 }}>
+                  All website visits, including anonymous visitors who never log in.
+                </p>
+                <BarChart
+                  data={ga4.sessionsByDay.map((d) => ({ day: d.day, count: d.sessions }))}
+                  color={C.teal}
+                  label="Website sessions by day"
+                />
+              </div>
+
+              {/* Traffic sources + Devices side by side */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+                <div className="admin-card">
+                  <h3 style={{ marginBottom: 12 }}>Traffic Sources</h3>
+                  {ga4.trafficSources.length === 0 ? (
+                    <p style={{ color: C.sage, fontSize: 13 }}>No traffic data yet.</p>
+                  ) : (
+                    <HBar
+                      data={ga4.trafficSources.map((s) => ({ name: s.channel, views: s.sessions }))}
+                      max={Math.max(...ga4.trafficSources.map((s) => s.sessions))}
+                    />
+                  )}
+                </div>
+                <div className="admin-card">
+                  <h3 style={{ marginBottom: 12 }}>Devices</h3>
+                  <Donut
+                    slices={ga4.devices.map((d) => ({
+                      label: d.category.charAt(0).toUpperCase() + d.category.slice(1),
+                      value: d.sessions,
+                      color: DEVICE_COLORS[d.category] ?? C.sage,
+                    }))}
+                  />
+                </div>
+              </div>
+
+              {/* GA4 top pages */}
+              <div className="admin-card" style={{ marginBottom: 20 }}>
+                <h3 style={{ marginBottom: 4 }}>Top Pages (all visitors)</h3>
+                <p style={{ fontSize: 12.5, color: "var(--sage)", marginBottom: 14 }}>
+                  Most viewed pages across the entire site — includes anonymous browsing.
+                </p>
+                {ga4.topPages.length === 0 ? (
+                  <p style={{ color: C.sage, fontSize: 13 }}>No page view data yet.</p>
+                ) : (
+                  <HBar
+                    data={ga4.topPages.map((p) => ({ name: p.path, views: p.views }))}
+                    max={Math.max(...ga4.topPages.map((p) => p.views))}
+                  />
+                )}
+              </div>
+
+              <hr style={{ border: "none", borderTop: `1px dashed ${C.line}`, margin: "28px 0" }} />
+            </>
+          ) : ga4Error ? (
+            <div style={{ padding: "14px 18px", border: `1px dashed ${C.line}`, borderRadius: 10, marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: C.sage, margin: 0, lineHeight: 1.7 }}>
+                <strong style={{ color: C.olive }}>GA4 Traffic Data</strong>{" — "}
+                {ga4Error}
+              </p>
+            </div>
+          ) : null}
+
+          {/* ============================================================
+              DATABASE ANALYTICS (existing sections)
+              ============================================================ */}
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: C.olive, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
+            Store Activity
+            <span style={{ fontSize: 11, fontWeight: 400, color: C.sage, marginLeft: 4 }}>from database</span>
+          </h2>
+
           {/* Summary cards */}
           <div className="metric-grid">
             <div className="metric-card">
@@ -434,16 +586,6 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
           )}
-
-          {/* GA4 note */}
-          <div style={{ padding: "14px 18px", border: "1px dashed var(--line)", borderRadius: 10, marginBottom: 20 }}>
-            <p style={{ fontSize: 13, color: C.sage, margin: 0, lineHeight: 1.7 }}>
-              <strong style={{ color: C.olive }}>GA4 Integration — coming soon.</strong>{" "}
-              Session duration, page engagement time, bounce rates and traffic sources will appear here
-              once the GA4 service account is connected. All the charts above run from our own database
-              and work right now.
-            </p>
-          </div>
         </>
       )}
     </div>
