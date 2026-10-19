@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import BetaBanner from "@/components/BetaBanner";
+import ErrorTracker from "@/components/ErrorTracker";
 import { getBoolSetting } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </Script>
       </head>
       <body>
+        <ErrorTracker />
         {children}
         {showBeta && <BetaBanner />}
       </body>

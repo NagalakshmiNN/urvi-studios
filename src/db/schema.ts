@@ -671,3 +671,28 @@ export const purchaseLinesRelations = relations(purchaseLines, ({ one }) => ({
 export const purchaseDocumentsRelations = relations(purchaseDocuments, ({ one }) => ({
   purchase: one(purchases, { fields: [purchaseDocuments.purchaseId], references: [purchases.id] }),
 }));
+
+// -------------------------------------------------------- Analytics Events
+//
+// Client-side error and event tracking. The browser's ErrorTracker component
+// posts JS errors, unhandled rejections and (optionally) page-view pings
+// here so the admin analytics dashboard can show them without Sentry.
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: id(),
+  /** "js_error" | "unhandled_rejection" | "page_view" | "api_error" */
+  kind: text("kind").notNull(),
+  /** The page URL where it happened. */
+  pageUrl: text("page_url"),
+  /** Error message or event description. */
+  message: text("message"),
+  /** Stack trace (errors only). */
+  stack: text("stack"),
+  /** Browser user-agent string. */
+  userAgent: text("user_agent"),
+  /** Logged-in customer ID, if any. */
+  customerId: text("customer_id"),
+  /** Extra JSON metadata (e.g. component name, API endpoint). */
+  meta: text("meta"),
+  createdAt: createdAt(),
+});
