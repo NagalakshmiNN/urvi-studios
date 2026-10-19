@@ -14,8 +14,12 @@ async function getAccessToken(): Promise<string> {
     return tokenCache.token;
   }
 
-  const raw = process.env.GA4_SERVICE_ACCOUNT_KEY;
-  if (!raw) throw new Error("GA4_SERVICE_ACCOUNT_KEY is not set");
+  let raw = process.env.GA4_SERVICE_ACCOUNT_KEY;
+  if (!raw) {
+    const b64 = process.env.GA4_SERVICE_ACCOUNT_KEY_B64;
+    if (!b64) throw new Error("GA4_SERVICE_ACCOUNT_KEY is not set");
+    raw = Buffer.from(b64, "base64").toString("utf-8");
+  }
 
   const creds = JSON.parse(raw);
   const key = await importPKCS8(creds.private_key, "RS256");
