@@ -6,7 +6,7 @@
 import { db, schema } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateOrderNumberSeed } from "@/lib/format";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE, getFreeShippingCoupon } from "@/lib/shipping";
 import { countCouponUses, withinLimits } from "@/lib/coupon-usage";
 
 // Re-exported so existing importers (shipping-returns page, order detail
@@ -68,13 +68,10 @@ export type PricedLine = {
 };
 
 export type PricingResult =
-  // `shipping` is never charged upfront — actual courier cost depends on
-  // pincode, distance, and package weight, none of which we calculate at
-  // checkout. Orders above FREE_SHIP_THRESHOLD are genuinely free; orders
-  // below it ship with `freeShipping: false`, meaning the team confirms the
-  // real charge with the customer separately before dispatch (see the
-  // Shipping & Delivery page). Never reintroduce a flat shipping fee here —
-  // that was the exact thing removed.
+  // Shipping is ₹STANDARD_SHIPPING_FEE (currently ₹99) when the subtotal is
+  // below FREE_SHIP_THRESHOLD, and free (₹0) when it is at or above, OR
+  // when the customer applies the free-shipping coupon code defined in the
+  // FREE_SHIPPING_COUPON env var. Pickup orders are always free.
   | { ok: true; lines: PricedLine[]; subtotal: number; shipping: number; freeShipping: boolean; discount: number; total: number; couponCode: string | null }
   | { ok: false; error: string };
 
@@ -95,6 +92,8 @@ export async function priceCart(
      * checked again at checkout where the email is known.
      */
     customerEmail?: string | null;
+    /** "pickup" means the customer collects from the studio — no shipping. */
+    fulfilmentMethod?: "delivery" | "pickup";
   }
 ): Promise<PricingResult> {
   if (!items || items.length === 0) return { ok: false, error: "Your bag is empty." };
@@ -173,9 +172,17 @@ export async function priceCart(
   }
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
-  // Not charged at checkout either way — see the PricingResult comment above.
-  const shipping = 0;
+
+  // Shipping: free when subtotal >= threshold, or pickup, or the free-
+  // shipping coupon matches. Otherwise ₹STANDARD_SHIPPING_FEE.
+  const isPickup = opts?.fulfilmentMethod === "pickup";
+  const freeShipCoupon = getFreeShippingCoupon();
+  const couponWaivesShipping =
+    !!freeShipCoupon &&
+    !!couponCode &&
+    couponCode.trim().toUpperCase() === freeShipCoupon.toUpperCase();
+  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD || isPickup || couponWaivesShipping;
+  const shipping = freeShipping ? 0 : STANDARD_SHIPPING_FEE;
 
   let discount = 0;
   let appliedCode: string | null = null;

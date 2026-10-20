@@ -2,6 +2,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
+import { STANDARD_SHIPPING_FEE } from "@/lib/shipping";
 import { SITE } from "@/lib/site-config";
 
 export default function ShippingReturnsPage() {
@@ -25,9 +26,10 @@ export default function ShippingReturnsPage() {
               wherever you are.
             </p>
             <p>
-              Delivery is <strong>free on orders above {formatINR(FREE_SHIP_THRESHOLD)}</strong>. On orders below
-              {" "}{formatINR(FREE_SHIP_THRESHOLD)}, delivery charges are additional — they vary based on your
-              location and package, and our team will confirm the exact amount with you before dispatch.
+              Delivery is <strong>free on orders of {formatINR(FREE_SHIP_THRESHOLD)} and above</strong>. On orders
+              below {formatINR(FREE_SHIP_THRESHOLD)}, a standard delivery charge of{" "}
+              <strong>{formatINR(STANDARD_SHIPPING_FEE)}</strong> applies — it covers packaging and shipping
+              anywhere in India.
             </p>
             <p>
               Once your order is confirmed, most pieces are carefully packed and dispatched within 2–3 business

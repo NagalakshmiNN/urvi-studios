@@ -24,5 +24,5 @@ export async function POST(request: Request) {
   const pricing = await priceCart(items, couponCode);
 
   if (!pricing.ok) return NextResponse.json({ ok: false, error: pricing.error });
-  return NextResponse.json({ ok: true, discount: pricing.discount, couponCode: pricing.couponCode });
+  return NextResponse.json({ ok: true, discount: pricing.discount, couponCode: pricing.couponCode, shippingWaived: pricing.shipping === 0 });
 }

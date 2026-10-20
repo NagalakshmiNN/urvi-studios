@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { CartLine, getCart, clearCart, updateQty, removeFromCart, lineKeyOf, formatINR } from "@/lib/cart";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE } from "@/lib/shipping";
 import { calculateGst } from "@/lib/gst";
 
 const FREE_SHIP_THRESHOLD = FREE_SHIPPING_THRESHOLD;
@@ -41,6 +41,7 @@ export default function CheckoutClient({
   const [couponCode, setCouponCode] = useState("");
   const [couponMsg, setCouponMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [shippingWaived, setShippingWaived] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountExistsEmail, setAccountExistsEmail] = useState<string | null>(null);
@@ -91,8 +92,10 @@ export default function CheckoutClient({
   }
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD;
-  const total = Math.max(0, subtotal - discount);
+  const isPickup = fulfilment === "pickup";
+  const freeShipping = subtotal >= FREE_SHIP_THRESHOLD || isPickup || shippingWaived;
+  const shipping = freeShipping ? 0 : STANDARD_SHIPPING_FEE;
+  const total = Math.max(0, subtotal + shipping - discount);
   const { totalGst, rateLabel } = calculateGst(cart.map((l) => ({ price: l.price, qty: l.qty })));
 
   // Cart edits happen on the same localStorage cart the Cart page uses —
@@ -106,12 +109,14 @@ export default function CheckoutClient({
     setCart((prev) => prev.map((l) => (lineKeyOf(l) === key ? { ...l, qty: newQty } : l)));
     setDiscount(0);
     setCouponMsg(null);
+    setShippingWaived(false);
   }
   function removeLine(key: string) {
     removeFromCart(key);
     setCart((prev) => prev.filter((l) => lineKeyOf(l) !== key));
     setDiscount(0);
     setCouponMsg(null);
+    setShippingWaived(false);
   }
 
   async function applyCoupon() {
@@ -125,9 +130,15 @@ export default function CheckoutClient({
     const data = await res.json();
     if (data.ok) {
       setDiscount(data.discount);
-      setCouponMsg({ text: `"${data.couponCode}" applied — you saved ${formatINR(data.discount)}.`, ok: true });
+      const waived = data.shippingWaived === true;
+      setShippingWaived(waived);
+      const parts: string[] = [];
+      if (data.discount > 0) parts.push(`you saved ${formatINR(data.discount)}`);
+      if (waived) parts.push("free delivery applied");
+      setCouponMsg({ text: `"${data.couponCode}" applied${parts.length ? " — " + parts.join(", ") : ""}.`, ok: true });
     } else {
       setDiscount(0);
+      setShippingWaived(false);
       setCouponMsg({ text: data.error || "That code didn't work.", ok: false });
     }
   }
@@ -431,17 +442,20 @@ export default function CheckoutClient({
           </div>
           <div className="summary-row">
             <span>Delivery</span>
-            <span>{freeShipping ? "Free" : "Additional"}</span>
+            <span>{freeShipping ? <span style={{ color: "var(--olive)", fontWeight: 600 }}>Free</span> : formatINR(shipping)}</span>
           </div>
           {discount > 0 && <div className="summary-row"><span>Discount</span><span>−{formatINR(discount)}</span></div>}
           <div className="summary-row total"><span>Total</span><span>{formatINR(total)}</span></div>
-          {!freeShipping && (
-            <p className="promo-note" style={{ marginTop: -6 }}>
-              Delivery charges are additional on this order — they depend on your pincode and package, so our
-              team will confirm the amount with you before dispatch. Free delivery on orders above ₹5,000.
+          {freeShipping && (
+            <p className="promo-note" style={{ marginTop: -6, color: "var(--olive)" }}>
+              {isPickup ? "No delivery charge for pickup orders." : "Your order qualifies for free delivery."}
             </p>
           )}
-          <p className="promo-note" style={{ marginTop: freeShipping ? -6 : 0 }}>We deliver across India.</p>
+          {!freeShipping && (
+            <p className="promo-note" style={{ marginTop: -6 }}>
+              Free delivery on orders above ₹5,000. We deliver across India.
+            </p>
+          )}
 
           {error && <div className="notice-box error" style={{ marginTop: 14 }}>{error}</div>}
 

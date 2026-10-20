@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   // count what this customer has already used. The cart-page preview has no
   // email to offer, which is why the limit is re-checked here rather than
   // trusted from there.
-  const pricing = await priceCart(items, couponCode, { customerEmail: customer.email });
+  const pricing = await priceCart(items, couponCode, { customerEmail: customer.email, fulfilmentMethod: isPickup ? "pickup" : "delivery" });
   if (!pricing.ok) return NextResponse.json({ error: pricing.error }, { status: 400 });
 
   let customerId = await getCustomerSession();
