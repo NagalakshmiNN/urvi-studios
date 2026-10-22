@@ -4,6 +4,7 @@
 // Nothing here is a photograph, so nothing is licensed and nothing is uploaded.
 
 import type { Ctx } from "./backdrops";
+import { HERITAGE, drawHeritage, isHeritage } from "./heritage";
 
 export type SceneBase = "midnight-floral" | "draped-rose" | "heritage-wall" | "marble-gold" | "emerald-velvet" | "sunlit-linen" | "marigold-garland" | "jaali-light";
 /** "<base>:<palette index>" */
@@ -507,6 +508,13 @@ function still(id: SceneId, w: number, h: number): Still {
 
 /** Light and life over the still: moving glows, sparkles, swaying leaf shadows. */
 export function drawScene(ctx: Ctx, w: number, h: number, t: number, id: SceneId) {
+  {
+    const [hb, hi] = id.split(":");
+    if (isHeritage(hb)) {
+      drawHeritage(ctx, w, h, t, hb, Number(hi) || 0);
+      return;
+    }
+  }
   ctx.save();
   ctx.drawImage(still(id, w, h).canvas as CanvasImageSource, 0, 0, w, h);
   const { base, pal } = splitId(id);
@@ -655,3 +663,6 @@ for (const base of Object.keys(BASE_NAMES) as SceneBase[]) {
     SCENES.push({ id: `${base}:${i}`, name: `${BASE_NAMES[base]} · ${p.name}`, a: rgbs(mixc(p.light, p.dark, 0.25)), b: rgbs(p.dark), c: rgbs(p.accent), glow: p.glow });
   });
 }
+
+// the India, Spain and Italy collection
+SCENES.push(...HERITAGE);
