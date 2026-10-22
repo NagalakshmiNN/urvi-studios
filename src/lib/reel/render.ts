@@ -32,7 +32,18 @@ export type PainterOptions = {
   height: number;
   /** Show the brand name at the top of every shot. */
   watermark?: boolean;
+  /** The brand logo (transparent PNG). Opens the reel, sits as a watermark throughout, and closes it. */
+  logo?: CanvasImageSource | null;
 };
+
+/** Seconds the logo holds at the start before fading into the first shot. */
+const INTRO_HOLD = 1.4;
+const INTRO_FADE = 0.8;
+
+function sizeOf(img: CanvasImageSource): { w: number; h: number } {
+  const i = img as { width?: number; height?: number; naturalWidth?: number; naturalHeight?: number };
+  return { w: i.naturalWidth ?? i.width ?? 1, h: i.naturalHeight ?? i.height ?? 1 };
+}
 
 type Canvas2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
@@ -115,7 +126,7 @@ export class ReelPainter {
     this.shots = o.shots.filter((s) => s.enabled);
     this.timeline = planTimeline(this.shots.map((s) => s.weight), TOTAL_SECONDS);
     this.ink = luminance(o.background) < 0.45 ? IVORY : OLIVE;
-    this.mark = o.watermark === false ? null : this.makeWatermark();
+    this.mark = o.watermark === false ? null : o.logo ? this.makeLogoWatermark(o.logo) : this.makeWatermark();
     this.endCard = this.makeEndCard();
   }
 
@@ -138,6 +149,27 @@ export class ReelPainter {
     ctx.fillStyle = this.ink;
     ctx.globalAlpha = 0.85;
     spacedCentered(ctx, chars.join(""), w / 2, size * 1.2, spacing);
+    return c;
+  }
+
+  /** The logo as a small, slightly see-through corner mark. */
+  private makeLogoWatermark(logo: CanvasImageSource): AnyCanvas {
+    const { width: W } = this;
+    const { w: lw, h: lh } = sizeOf(logo);
+    const w = Math.round(W * 0.2);
+    const h = Math.round((w * lh) / lw);
+    const pad = Math.round(W * 0.012);
+    const c = makeCanvas(w + pad * 2, h + pad * 2);
+    const ctx = ctxOf(c);
+    if (luminance(this.o.background) < 0.45) {
+      // dark backgrounds: seat the logo on a soft ivory plate so it stays legible
+      ctx.fillStyle = "rgba(247,241,232,0.88)";
+      roundRectPath(ctx, 0, 0, c.width, c.height, W * 0.02);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.82;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(logo, pad, pad, w, h);
     return c;
   }
 
@@ -174,14 +206,15 @@ export class ReelPainter {
 
     // the dress on its stage, in a soft card
     const maxW = W * 0.64;
-    const maxH = H * 0.5;
+    const logo = o.logo ?? null;
+    const maxH = H * (logo ? 0.4 : 0.5);
     const sw = o.stageCanvas.width;
     const sh = o.stageCanvas.height;
     const k = Math.min(maxW / sw, maxH / sh);
     const cw = sw * k;
     const ch = sh * k;
     const px = (W - cw) / 2;
-    const py = H * 0.11;
+    const py = H * (logo ? 0.07 : 0.11);
     const r = W * 0.025;
     ctx.save();
     ctx.shadowColor = "rgba(60,40,30,0.32)";
@@ -206,16 +239,25 @@ export class ReelPainter {
       centered(ctx, o.text.title, W / 2, y);
       y += H * 0.062;
     }
-    ctx.font = `600 ${H * 0.042}px ${SERIF}`;
-    spacedCentered(ctx, o.text.brand.toUpperCase(), W / 2, y, H * 0.006);
-    y += H * 0.03;
-    ctx.strokeStyle = GOLD;
-    ctx.lineWidth = Math.max(2, H * 0.002);
-    ctx.beginPath();
-    ctx.moveTo(W * 0.41, y);
-    ctx.lineTo(W * 0.59, y);
-    ctx.stroke();
-    y += H * 0.04;
+    if (logo) {
+      const { w: lw, h: lh } = sizeOf(logo);
+      const lh2 = H * 0.27;
+      const lw2 = (lh2 * lw) / lh;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(logo, (W - lw2) / 2, y - H * 0.025, lw2, lh2);
+      y += lh2 + H * 0.015;
+    } else {
+      ctx.font = `600 ${H * 0.042}px ${SERIF}`;
+      spacedCentered(ctx, o.text.brand.toUpperCase(), W / 2, y, H * 0.006);
+      y += H * 0.03;
+      ctx.strokeStyle = GOLD;
+      ctx.lineWidth = Math.max(2, H * 0.002);
+      ctx.beginPath();
+      ctx.moveTo(W * 0.41, y);
+      ctx.lineTo(W * 0.59, y);
+      ctx.stroke();
+      y += H * 0.04;
+    }
     if (o.text.tagline) {
       ctx.fillStyle = "#78645A";
       ctx.font = `400 ${H * 0.02}px ${SANS}`;
@@ -247,7 +289,11 @@ export class ReelPainter {
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(this.o.stageCanvas as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, W, H);
     if (this.mark) {
-      ctx.drawImage(this.mark as CanvasImageSource, (W - this.mark.width) / 2, H * 0.06);
+      if (this.o.logo) {
+        ctx.drawImage(this.mark as CanvasImageSource, W - this.mark.width - W * 0.03, H * 0.035);
+      } else {
+        ctx.drawImage(this.mark as CanvasImageSource, (W - this.mark.width) / 2, H * 0.06);
+      }
     }
     if (shot.caption) {
       const into = layer.progress * (e - s);
@@ -269,6 +315,25 @@ export class ReelPainter {
     ctx.globalCompositeOperation = "source-over";
     this.paintLayer(ctx, a, 1);
     if (b && mix > 0) this.paintLayer(ctx, b, mix);
+    if (this.o.logo && t < INTRO_HOLD + INTRO_FADE) this.paintIntro(ctx, t);
+  }
+
+  /** The opening: the logo on ivory, then melting into the first shot. */
+  private paintIntro(ctx: Canvas2D, t: number) {
+    const { width: W, height: H } = this;
+    const logo = this.o.logo!;
+    const alpha = t <= INTRO_HOLD ? 1 : Math.max(0, 1 - (t - INTRO_HOLD) / INTRO_FADE);
+    // a gentle settle: the logo drifts from 96% to 100% size while it holds
+    const grow = 0.96 + 0.04 * Math.min(1, t / (INTRO_HOLD + INTRO_FADE));
+    const { w: lw, h: lh } = sizeOf(logo);
+    const w = W * 0.74 * grow;
+    const h = (w * lh) / lw;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = IVORY;
+    ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(logo, (W - w) / 2, (H - h) / 2, w, h);
+    ctx.globalAlpha = 1;
   }
 }
 

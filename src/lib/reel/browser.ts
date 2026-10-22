@@ -42,6 +42,25 @@ export async function loadPhoto(src: File | string): Promise<HTMLCanvasElement> 
   }
 }
 
+let logoPromise: Promise<HTMLImageElement | null> | null = null;
+
+/** The Urvi Studios logo (transparent PNG), or null if it cannot be loaded. */
+export function loadLogo(): Promise<HTMLImageElement | null> {
+  if (!logoPromise) {
+    logoPromise = (async () => {
+      try {
+        const img = new Image();
+        img.src = "/brand/reel-logo.png";
+        await img.decode();
+        return img;
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return logoPromise;
+}
+
 let ortPromise: Promise<OrtLike> | null = null;
 let sessionPromise: Promise<Awaited<ReturnType<typeof loadSession>>> | null = null;
 

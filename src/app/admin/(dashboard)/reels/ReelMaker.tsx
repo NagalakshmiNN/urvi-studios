@@ -11,7 +11,7 @@ import {
   MANUAL_FILL, MANUAL_KEEP, MANUAL_REMOVE, stampLine,
 } from "@/lib/reel/cutout-core";
 import {
-  analysePhoto, buildStage, composeToCanvas, loadPhoto, parseColor, type Analysis,
+  analysePhoto, buildStage, composeToCanvas, loadLogo, loadPhoto, parseColor, type Analysis,
 } from "@/lib/reel/browser";
 import {
   ASPECT, cropRect, defaultShots, lerpPose, softnessNotes, type Pose, type Shot, type Stage,
@@ -388,8 +388,9 @@ export default function ReelMaker({
     setError(null);
     try {
       await document.fonts.load(`600 30px "Cormorant Garamond"`).catch(() => undefined);
+      const logo = await loadLogo();
       const painter = new ReelPainter({
-        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex,
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
         text: { brand, title, tagline, contact }, width: PREVIEW_W, height: PREVIEW_H,
       });
       canvas.width = PREVIEW_W;
@@ -425,8 +426,9 @@ export default function ReelMaker({
     try {
       await document.fonts.load(`600 40px "Cormorant Garamond"`).catch(() => undefined);
       await document.fonts.load(`500 20px "Montserrat"`).catch(() => undefined);
+      const logo = await loadLogo();
       const painter = new ReelPainter({
-        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex,
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
         text: { brand, title, tagline, contact }, width: 1080, height: 1920,
       });
       const blob = await encodeReel(painter, setMakeProgress, ac.signal);
