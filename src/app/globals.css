@@ -1594,3 +1594,5 @@ a.prod-label:hover span { text-decoration: underline; }
 .reel-outputs { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
 .reel-previewcanvas { width: 216px; height: 384px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); background: #fffff0; }
 .reel-video { width: 216px; max-width: 100%; border-radius: 8px; display: block; margin-bottom: 8px; }
+
+.reel-caption { width: 100%; max-width: 640px; padding: 12px; border: 1px solid var(--line); border-radius: 3px; font: inherit; font-size: 14px; line-height: 1.55; background: #fff; resize: vertical; }

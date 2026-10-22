@@ -17,8 +17,15 @@ import {
   ASPECT, cropRect, defaultShots, lerpPose, softnessNotes, type Pose, type Shot, type Stage,
 } from "@/lib/reel/plan";
 import { ReelPainter, canMakeVideo, encodeReel } from "@/lib/reel/render";
+import { loadSaved, saveSaved, type SavedReel } from "@/lib/reel/saved";
 
-export type ReelProduct = { id: string; name: string; sku: string; imageUrl: string };
+export type ReelProduct = {
+  id: string; name: string; sku: string; imageUrl: string;
+  /** "₹1,499 · Sizes S, M, L · Cotton" */
+  details: string;
+  /** Draft Instagram caption with hashtags. */
+  caption: string;
+};
 
 type BrushMode = "remove" | "keep" | "fill";
 const BRUSH_VALUE: Record<BrushMode, number> = { remove: MANUAL_REMOVE, keep: MANUAL_KEEP, fill: MANUAL_FILL };
@@ -57,6 +64,11 @@ export default function ReelMaker({
   const [title, setTitle] = useState("");
   const [tagline, setTagline] = useState("");
   const [contact, setContact] = useState(defaultContact);
+  const [details, setDetails] = useState("");
+  const [caption, setCaption] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState<SavedReel | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>(defaultShots);
   const [selected, setSelected] = useState(0);
   const [clickSets, setClickSets] = useState<"from" | "to">("from");
@@ -103,17 +115,18 @@ export default function ReelMaker({
 
   // -------------------------------------------------------------- pipeline
 
-  const rebuildStage = useCallback(() => {
+  const rebuildStage = useCallback((bgOverride?: string) => {
     const composed = composedRef.current;
     if (!composed) return;
-    stageRef.current = buildStage(composed.canvas, composed.bbox, bgHex);
+    stageRef.current = buildStage(composed.canvas, composed.bbox, bgOverride ?? bgHex);
     setStageVersion((v) => v + 1);
   }, [bgHex]);
 
-  const recompose = useCallback(() => {
+  const recompose = useCallback((bgOverride?: string) => {
     const analysis = analysisRef.current;
     if (!analysis) return;
-    const { canvas, composed } = composeToCanvas(analysis, manualRef.current, parseColor(bgHex));
+    const hex = bgOverride ?? bgHex;
+    const { canvas, composed } = composeToCanvas(analysis, manualRef.current, parseColor(hex));
     composedRef.current = { canvas, bbox: composed.bbox };
     const view = viewRef.current;
     if (view) {
@@ -126,10 +139,10 @@ export default function ReelMaker({
       ov.width = canvas.width;
       ov.height = canvas.height;
     }
-    rebuildStage();
+    rebuildStage(hex);
   }, [bgHex, rebuildStage]);
 
-  const process = useCallback(async (photo: HTMLCanvasElement, remove: boolean) => {
+  const process = useCallback(async (photo: HTMLCanvasElement, remove: boolean, restore?: SavedReel) => {
     setError(null);
     setVideo(null);
     setMethod(null);
@@ -141,7 +154,10 @@ export default function ReelMaker({
         undoRef.current = [];
         setCanUndo(false);
         setMethod(analysis.refined.method);
-        recompose();
+        if (restore?.manual && restore.w === analysis.w && restore.h === analysis.h) {
+          manualRef.current = new Uint8Array(restore.manual);
+        }
+        recompose(restore?.bgHex);
       } else {
         analysisRef.current = null;
         manualRef.current = null;
@@ -149,7 +165,7 @@ export default function ReelMaker({
           canvas: photo,
           bbox: { x0: 0, y0: 0, x1: photo.width - 1, y1: photo.height - 1 },
         };
-        rebuildStage();
+        rebuildStage(restore?.bgHex);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong preparing the photo.");
@@ -171,7 +187,10 @@ export default function ReelMaker({
       setStageVersion(0);
       setVideo(null);
       setMethod(null);
-      if (name && !title) setTitle(name);
+      if (name) setTitle(name);
+      const prod = products.find((x) => x.id === productIdRef.current);
+      if (prod) { setDetails(prod.details); setCaption(prod.caption); }
+      setSaved(prod ? await loadSaved(prod.id) : null);
       setAwaiting(true);
       setStatus(null);
     } catch {
@@ -181,12 +200,22 @@ export default function ReelMaker({
   }
 
   // The person's answer to "clear the background?"
-  async function decide(remove: boolean) {
+  async function decide(remove: boolean, restore?: SavedReel) {
     const photo = photoRef.current;
     if (!photo) return;
     setAwaiting(false);
     setRemoveBg(remove);
-    await process(photo, remove);
+    if (restore) {
+      setShots(restore.shots);
+      setTitle(restore.title);
+      setTagline(restore.tagline);
+      setDetails(restore.details);
+      setCaption(restore.caption);
+      setContact(restore.contact);
+      setBgHex(restore.bgHex);
+    }
+    await process(photo, remove, restore);
+    if (restore) setSavedNote("Your saved settings and touch-ups were loaded.");
   }
 
   // show the untouched photo while the question is open
@@ -201,11 +230,13 @@ export default function ReelMaker({
 
   function chooseProduct(id: string) {
     setProductId(id);
+    productIdRef.current = id;
     const p = products.find((x) => x.id === id);
     if (p) void openPhoto(p.imageUrl, p.name);
   }
 
   // a product named in the address opens straight away
+  const productIdRef = useRef(initialProductId ?? "");
   const startedRef = useRef(false);
   useEffect(() => {
     if (startedRef.current || !initialProductId) return;
@@ -226,6 +257,20 @@ export default function ReelMaker({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgHex]);
+
+  // Remember this product's settings in this browser, a moment after each change.
+  useEffect(() => {
+    if (!productId || !hasStage || awaiting) return;
+    const t = setTimeout(() => {
+      const a = analysisRef.current;
+      void saveSaved(productId, {
+        shots, title, tagline, details, caption, contact, bgHex, removeBg,
+        manual: removeBg && manualRef.current ? new Uint8Array(manualRef.current) : null,
+        w: a?.w ?? 0, h: a?.h ?? 0, savedAt: Date.now(),
+      });
+    }, 900);
+    return () => clearTimeout(t);
+  }, [productId, hasStage, awaiting, stageVersion, shots, title, tagline, details, caption, contact, bgHex, removeBg]);
 
   // ----------------------------------------------------------------- brush
 
@@ -391,7 +436,7 @@ export default function ReelMaker({
       const logo = await loadLogo();
       const painter = new ReelPainter({
         stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
-        text: { brand, title, tagline, contact }, width: PREVIEW_W, height: PREVIEW_H,
+        text: { brand, title, tagline, contact, details }, width: PREVIEW_W, height: PREVIEW_H,
       });
       canvas.width = PREVIEW_W;
       canvas.height = PREVIEW_H;
@@ -412,6 +457,46 @@ export default function ReelMaker({
 
   useEffect(() => () => { if (playRef.current != null) cancelAnimationFrame(playRef.current); }, []);
 
+  // ---------------------------------------------------------------- cover + caption
+
+  async function downloadCover() {
+    const sr = stageRef.current;
+    if (!sr) return;
+    setError(null);
+    try {
+      await document.fonts.load(`600 40px "Cormorant Garamond"`).catch(() => undefined);
+      const logo = await loadLogo();
+      const painter = new ReelPainter({
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
+        text: { brand, title, tagline, contact, details }, width: 1080, height: 1920,
+      });
+      const c = document.createElement("canvas");
+      c.width = 1080;
+      c.height = 1920;
+      painter.drawCover(c.getContext("2d")!);
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.92));
+      if (!blob) throw new Error("The cover image could not be made.");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug(title || brand)}-cover.jpg`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The cover image could not be made.");
+    }
+  }
+
+  async function copyCaption() {
+    try {
+      await navigator.clipboard.writeText(caption);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Copying was blocked. Select the text and copy it by hand.");
+    }
+  }
+
   // ---------------------------------------------------------------- make it
 
   async function make() {
@@ -429,7 +514,7 @@ export default function ReelMaker({
       const logo = await loadLogo();
       const painter = new ReelPainter({
         stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
-        text: { brand, title, tagline, contact }, width: 1080, height: 1920,
+        text: { brand, title, tagline, contact, details }, width: 1080, height: 1920,
       });
       const blob = await encodeReel(painter, setMakeProgress, ac.signal);
       setVideo({
@@ -484,7 +569,7 @@ export default function ReelMaker({
               disabled={!!status}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) { setProductId(""); void openPhoto(f, f.name.replace(/\.[^.]+$/, "")); }
+                if (f) { setProductId(""); productIdRef.current = ""; void openPhoto(f, f.name.replace(/\.[^.]+$/, "")); }
               }}
             />
           </label>
@@ -507,6 +592,7 @@ export default function ReelMaker({
           model downloads (about 5 MB plus 14 MB of engine) and is then remembered by the browser.
         </p>
         {status && <div className="notice-box" style={{ marginTop: 14 }}>{status}</div>}
+        {savedNote && !status && !awaiting && <div className="notice-box" style={{ marginTop: 14 }}>{savedNote}</div>}
 
         {awaiting && !status && (
           <div className="reel-ask">
@@ -518,6 +604,17 @@ export default function ReelMaker({
                 anything around the dress are replaced with the plain colour chosen above, and you can check and
                 touch up the result before making the reel. If you say no, the reel uses your photo exactly as it is.
               </p>
+              {saved && (
+                <div className="notice-box" style={{ marginBottom: 14 }}>
+                  You made a reel for this product before ({new Date(saved.savedAt).toLocaleDateString("en-IN")}).
+                  Your shots, texts and touch-ups were saved in this browser.
+                  <div style={{ marginTop: 10 }}>
+                    <button type="button" className="btn btn-primary btn-small" onClick={() => void decide(saved.removeBg, saved)}>
+                      Use my saved settings
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="reel-actions">
                 <button type="button" className="btn btn-primary" onClick={() => void decide(true)}>
                   Yes, clear the background
@@ -691,6 +788,14 @@ export default function ReelMaker({
               <input type="text" value={contact} onChange={(e) => { setContact(e.target.value); setVideo(null); }} maxLength={60} />
             </label>
           </div>
+          <label className="reel-field" style={{ marginTop: 14, maxWidth: 560 }}>
+            <span className="field-label">Details line on the end card (price, sizes, fabric)</span>
+            <input type="text" value={details} onChange={(e) => { setDetails(e.target.value); setVideo(null); }} maxLength={70}
+              placeholder="e.g. ₹1,499 · Sizes S, M, L · Cotton" />
+            <span className="field-hint" style={{ margin: 0 }}>
+              Filled in from the product. Change it, or empty it to leave it off.
+            </span>
+          </label>
 
           <div className="reel-actions">
             <button type="button" className="btn btn-outline" onClick={playing ? stopPlay : play} disabled={makeProgress != null || tooMany || enabledCount === 0}>
@@ -698,6 +803,9 @@ export default function ReelMaker({
             </button>
             <button type="button" className="btn btn-primary" onClick={make} disabled={makeProgress != null || !supported || tooMany || enabledCount === 0}>
               {makeProgress != null ? `Making… ${Math.round(makeProgress * 100)}%` : "Make 30-second reel"}
+            </button>
+            <button type="button" className="btn btn-outline" onClick={() => void downloadCover()} disabled={makeProgress != null || enabledCount === 0}>
+              Download cover image
             </button>
             {makeProgress != null && (
               <button type="button" className="btn btn-outline" onClick={() => abortRef.current?.abort()}>Cancel</button>
@@ -717,6 +825,27 @@ export default function ReelMaker({
                 <a className="btn btn-primary" href={video.url} download={video.name}>Download MP4</a>
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {hasStage && !awaiting && (
+        <section className="admin-card reel-step">
+          <h2>5 · Instagram caption</h2>
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            A draft from the product details. Edit it, copy it, and paste it when you post the reel.
+          </p>
+          <textarea
+            className="reel-caption"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            rows={12}
+            aria-label="Instagram caption"
+          />
+          <div className="reel-actions">
+            <button type="button" className="btn btn-outline" onClick={() => void copyCaption()} disabled={!caption}>
+              {copied ? "Copied" : "Copy caption"}
+            </button>
           </div>
         </section>
       )}

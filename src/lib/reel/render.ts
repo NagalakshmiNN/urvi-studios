@@ -18,6 +18,8 @@ export type ReelText = {
   title: string;
   tagline: string;
   contact: string;
+  /** One line under the product name on the end card, e.g. price, sizes, fabric. */
+  details?: string;
 };
 
 export type PainterOptions = {
@@ -207,7 +209,7 @@ export class ReelPainter {
     // the dress on its stage, in a soft card
     const maxW = W * 0.64;
     const logo = o.logo ?? null;
-    const maxH = H * (logo ? 0.4 : 0.5);
+    const maxH = H * (logo ? 0.38 : 0.5);
     const sw = o.stageCanvas.width;
     const sh = o.stageCanvas.height;
     const k = Math.min(maxW / sw, maxH / sh);
@@ -239,9 +241,15 @@ export class ReelPainter {
       centered(ctx, o.text.title, W / 2, y);
       y += H * 0.062;
     }
+    if (o.text.details) {
+      ctx.fillStyle = GOLD;
+      ctx.font = `500 ${H * 0.021}px ${SANS}`;
+      centered(ctx, o.text.details, W / 2, y - H * (o.text.title ? 0.012 : 0));
+      y += H * 0.035;
+    }
     if (logo) {
       const { w: lw, h: lh } = sizeOf(logo);
-      const lh2 = H * 0.27;
+      const lh2 = H * 0.25;
       const lw2 = (lh2 * lw) / lh;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(logo, (W - lw2) / 2, y - H * 0.025, lw2, lh2);
@@ -316,6 +324,12 @@ export class ReelPainter {
     this.paintLayer(ctx, a, 1);
     if (b && mix > 0) this.paintLayer(ctx, b, mix);
     if (this.o.logo && t < INTRO_HOLD + INTRO_FADE) this.paintIntro(ctx, t);
+  }
+
+  /** A still for the reel's cover: the first shot, mid-move, with the watermark. */
+  drawCover(ctx: Canvas2D) {
+    ctx.globalCompositeOperation = "source-over";
+    this.paintLayer(ctx, { index: 0, progress: 0.5 }, 1);
   }
 
   /** The opening: the logo on ivory, then melting into the first shot. */

@@ -91,6 +91,7 @@ export default function ProductRow({ product }: { product: Product }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button form={formId} type="submit" className="link-btn" disabled={!mounted || pending}>{pending ? "Saving…" : "Save"}</button>
               <Link href={`/admin/products/${product.id}/edit`} className="link-btn">Edit</Link>
+              <Link href={`/admin/reels?product=${product.id}`} className="link-btn">Make reel</Link>
               <DeleteProductButton productId={product.id} productName={product.name} />
             </div>
             {state?.error && <div style={{ color: "#a5333a", fontSize: 11.5, marginTop: 2 }}>{state.error}</div>}

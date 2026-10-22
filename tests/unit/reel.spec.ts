@@ -62,3 +62,33 @@ test("brush strokes mark the touch-up layer", () => {
   expect(layer[20 * w + 18]).toBe(MANUAL_REMOVE);
   expect(layer[0]).toBe(0);
 });
+
+import { detailsLine, draftCaption, hashtagsFor, plainText } from "../../src/lib/reel/caption";
+
+const kurti = {
+  name: "Orange Zari Kurti", price: 1499, fabric: "Pure cotton",
+  perfectFor: "Office and everyday", styleNotes: "A warm rust orange with a hand-embroidered yoke. Easy to style.",
+  description: "<p>Soft <b>cotton</b>.</p>", sizes: ["S", "M", "L"],
+  parentTags: "Everyday|Office", fabricTags: "Cotton",
+};
+
+test("the end-card line carries price, sizes and fabric", () => {
+  expect(detailsLine(kurti)).toBe("₹1,499 · Sizes S, M, L · Cotton");
+  expect(detailsLine({ ...kurti, sizes: [] })).toBe("₹1,499 · Cotton");
+});
+
+test("the caption draft is plain text with the facts and hashtags", () => {
+  const c = draftCaption(kurti);
+  expect(c).toContain("Orange Zari Kurti");
+  expect(c).toContain("A warm rust orange with a hand-embroidered yoke.");
+  expect(c).toContain("Price: ₹1,499");
+  expect(c).toContain("#kurti");
+  expect(c).toContain("#officewear");
+  expect(c).not.toMatch(/<[a-z]/);
+});
+
+test("html is stripped and hashtags are unique", () => {
+  expect(plainText("<p>Soft&nbsp;<b>cotton</b></p>")).toBe("Soft cotton");
+  const tags = hashtagsFor(kurti);
+  expect(new Set(tags).size).toBe(tags.length);
+});
