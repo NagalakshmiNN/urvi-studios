@@ -81,10 +81,23 @@ async function loadOrt(): Promise<OrtLike> {
   return ortPromise;
 }
 
+/** Best model first (silueta, fetched at build), the small committed one as the fallback. */
+const MODEL_URLS = ["/models/silueta.onnx", MODEL_URL];
+
 async function getSession() {
   const ort = await loadOrt();
   if (!sessionPromise) {
-    sessionPromise = loadSession(ort, MODEL_URL);
+    sessionPromise = (async () => {
+      let last: unknown;
+      for (const url of MODEL_URLS) {
+        try {
+          return await loadSession(ort, url);
+        } catch (e) {
+          last = e;
+        }
+      }
+      throw last instanceof Error ? last : new Error("The cutout model could not be loaded.");
+    })();
     sessionPromise.catch(() => { sessionPromise = null; });
   }
   return { ort, session: await sessionPromise };

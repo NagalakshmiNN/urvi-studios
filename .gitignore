@@ -48,3 +48,4 @@ next-env.d.ts
 
 # copied from node_modules by scripts/copy-ort.mjs
 /public/ort/
+/public/models/silueta.onnx

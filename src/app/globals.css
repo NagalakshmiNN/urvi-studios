@@ -1596,3 +1596,6 @@ a.prod-label:hover span { text-decoration: underline; }
 .reel-video { width: 216px; max-width: 100%; border-radius: 8px; display: block; margin-bottom: 8px; }
 
 .reel-caption { width: 100%; max-width: 640px; padding: 12px; border: 1px solid var(--line); border-radius: 3px; font: inherit; font-size: 14px; line-height: 1.55; background: #fff; resize: vertical; }
+.reel-tune { border: 1px solid var(--line); border-radius: 3px; background: #fff; padding: 4px 16px 16px; }
+.reel-tune > summary { cursor: pointer; padding: 12px 0; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--earth); }
+.reel-tune .reel-step { margin-top: 14px; box-shadow: none; }

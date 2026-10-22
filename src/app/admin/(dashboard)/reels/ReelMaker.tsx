@@ -14,7 +14,7 @@ import {
   analysePhoto, buildStage, composeToCanvas, loadLogo, loadPhoto, parseColor, type Analysis,
 } from "@/lib/reel/browser";
 import {
-  ASPECT, cropRect, defaultShots, lerpPose, softnessNotes, type Pose, type Shot, type Stage,
+  ASPECT, cropRect, defaultShots, softnessNotes, type Pose, type Shot, type Stage,
 } from "@/lib/reel/plan";
 import { ReelPainter, canMakeVideo, encodeReel } from "@/lib/reel/render";
 import { loadSaved, saveSaved, type SavedReel } from "@/lib/reel/saved";
@@ -58,7 +58,9 @@ export default function ReelMaker({
   const [removeBg, setRemoveBg] = useState(false);
   // A photo is open and we are waiting for the person to say whether the
   // background should be cleared. Nothing is changed before they answer.
-  const [awaiting, setAwaiting] = useState(false);
+  const [awaiting, setAwaiting] = useState(false); // kept false: the flow no longer waits for an answer
+  const [clearBg, setClearBg] = useState(true);
+  const [autoMake, setAutoMake] = useState(false);
   const askRef = useRef<HTMLCanvasElement>(null);
   const [bgHex, setBgHex] = useState("#FFFFF0");
   const [title, setTitle] = useState("");
@@ -67,8 +69,9 @@ export default function ReelMaker({
   const [details, setDetails] = useState("");
   const [caption, setCaption] = useState("");
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState<SavedReel | null>(null);
-  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [, setSaved] = useState<SavedReel | null>(null);
+  const [stageInfo, setStageInfo] = useState<Stage | null>(null);
+  const [hasAnalysis, setHasAnalysis] = useState(false);
   const [shots, setShots] = useState<Shot[]>(defaultShots);
   const [selected, setSelected] = useState(0);
   const [clickSets, setClickSets] = useState<"from" | "to">("from");
@@ -107,11 +110,11 @@ export default function ReelMaker({
   const toRef = useRef<HTMLCanvasElement>(null);
   const playCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- browser capability, only known on the client
   useEffect(() => { setSupported(canMakeVideo()); }, []);
   useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
 
   const hasStage = stageVersion > 0;
-  const stageInfo = stageRef.current?.stage ?? null;
 
   // -------------------------------------------------------------- pipeline
 
@@ -119,6 +122,7 @@ export default function ReelMaker({
     const composed = composedRef.current;
     if (!composed) return;
     stageRef.current = buildStage(composed.canvas, composed.bbox, bgOverride ?? bgHex);
+    setStageInfo(stageRef.current.stage);
     setStageVersion((v) => v + 1);
   }, [bgHex]);
 
@@ -150,6 +154,7 @@ export default function ReelMaker({
       if (remove) {
         const analysis = await analysePhoto(photo, setStatus);
         analysisRef.current = analysis;
+        setHasAnalysis(true);
         manualRef.current = new Uint8Array(analysis.w * analysis.h);
         undoRef.current = [];
         setCanUndo(false);
@@ -160,6 +165,7 @@ export default function ReelMaker({
         recompose(restore?.bgHex);
       } else {
         analysisRef.current = null;
+        setHasAnalysis(false);
         manualRef.current = null;
         composedRef.current = {
           canvas: photo,
@@ -181,6 +187,7 @@ export default function ReelMaker({
       const photo = await loadPhoto(src);
       photoRef.current = photo;
       analysisRef.current = null;
+      setHasAnalysis(false);
       manualRef.current = null;
       composedRef.current = null;
       stageRef.current = null;
@@ -190,9 +197,13 @@ export default function ReelMaker({
       if (name) setTitle(name);
       const prod = products.find((x) => x.id === productIdRef.current);
       if (prod) { setDetails(prod.details); setCaption(prod.caption); }
-      setSaved(prod ? await loadSaved(prod.id) : null);
-      setAwaiting(true);
+      const saved2 = prod ? await loadSaved(prod.id) : null;
+      setSaved(saved2);
       setStatus(null);
+      // One step for the person: the photo goes straight through cutout, framing and rendering.
+      const sv = saved2;
+      await decide(sv ? sv.removeBg : clearBgRef.current, sv ?? undefined);
+      setAutoMake(true);
     } catch {
       setError("That photo could not be opened. Try a JPG or PNG.");
       setStatus(null);
@@ -215,7 +226,6 @@ export default function ReelMaker({
       setBgHex(restore.bgHex);
     }
     await process(photo, remove, restore);
-    if (restore) setSavedNote("Your saved settings and touch-ups were loaded.");
   }
 
   // show the untouched photo while the question is open
@@ -228,6 +238,12 @@ export default function ReelMaker({
     c.getContext("2d")!.drawImage(photo, 0, 0);
   }, [awaiting]);
 
+  function chooseFile(f: File) {
+    setProductId("");
+    productIdRef.current = "";
+    void openPhoto(f, f.name.replace(/\.[^.]+$/, ""));
+  }
+
   function chooseProduct(id: string) {
     setProductId(id);
     productIdRef.current = id;
@@ -237,11 +253,14 @@ export default function ReelMaker({
 
   // a product named in the address opens straight away
   const productIdRef = useRef(initialProductId ?? "");
+  const clearBgRef = useRef(true);
+  useEffect(() => { clearBgRef.current = clearBg; }, [clearBg]);
   const startedRef = useRef(false);
   useEffect(() => {
     if (startedRef.current || !initialProductId) return;
     startedRef.current = true;
     const p = products.find((x) => x.id === initialProductId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- open the product named in the address once
     if (p) void openPhoto(p.imageUrl, p.name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -532,6 +551,17 @@ export default function ReelMaker({
     }
   }
 
+  // when the cutout and framing are ready, the reel is made without being asked
+  useEffect(() => {
+    if (!autoMake) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- stop waiting if preparing the photo failed
+    if (error) { setAutoMake(false); return; }
+    if (!hasStage || status) return;
+    setAutoMake(false);
+    void make();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMake, hasStage, status, stageVersion, error]);
+
   // ------------------------------------------------------------------ view
 
   const shot = shots[selected];
@@ -548,90 +578,101 @@ export default function ReelMaker({
       )}
       {error && <div className="notice-box error">{error}</div>}
 
-      {/* 1 ------------------------------------------------------- photo */}
+      {/* upload ------------------------------------------------------- */}
       <section className="admin-card reel-step">
-        <h2>1 · Photo</h2>
+        <h2>Upload a photo</h2>
         <div className="reel-row">
           <label className="reel-field">
-            <span className="field-label">A product photo</span>
-            <select value={productId} onChange={(e) => chooseProduct(e.target.value)} disabled={!!status}>
+            <span className="field-label">A photo from this computer</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={!!status || makeProgress != null}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) chooseFile(f);
+              }}
+            />
+          </label>
+          <label className="reel-field">
+            <span className="field-label">…or an existing product photo</span>
+            <select value={productId} onChange={(e) => chooseProduct(e.target.value)} disabled={!!status || makeProgress != null}>
               <option value="">Choose a product…</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
               ))}
             </select>
           </label>
-          <label className="reel-field">
-            <span className="field-label">…or a photo from this computer</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={!!status}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) { setProductId(""); productIdRef.current = ""; void openPhoto(f, f.name.replace(/\.[^.]+$/, "")); }
-              }}
-            />
-          </label>
         </div>
         <div className="reel-row" style={{ marginTop: 14, alignItems: "center" }}>
-          {photoRef.current && !awaiting && !status && (
-            <button type="button" className="btn btn-outline btn-small" onClick={() => setAwaiting(true)}>
-              {removeBg ? "Change the background choice" : "Remove the background instead"}
-            </button>
-          )}
+          <label className="reel-check">
+            <input type="checkbox" checked={clearBg} onChange={(e) => setClearBg(e.target.checked)} />
+            Clear the background and hanger
+          </label>
           <label className="reel-check">
             Background colour
             <input type="color" value={bgHex} onChange={(e) => setBgHex(e.target.value.toUpperCase())} />
             <button type="button" className="btn-ghost" onClick={() => setBgHex("#FFFFF0")}>Ivory</button>
-            <button type="button" className="btn-ghost" onClick={() => setBgHex("#F7F0E4")}>Brand ivory</button>
           </label>
         </div>
         <p className="field-hint">
-          Everything runs in this browser tab. The photo is not uploaded anywhere. The first time, a small cutout
-          model downloads (about 5 MB plus 14 MB of engine) and is then remembered by the browser.
+          That is all you need to do. The reel is made on its own in a minute or two, and nothing leaves this
+          browser. For the cleanest result, hang the dress against a plain wall. The first time, about 60 MB of
+          cutout files download once and are then remembered.
         </p>
         {status && <div className="notice-box" style={{ marginTop: 14 }}>{status}</div>}
-        {savedNote && !status && !awaiting && <div className="notice-box" style={{ marginTop: 14 }}>{savedNote}</div>}
-
-        {awaiting && !status && (
-          <div className="reel-ask">
-            <canvas ref={askRef} className="reel-askcanvas" />
-            <div>
-              <h3>Clear the background and hanger?</h3>
-              <p className="field-hint">
-                This is your original photo and nothing has been changed. If you say yes, the wall, hanger and
-                anything around the dress are replaced with the plain colour chosen above, and you can check and
-                touch up the result before making the reel. If you say no, the reel uses your photo exactly as it is.
-              </p>
-              {saved && (
-                <div className="notice-box" style={{ marginBottom: 14 }}>
-                  You made a reel for this product before ({new Date(saved.savedAt).toLocaleDateString("en-IN")}).
-                  Your shots, texts and touch-ups were saved in this browser.
-                  <div style={{ marginTop: 10 }}>
-                    <button type="button" className="btn btn-primary btn-small" onClick={() => void decide(saved.removeBg, saved)}>
-                      Use my saved settings
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className="reel-actions">
-                <button type="button" className="btn btn-primary" onClick={() => void decide(true)}>
-                  Yes, clear the background
-                </button>
-                <button type="button" className="btn btn-outline" onClick={() => void decide(false)}>
-                  No, keep my photo as it is
-                </button>
-              </div>
-            </div>
+        {makeProgress != null && (
+          <div className="notice-box" style={{ marginTop: 14 }}>
+            Making your reel… {Math.round(makeProgress * 100)}%
+            <button type="button" className="btn-ghost" style={{ marginLeft: 14 }} onClick={() => abortRef.current?.abort()}>Cancel</button>
           </div>
         )}
       </section>
 
-      {/* 2 --------------------------------------------------------- cutout */}
-      {removeBg && !awaiting && analysisRef.current && (
+      {hasStage && (
         <section className="admin-card reel-step">
-          <h2>2 · Check the cutout</h2>
+          <h2>Your reel</h2>
+          {video ? (
+            <div className="reel-outputs">
+              <div className="reel-result">
+                <video src={video.url} controls playsInline className="reel-video" />
+                <p className="field-hint">
+                  {video.mb.toFixed(1)} MB · 1080×1920 · 30 seconds · no sound. Add music inside Instagram so it is licensed.
+                </p>
+                <div className="reel-actions" style={{ margin: 0 }}>
+                  <a className="btn btn-primary" href={video.url} download={video.name}>Download MP4</a>
+                  <button type="button" className="btn btn-outline" onClick={() => void downloadCover()}>Download cover image</button>
+                </div>
+              </div>
+              <div style={{ flex: "1 1 320px" }}>
+                <span className="field-label">Instagram caption (draft)</span>
+                <textarea className="reel-caption" value={caption} onChange={(e) => setCaption(e.target.value)} rows={12} aria-label="Instagram caption" />
+                <div className="reel-actions">
+                  <button type="button" className="btn btn-outline" onClick={() => void copyCaption()} disabled={!caption}>
+                    {copied ? "Copied" : "Copy caption"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="field-hint" style={{ margin: 0 }}>
+              {makeProgress != null ? "Almost there…" : "The reel will appear here."}
+            </p>
+          )}
+        </section>
+      )}
+
+      {hasStage && (
+        <details className="reel-tune">
+          <summary>Fine-tune (optional)</summary>
+          <p className="field-hint">
+            Only if something looks off. Touch up the cutout, change the shots or the texts, then press
+            &ldquo;Make the reel again&rdquo;.
+          </p>
+      {/* 2 --------------------------------------------------------- cutout */}
+      {removeBg && hasAnalysis && (
+        <section className="admin-card reel-step">
+          <h2>Cutout touch-up</h2>
           <p className="field-hint" style={{ marginTop: 0 }}>
             {method === "plain"
               ? "This dress is not one plain colour, so the cutout is rougher. Use the brush to clean up the edges."
@@ -681,9 +722,9 @@ export default function ReelMaker({
       )}
 
       {/* 3 ----------------------------------------------------------- shots */}
-      {hasStage && !awaiting && shot && (
+      {hasStage && shot && (
         <section className="admin-card reel-step">
-          <h2>3 · Shots</h2>
+          <h2>Shots</h2>
           <p className="field-hint" style={{ marginTop: 0 }}>
             The reel moves slowly across the dress in these shots, one after another. Turn shots off, rename the captions,
             or aim a shot at a different part of the dress. Click the small picture to point the camera.
@@ -771,9 +812,9 @@ export default function ReelMaker({
       )}
 
       {/* 4 ------------------------------------------------------- make it */}
-      {hasStage && !awaiting && (
+      {hasStage && (
         <section className="admin-card reel-step">
-          <h2>4 · Make the reel</h2>
+          <h2>Texts and preview</h2>
           <div className="reel-row">
             <label className="reel-field">
               <span className="field-label">Product name (end card)</span>
@@ -802,10 +843,7 @@ export default function ReelMaker({
               {playing ? "Stop preview" : "Preview (small)"}
             </button>
             <button type="button" className="btn btn-primary" onClick={make} disabled={makeProgress != null || !supported || tooMany || enabledCount === 0}>
-              {makeProgress != null ? `Making… ${Math.round(makeProgress * 100)}%` : "Make 30-second reel"}
-            </button>
-            <button type="button" className="btn btn-outline" onClick={() => void downloadCover()} disabled={makeProgress != null || enabledCount === 0}>
-              Download cover image
+              {makeProgress != null ? `Making… ${Math.round(makeProgress * 100)}%` : "Make the reel again"}
             </button>
             {makeProgress != null && (
               <button type="button" className="btn btn-outline" onClick={() => abortRef.current?.abort()}>Cancel</button>
@@ -816,38 +854,11 @@ export default function ReelMaker({
             <div>
               <canvas ref={playCanvasRef} className="reel-previewcanvas" width={PREVIEW_W} height={PREVIEW_H} />
             </div>
-            {video && (
-              <div className="reel-result">
-                <video src={video.url} controls playsInline className="reel-video" />
-                <p className="field-hint">
-                  {video.mb.toFixed(1)} MB · 1080×1920 · 30 seconds · no sound. Add music inside Instagram so it is licensed.
-                </p>
-                <a className="btn btn-primary" href={video.url} download={video.name}>Download MP4</a>
-              </div>
-            )}
           </div>
         </section>
       )}
 
-      {hasStage && !awaiting && (
-        <section className="admin-card reel-step">
-          <h2>5 · Instagram caption</h2>
-          <p className="field-hint" style={{ marginTop: 0 }}>
-            A draft from the product details. Edit it, copy it, and paste it when you post the reel.
-          </p>
-          <textarea
-            className="reel-caption"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            rows={12}
-            aria-label="Instagram caption"
-          />
-          <div className="reel-actions">
-            <button type="button" className="btn btn-outline" onClick={() => void copyCaption()} disabled={!caption}>
-              {copied ? "Copied" : "Copy caption"}
-            </button>
-          </div>
-        </section>
+        </details>
       )}
     </div>
   );
