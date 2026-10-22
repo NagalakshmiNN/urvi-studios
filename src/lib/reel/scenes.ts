@@ -26,6 +26,10 @@ export const PALETTES: Pal[] = [
   { name: "Ivory Pearl", dark: [214, 204, 190], light: [247, 242, 233], f1: ["#f2c4cc", "#d68a98"], f2: ["#ffffff", "#ece4da"], f3: ["#e08a8a", "#a84a52"], accent: [196, 154, 80], glow: "#fffaf0" },
   { name: "Sage Garden", dark: [34, 56, 44], light: [138, 168, 132], f1: ["#f6d8c8", "#d89c84"], f2: ["#fffdf6", "#e9e6d0"], f3: ["#e87a62", "#9c3a2a"], accent: [214, 176, 98], glow: "#f4ffe0" },
   { name: "Midnight Blue", dark: [10, 18, 44], light: [44, 70, 128], f1: ["#d8e0f8", "#8a9ad0"], f2: ["#ffffff", "#dde4f4"], f3: ["#e8c060", "#a07018"], accent: [226, 190, 110], glow: "#d8e6ff" },
+  { name: "Blush Pastel", dark: [238, 212, 212], light: [253, 240, 236], f1: ["#f6c8d0", "#e098a8"], f2: ["#ffffff", "#f0e4e0"], f3: ["#ec8a98", "#b8505e"], accent: [214, 170, 110], glow: "#fffaf6" },
+  { name: "Mint Pastel", dark: [206, 228, 214], light: [242, 251, 244], f1: ["#f8d6d0", "#e0a098"], f2: ["#ffffff", "#e8f0e4"], f3: ["#f0907a", "#b85a48"], accent: [206, 176, 110], glow: "#ffffff" },
+  { name: "Powder Blue", dark: [204, 218, 238], light: [240, 246, 253], f1: ["#f8dce0", "#e0a8b8"], f2: ["#ffffff", "#e4eaf4"], f3: ["#e8a8b8", "#b06880"], accent: [206, 176, 120], glow: "#ffffff" },
+  { name: "Butter Cream", dark: [240, 228, 192], light: [253, 249, 228], f1: ["#f8d8c0", "#e0a888"], f2: ["#ffffff", "#f0e8d4"], f3: ["#f0a070", "#b86038"], accent: [214, 172, 96], glow: "#fffdf0" },
   { name: "Wine Gold", dark: [48, 10, 22], light: [128, 30, 50], f1: ["#f6cf94", "#cf9440"], f2: ["#fff4e0", "#ecd6b0"], f3: ["#f0b838", "#9c6a10"], accent: [232, 190, 100], glow: "#ffe2b0" },
 ];
 

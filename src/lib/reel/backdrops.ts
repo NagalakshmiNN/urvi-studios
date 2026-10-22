@@ -111,19 +111,72 @@ export function dayNumber(d: Date): number {
 }
 
 /**
- * Today's backdrop. Walks the list one step per day (so a different one every
- * day, and 42 days before any repeats), moving on past any that would hide a
- * pale dress.
+ * Does this backdrop make the dress the star? A dark dress wants a light,
+ * pastel scene; a pale dress wants something deeper; anything in between needs
+ * a clear step in lightness. And the two colours must never be close cousins.
  */
-export function pickForDay(d: Date, dress: RGB | null): Backdrop {
-  const list = SET_BACKDROPS;
-  const n = list.length;
-  const start = ((dayNumber(d) % n) + n) % n;
-  if (!dress) return list[start];
-  for (let i = 0; i < n; i++) {
-    const b = list[(start + i) % n];
-    if (hasContrast(dress, b)) return b;
+export function suits(dress: RGB, tone: RGB): boolean {
+  const dl = lightness(dress), bl = lightness(tone);
+  const dist = Math.hypot(dress[0] - tone[0], dress[1] - tone[1], dress[2] - tone[2]) / 441;
+  if (dist < 0.2) return false;
+  if (dl < 0.38) return bl >= 0.6;
+  if (dl > 0.72) return bl <= 0.55 && dl - bl >= 0.22;
+  return Math.abs(dl - bl) >= 0.22;
+}
+
+const toneCache = new Map<string, RGB>();
+
+/**
+ * The colour of the backdrop around the dress (the sides and top, which stay
+ * visible), measured from the painted scene itself. Null where there is no
+ * canvas to paint on.
+ */
+export function backdropTone(bd: Backdrop): RGB | null {
+  const hit = toneCache.get(bd.id);
+  if (hit) return hit;
+  const W = 72, H = 128;
+  let c: HTMLCanvasElement | OffscreenCanvas;
+  if (typeof OffscreenCanvas !== "undefined") c = new OffscreenCanvas(W, H);
+  else if (typeof document !== "undefined") { c = document.createElement("canvas"); c.width = W; c.height = H; }
+  else return null;
+  const x = c.getContext("2d") as Ctx | null;
+  if (!x) return null;
+  drawBackdrop(x, W, H, 0, bd);
+  const d = x.getImageData(0, 0, W, H).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    if (i < W * 0.22 || i > W * 0.78 || j < H * 0.08) {
+      const o = (j * W + i) * 4;
+      r += d[o]; g += d[o + 1]; b += d[o + 2]; n++;
+    }
   }
+  const tone: RGB = [r / n, g / n, b / n];
+  toneCache.set(bd.id, tone);
+  return tone;
+}
+
+/**
+ * Today's backdrop. Walks the whole collection one step per day, so it is a
+ * different one every day, and moves on past any that would not make this
+ * dress stand out (see `suits`). If none do, falls back to a gentle tint
+ * pulled from the dress itself.
+ */
+function scramble(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  h ^= h >>> 15; h = Math.imul(h, 2246822519); h ^= h >>> 13; h = Math.imul(h, 3266489917); h ^= h >>> 16;
+  return h >>> 0;
+}
+
+export function pickForDay(d: Date, dress: RGB | null): Backdrop {
+  // a fixed, scrambled order, so neighbouring days look nothing alike
+  const list = [...SET_BACKDROPS, ...BACKDROPS].sort((x, y) => scramble(x.id) - scramble(y.id) || (x.id < y.id ? -1 : 1));
+  if (!dress) return list[((dayNumber(d) % list.length) + list.length) % list.length];
+  const fits = list.filter((b) => {
+    const tone = backdropTone(b);
+    return tone ? suits(dress, tone) : hasContrast(dress, b);
+  });
+  if (fits.length) return fits[((dayNumber(d) % fits.length) + fits.length) % fits.length];
   return matchBackdrop(dress);
 }
 

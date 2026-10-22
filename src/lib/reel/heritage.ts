@@ -33,6 +33,8 @@ export const TODS: Tod[] = [
   { name: "Rose Dusk", sky: ["#5b3a6e", "#c8607a", "#f6b08a"], stone: ["#8d4a52", "#d89a8a"], sil: "#2e1a2a", glow: "#ffc9b0", accent: "#e8b070" },
   { name: "Dawn Mist", sky: ["#9db6c9", "#e6d6c8", "#fbeedb"], stone: ["#b79a82", "#e9d8c4"], sil: "#6c5a52", glow: "#fff4e0", accent: "#c8a060" },
   { name: "Monsoon Teal", sky: ["#1f4a52", "#4f8a86", "#b8d4c4"], stone: ["#6a6a58", "#b8b49c"], sil: "#1c2c2c", glow: "#d8f2e0", accent: "#d8c070" },
+  { name: "Pastel Morning", sky: ["#cfe0ee", "#f7e0e0", "#fff4e6"], stone: ["#d8b8a8", "#f2e2d6"], sil: "#a08a84", glow: "#fffaf0", accent: "#d8b070" },
+  { name: "Soft Mint", sky: ["#c8e4d8", "#e8f2e0", "#fbf8e8"], stone: ["#c8c0a0", "#eae4cc"], sil: "#8a9084", glow: "#ffffff", accent: "#c8b070" },
 ];
 
 // ------------------------------------------------------------------ kit

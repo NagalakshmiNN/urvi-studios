@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 import {
   ASPECT, TOTAL_SECONDS, cropRect, defaultShots, fitPose, layersAt, planTimeline, stageFor,
 } from "../../src/lib/reel/plan";
-import { SET_BACKDROPS, byId, pickForDay } from "../../src/lib/reel/backdrops";
+import { SET_BACKDROPS, byId, pickForDay, suits } from "../../src/lib/reel/backdrops";
 import {
   MANUAL_REMOVE, dilate, erode, label, stampDisc, stampLine,
 } from "../../src/lib/reel/cutout-core";
@@ -133,4 +133,20 @@ test("close-ups stay inside the dress, and move onto fabric when they start off 
   const cover = (r: { x: number; w: number }) => Math.max(0, Math.min(1, (r.x + r.w - 500) / r.w));
   const fitted = fitPose(stage, [0.2, 0.5, 3.0], cover);
   expect(fitted[0]).toBeGreaterThan(0.2);
+});
+
+test("a backdrop suits a dress only when the dress will stand out on it", () => {
+  const dark: [number, number, number] = [30, 20, 40];
+  const pale: [number, number, number] = [245, 238, 225];
+  const mid: [number, number, number] = [120, 50, 150];
+  // dark dress: light pastel yes, dark scene no
+  expect(suits(dark, [250, 235, 225])).toBe(true);
+  expect(suits(dark, [60, 40, 70])).toBe(false);
+  expect(suits(dark, [150, 120, 160])).toBe(false);
+  // pale dress: deeper scene yes, ivory no
+  expect(suits(pale, [120, 70, 80])).toBe(true);
+  expect(suits(pale, [250, 245, 235])).toBe(false);
+  // mid-tone purple: a pale or a deep scene works, a similar purple does not
+  expect(suits(mid, [245, 235, 225])).toBe(true);
+  expect(suits(mid, [130, 60, 150])).toBe(false);
 });
