@@ -51,7 +51,7 @@ export default function CapitalForm({ contributors }: { contributors: string[] }
             name="contributor"
             list="known-contributors"
             autoComplete="off"
-            placeholder="Lakshmi"
+            placeholder="RamaVijaya"
             required
           />
           <datalist id="known-contributors">

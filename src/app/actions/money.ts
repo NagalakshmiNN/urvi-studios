@@ -1,5 +1,6 @@
 "use server";
 
+import { displayName } from "@/lib/display-names";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth";
@@ -55,7 +56,7 @@ export async function recordCapitalAction(_prev: MoneyFormState, formData: FormD
   });
 
   revalidateMoneyViews();
-  return { success: `Recorded ${contributor}'s contribution.` };
+  return { success: `Recorded ${displayName(contributor)}'s contribution.` };
 }
 
 export async function deleteCapitalAction(_prev: MoneyFormState, formData: FormData): Promise<MoneyFormState> {

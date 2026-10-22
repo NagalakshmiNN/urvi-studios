@@ -1,4 +1,5 @@
 import { db, schema } from "@/db";
+import { displayName } from "@/lib/display-names";
 import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { formatPaise } from "@/lib/money";
@@ -19,7 +20,7 @@ export default async function AdminCapitalPage() {
 
   // Who has put in how much — the question a two-owner business asks most.
   const byPerson = new Map<string, number>();
-  for (const r of rows) byPerson.set(r.contributor, (byPerson.get(r.contributor) ?? 0) + r.amountPaise);
+  for (const r of rows) byPerson.set(displayName(r.contributor), (byPerson.get(displayName(r.contributor)) ?? 0) + r.amountPaise);
   const people = [...byPerson.entries()].sort((a, b) => b[1] - a[1]);
 
   return (
@@ -64,7 +65,7 @@ export default async function AdminCapitalPage() {
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: "nowrap" }}>{readableDate(r.contributedOn)}</td>
-                  <td style={{ fontWeight: 600 }}>{r.contributor}</td>
+                  <td style={{ fontWeight: 600 }}>{displayName(r.contributor)}</td>
                   <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{formatPaise(r.amountPaise)}</td>
                   <td>{r.mode}</td>
                   <td style={{ color: "var(--sage)" }}>{r.reference ?? "—"}</td>
@@ -72,7 +73,7 @@ export default async function AdminCapitalPage() {
                   <td>
                     <DeleteEntryButton
                       id={r.id}
-                      what={`${r.contributor} — ${formatPaise(r.amountPaise)}`}
+                      what={`${displayName(r.contributor)} — ${formatPaise(r.amountPaise)}`}
                       kind="capital"
                     />
                   </td>
