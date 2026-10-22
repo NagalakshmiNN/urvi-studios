@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/stock/grid", label: "Stock Grid" },
   { href: "/admin/purchases", label: "Purchases" },
   { href: "/admin/pricing", label: "Pricing" },
+  { href: "/admin/reels", label: "Reel Maker" },
   { href: "/admin/vendors", label: "Vendors" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },

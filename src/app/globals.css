@@ -1561,3 +1561,41 @@ a.prod-label:hover span { text-decoration: underline; }
   background: #000;
   border-radius: 0;
 }
+
+/* ---- admin reel maker ---- */
+.reel-maker { display: grid; gap: 18px; max-width: 1100px; }
+.reel-step h2 { margin: 0 0 12px; font-size: 20px; }
+.reel-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.reel-field { display: grid; gap: 6px; flex: 1 1 240px; min-width: 200px; }
+.reel-field input[type="text"], .reel-field select { width: 100%; }
+.reel-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.reel-ask { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(0,0,0,0.1); }
+.reel-ask h3 { margin: 0 0 8px; font-size: 18px; }
+.reel-ask > div { flex: 1 1 280px; }
+.reel-askcanvas { max-width: 260px; max-height: 340px; width: auto; height: auto; border-radius: 8px; border: 1px solid rgba(0,0,0,0.12); object-fit: contain; }
+.reel-brushbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.reel-view { max-height: 70vh; overflow: auto; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; background: #fff; }
+.reel-view-inner { position: relative; max-width: none; }
+.reel-canvas { display: block; width: 100%; height: auto; }
+.reel-overlay { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+.reel-shots { display: flex; gap: 22px; flex-wrap: wrap; }
+.reel-shotlist { flex: 0 0 200px; display: grid; gap: 4px; align-content: start; }
+.reel-shotrow { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; }
+.reel-shotrow.on { background: rgba(169,130,56,0.15); }
+.reel-shotname { background: none; border: 0; text-align: left; cursor: pointer; font: inherit; flex: 1; }
+.reel-shotedit { flex: 1 1 420px; display: grid; gap: 16px; }
+.reel-previews { display: flex; gap: 14px; flex-wrap: wrap; }
+.reel-previews figure { margin: 0; font-size: 12.5px; }
+.reel-previews canvas { width: 108px; height: 192px; display: block; border-radius: 6px; border: 1px solid rgba(0,0,0,0.15); }
+.reel-sliders { display: grid; gap: 12px; }
+.reel-posegroup { display: grid; gap: 4px; }
+.reel-slider { display: grid; grid-template-columns: 60px 1fr 44px; gap: 8px; align-items: center; font-size: 13px; }
+.reel-actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.reel-outputs { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.reel-previewcanvas { width: 216px; height: 384px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); background: #fffff0; }
+.reel-video { width: 216px; max-width: 100%; border-radius: 8px; display: block; margin-bottom: 8px; }
+
+.reel-caption { width: 100%; max-width: 640px; padding: 12px; border: 1px solid var(--line); border-radius: 3px; font: inherit; font-size: 14px; line-height: 1.55; background: #fff; resize: vertical; }
+.reel-tune { border: 1px solid var(--line); border-radius: 3px; background: #fff; padding: 4px 16px 16px; }
+.reel-tune > summary { cursor: pointer; padding: 12px 0; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--earth); }
+.reel-tune .reel-step { margin-top: 14px; box-shadow: none; }

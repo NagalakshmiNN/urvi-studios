@@ -20,7 +20,7 @@ export default function ContactPage() {
               <p>Sizing questions, custom requests, order updates — message us directly.</p>
               <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
                 <a href={`https://wa.me/${SITE.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-small">
-                  Chat with Lakshmi
+                  Chat with RamaVijaya
                 </a>
                 <a href={`https://wa.me/${SITE.whatsappNumberAlt}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-small">
                   Chat with Shilpa

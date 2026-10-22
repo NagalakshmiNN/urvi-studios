@@ -24,7 +24,7 @@ test.describe("money in", () => {
     // the only two: the five half-typed rows were never imported.
     await expect(page.locator(".metric-card", { hasText: "Total put in" }).locator(".value")).toContainText("70,577");
     await expect(page.locator("tbody tr", { hasText: "Shilpa" })).toContainText("20,577");
-    await expect(page.locator("tbody tr", { hasText: "Lakshmi" })).toContainText("50,000");
+    await expect(page.locator("tbody tr", { hasText: "RamaVijaya" })).toContainText("50,000");
   });
 
   test("records a contribution and removes it again", async ({ page }) => {

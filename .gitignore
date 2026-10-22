@@ -45,3 +45,7 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# copied from node_modules by scripts/copy-ort.mjs
+/public/ort/
+/public/models/silueta.onnx

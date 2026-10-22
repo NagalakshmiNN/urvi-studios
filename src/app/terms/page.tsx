@@ -36,7 +36,7 @@ export default function TermsPage() {
             <h4>Who we are</h4>
             <p>
               URVI Studios is a small Indian clothing label selling festive, office and everyday wear, founded and
-              run by Shilpa and Nagalakshmi. We sell to customers in India.
+              run by Shilpa and RamaVijaya. We sell to customers in India.
             </p>
           </div>
 

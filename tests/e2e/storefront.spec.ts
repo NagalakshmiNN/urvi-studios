@@ -150,7 +150,7 @@ test.describe("static pages", () => {
     expect(await strip.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
 
     // And its alt text carries the story for anyone who cannot see it.
-    await expect(strip).toHaveAttribute("alt", /Shilpa and Nagalakshmi/);
+    await expect(strip).toHaveAttribute("alt", /Shilpa and RamaVijaya/);
 
     await expect(page.locator(".story-brand .story-sub")).toHaveText("Confidence, worn.");
 
@@ -210,7 +210,7 @@ test.describe("static pages", () => {
     await expect(page.locator('.site-footer a[href="/shipping-returns"]')).toBeVisible();
     await expect(page.locator('.site-footer a[aria-label="WhatsApp"]')).toHaveAttribute(
       "href",
-      "https://wa.me/919538559595"
+      "https://wa.me/919180181526"
     );
   });
 });

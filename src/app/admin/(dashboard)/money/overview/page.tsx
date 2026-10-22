@@ -1,4 +1,5 @@
 import { db, schema } from "@/db";
+import { displayName } from "@/lib/display-names";
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { formatPaise, STOCK_PURCHASE } from "@/lib/money";
@@ -39,7 +40,7 @@ export default async function MoneyOverviewPage() {
   const totalCapitalPaise = capitalRows.reduce((n, r) => n + r.amountPaise, 0);
   const byPerson = new Map<string, number>();
   for (const r of capitalRows) {
-    byPerson.set(r.contributor, (byPerson.get(r.contributor) ?? 0) + r.amountPaise);
+    byPerson.set(displayName(r.contributor), (byPerson.get(displayName(r.contributor)) ?? 0) + r.amountPaise);
   }
   const people = [...byPerson.entries()].sort((a, b) => b[1] - a[1]);
 
@@ -53,7 +54,7 @@ export default async function MoneyOverviewPage() {
       bucket = { key, byPerson: new Map(), total: 0 };
       monthMap.set(key, bucket);
     }
-    bucket.byPerson.set(r.contributor, (bucket.byPerson.get(r.contributor) ?? 0) + r.amountPaise);
+    bucket.byPerson.set(displayName(r.contributor), (bucket.byPerson.get(displayName(r.contributor)) ?? 0) + r.amountPaise);
     bucket.total += r.amountPaise;
   }
   const months = [...monthMap.values()].sort((a, b) => a.key.localeCompare(b.key));
