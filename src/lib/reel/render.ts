@@ -8,8 +8,9 @@
 // wraps the result as an .mp4. Nothing is uploaded and nothing is paid for.
 
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
+import { drawBackdrop, type Backdrop } from "./backdrops";
 import {
-  FPS, TOTAL_SECONDS, cropRect, ease, layersAt, lerpPose, planTimeline,
+  FPS, TOTAL_SECONDS, cropRect, fitPose, ease, layersAt, lerpPose, planTimeline,
   type Layer, type Shot, type Stage, type Timeline,
 } from "./plan";
 
@@ -43,6 +44,11 @@ export type PainterOptions = {
   watermark?: boolean;
   /** The brand logo (transparent PNG). Opens the reel, sits as a watermark throughout, and closes it. */
   logo?: CanvasImageSource | null;
+  /**
+   * A moving backdrop drawn behind the dress. Needs a stage with a see-through
+   * background; null keeps the flat `background` colour of the stage.
+   */
+  backdrop?: Backdrop | null;
 };
 
 /** Seconds the logo holds at the start before fading into the first shot. */
@@ -128,6 +134,8 @@ export class ReelPainter {
   /** The closing screens: fabric details (when there are any), then Instagram and contact. */
   private endCards: AnyCanvas[];
   private mark: AnyCanvas | null;
+  /** Seconds into the reel of the frame being drawn (the backdrop moves with it). */
+  private curT = 0;
   private captionCache = new Map<string, AnyCanvas>();
   private ink: string;
 
@@ -135,7 +143,7 @@ export class ReelPainter {
     this.o = o;
     this.width = o.width;
     this.height = o.height;
-    this.shots = o.shots.filter((s) => s.enabled);
+    this.shots = fitShots(o, o.shots.filter((s) => s.enabled));
     this.timeline = planTimeline(this.shots.map((s) => s.weight), TOTAL_SECONDS);
     this.ink = luminance(o.background) < 0.45 ? IVORY : OLIVE;
     this.mark = o.watermark === false ? null : o.logo ? this.makeLogoWatermark(o.logo) : this.makeWatermark();
@@ -168,18 +176,15 @@ export class ReelPainter {
   private makeLogoWatermark(logo: CanvasImageSource): AnyCanvas {
     const { width: W } = this;
     const { w: lw, h: lh } = sizeOf(logo);
-    const w = Math.round(W * 0.2);
+    const w = Math.round(W * 0.15);
     const h = Math.round((w * lh) / lw);
     const pad = Math.round(W * 0.012);
     const c = makeCanvas(w + pad * 2, h + pad * 2);
     const ctx = ctxOf(c);
-    if (luminance(this.o.background) < 0.45) {
-      // dark backgrounds: seat the logo on a soft ivory plate so it stays legible
-      ctx.fillStyle = "rgba(247,241,232,0.88)";
-      roundRectPath(ctx, 0, 0, c.width, c.height, W * 0.02);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 0.82;
+    // a soft ivory plate keeps the logo readable on any dress or backdrop
+    ctx.fillStyle = "rgba(247,241,232,0.80)";
+    roundRectPath(ctx, 0, 0, c.width, c.height, W * 0.025);
+    ctx.fill();
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(logo, pad, pad, w, h);
     return c;
@@ -420,10 +425,23 @@ export class ReelPainter {
       return;
     }
     const shot = this.shots[layer.index];
-    const r = cropRect(this.o.stage, lerpPose(shot.from, shot.to, ease(layer.progress)), W / H);
+    const r = cropRect(this.o.stage, lerpPose(shot.from, shot.to, ease(layer.progress)), W / H, true);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.o.stageCanvas as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, W, H);
+    const bd = this.o.backdrop;
+    if (bd) {
+      drawBackdrop(ctx, W, H, this.curT, bd);
+      this.groundShadow(ctx, r);
+      // a soft shadow cast by the dress itself, so it sits in the scene
+      ctx.save();
+      ctx.shadowColor = "rgba(45,30,25,0.30)";
+      ctx.shadowBlur = W * 0.03;
+      ctx.shadowOffsetY = H * 0.006;
+      ctx.drawImage(this.o.stageCanvas as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, W, H);
+      ctx.restore();
+    } else {
+      ctx.drawImage(this.o.stageCanvas as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, W, H);
+    }
     if (this.mark) {
       if (this.o.logo) {
         ctx.drawImage(this.mark as CanvasImageSource, W - this.mark.width - W * 0.03, H * 0.035);
@@ -445,8 +463,28 @@ export class ReelPainter {
     ctx.globalAlpha = 1;
   }
 
+  /** A soft pool of shadow on the floor under the hem, when the hem is in view. */
+  private groundShadow(ctx: Canvas2D, r: { x: number; y: number; w: number; h: number }) {
+    const { width: W, height: H } = this;
+    const d = this.o.stage.dress;
+    const hemY = ((d.y1 - r.y) / r.h) * H;
+    if (hemY < 0 || hemY > H * 1.08) return;
+    const cx = (((d.x0 + d.x1) / 2 - r.x) / r.w) * W;
+    const half = (((d.x1 - d.x0) / r.w) * W) * 0.55;
+    ctx.save();
+    ctx.translate(cx, hemY);
+    ctx.scale(1, 0.07);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, half);
+    g.addColorStop(0, "rgba(45,30,25,0.34)");
+    g.addColorStop(1, "rgba(45,30,25,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(-half, -half, half * 2, half * 2);
+    ctx.restore();
+  }
+
   /** Draw the reel as it looks `t` seconds in. */
   drawAt(ctx: Canvas2D, t: number) {
+    this.curT = t;
     const { a, b, mix } = layersAt(this.timeline, t);
     ctx.globalCompositeOperation = "source-over";
     this.paintLayer(ctx, a, 1);
@@ -457,6 +495,7 @@ export class ReelPainter {
   /** A still for the reel's cover: the first shot, mid-move, with the watermark. */
   drawCover(ctx: Canvas2D) {
     ctx.globalCompositeOperation = "source-over";
+    this.curT = 4;
     this.paintLayer(ctx, { index: 0, progress: 0.5 }, 1);
   }
 
@@ -558,4 +597,41 @@ export async function encodeReel(
   encoder.close();
   onProgress(1);
   return new Blob([target.buffer], { type: "video/mp4" });
+}
+
+
+/** Coverage of "is dress" over the stage, from its alpha (null when it is opaque everywhere). */
+function coverageOf(stageCanvas: AnyCanvas): ((r: { x: number; y: number; w: number; h: number }) => number) | null {
+  const k = 8;
+  const gw = Math.max(1, Math.round(stageCanvas.width / k)), gh = Math.max(1, Math.round(stageCanvas.height / k));
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(gw, gh) : Object.assign(document.createElement("canvas"), { width: gw, height: gh });
+  const x = c.getContext("2d") as Canvas2D;
+  x.drawImage(stageCanvas as CanvasImageSource, 0, 0, gw, gh);
+  const d = x.getImageData(0, 0, gw, gh).data;
+  const sat = new Float64Array((gw + 1) * (gh + 1));
+  let clear = 0;
+  for (let j = 0; j < gh; j++) {
+    let row = 0;
+    for (let i = 0; i < gw; i++) {
+      const a = d[(j * gw + i) * 4 + 3];
+      if (a < 250) clear++;
+      row += a > 128 ? 1 : 0;
+      sat[(j + 1) * (gw + 1) + i + 1] = sat[j * (gw + 1) + i + 1] + row;
+    }
+  }
+  if (clear < gw * gh * 0.02) return null;
+  const sx = gw / stageCanvas.width, sy = gh / stageCanvas.height;
+  return (r) => {
+    const x0 = Math.max(0, Math.floor(r.x * sx)), y0 = Math.max(0, Math.floor(r.y * sy));
+    const x1 = Math.min(gw, Math.ceil((r.x + r.w) * sx)), y1 = Math.min(gh, Math.ceil((r.y + r.h) * sy));
+    const area = Math.max(1, (x1 - x0) * (y1 - y0));
+    const s = sat[y1 * (gw + 1) + x1] - sat[y0 * (gw + 1) + x1] - sat[y1 * (gw + 1) + x0] + sat[y0 * (gw + 1) + x0];
+    return s / area;
+  };
+}
+
+function fitShots(o: PainterOptions, shots: Shot[]): Shot[] {
+  const cover = coverageOf(o.stageCanvas);
+  if (!cover) return shots;
+  return shots.map((s) => ({ ...s, from: fitPose(o.stage, s.from, cover), to: fitPose(o.stage, s.to, cover) }));
 }

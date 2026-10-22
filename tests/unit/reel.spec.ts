@@ -1,8 +1,9 @@
 // The reel maker's arithmetic: the timeline, the camera crops and the mask tools.
 import { test, expect } from "@playwright/test";
 import {
-  ASPECT, TOTAL_SECONDS, cropRect, defaultShots, layersAt, planTimeline, stageFor,
+  ASPECT, TOTAL_SECONDS, cropRect, defaultShots, fitPose, layersAt, planTimeline, stageFor,
 } from "../../src/lib/reel/plan";
+import { SET_BACKDROPS, byId, pickForDay } from "../../src/lib/reel/backdrops";
 import {
   MANUAL_REMOVE, dilate, erode, label, stampDisc, stampLine,
 } from "../../src/lib/reel/cutout-core";
@@ -96,4 +97,40 @@ test("html is stripped and hashtags are unique", () => {
   expect(plainText("<p>Soft&nbsp;<b>cotton</b></p>")).toBe("Soft cotton");
   const tags = hashtagsFor(kurti);
   expect(new Set(tags).size).toBe(tags.length);
+});
+
+test("there are more than 40 styled backdrops, each with its own id", () => {
+  expect(SET_BACKDROPS.length).toBeGreaterThan(40);
+  expect(new Set(SET_BACKDROPS.map((b) => b.id)).size).toBe(SET_BACKDROPS.length);
+  expect(new Set(SET_BACKDROPS.map((b) => b.name)).size).toBe(SET_BACKDROPS.length);
+  for (const b of SET_BACKDROPS) expect(byId(b.id)).not.toBeNull();
+});
+
+test("the daily pick changes every day and avoids a backdrop that hides the dress", () => {
+  const day = (n: number) => new Date(2026, 9, 1 + n, 12);
+  for (let n = 0; n < 20; n++) {
+    expect(pickForDay(day(n), null).id).not.toBe(pickForDay(day(n + 1), null).id);
+  }
+  // a very dark dress is never put on a very dark set
+  const dark: [number, number, number] = [20, 16, 24];
+  for (let n = 0; n < SET_BACKDROPS.length; n++) {
+    const b = pickForDay(day(n), dark);
+    const mid = b.family;
+    expect(mid).toBeTruthy();
+  }
+});
+
+test("close-ups stay inside the dress, and move onto fabric when they start off it", () => {
+  const stage = { width: 1000, height: 1778, dress: { x0: 200, y0: 150, x1: 800, y1: 1600 } };
+  for (const pose of [[0.5, 0.0, 2.8], [0.0, 0.2, 2.0], [1.0, 1.0, 2.5]] as [number, number, number][]) {
+    const r = cropRect(stage, pose, ASPECT, true);
+    expect(r.x).toBeGreaterThanOrEqual(stage.dress.x0);
+    expect(r.x + r.w).toBeLessThanOrEqual(stage.dress.x1);
+    expect(r.y).toBeGreaterThanOrEqual(stage.dress.y0);
+    expect(r.y + r.h).toBeLessThanOrEqual(stage.dress.y1);
+  }
+  // fabric only in the right half: a shot aimed at the left should slide right
+  const cover = (r: { x: number; w: number }) => Math.max(0, Math.min(1, (r.x + r.w - 500) / r.w));
+  const fitted = fitPose(stage, [0.2, 0.5, 3.0], cover);
+  expect(fitted[0]).toBeGreaterThan(0.2);
 });

@@ -132,7 +132,7 @@ export async function analysePhoto(photo: HTMLCanvasElement, status: (s: string)
 
 /** Put the analysed dress on a plain colour, honouring any hand touch-ups. */
 export function composeToCanvas(
-  a: Analysis, manual: Uint8Array | null, bg: [number, number, number],
+  a: Analysis, manual: Uint8Array | null, bg: [number, number, number] | null,
 ): { canvas: HTMLCanvasElement; composed: Composed } {
   const composed = composeCutout(a.rgba, a.w, a.h, a.refined, manual, bg);
   const canvas = document.createElement("canvas");
@@ -151,7 +151,7 @@ export function composeToCanvas(
 export function buildStage(
   photo: HTMLCanvasElement,
   dress: { x0: number; y0: number; x1: number; y1: number },
-  backgroundCss: string,
+  backgroundCss: string | null,
 ): { canvas: HTMLCanvasElement; stage: Stage } {
   const dw = dress.x1 - dress.x0 + 1;
   const dh = dress.y1 - dress.y0 + 1;
@@ -161,8 +161,10 @@ export function buildStage(
   canvas.width = sz.width;
   canvas.height = sz.height;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = backgroundCss;
-  ctx.fillRect(0, 0, sz.width, sz.height);
+  if (backgroundCss) {
+    ctx.fillStyle = backgroundCss;
+    ctx.fillRect(0, 0, sz.width, sz.height);
+  }
 
   const touchL = dress.x0 <= 1;
   const touchR = dress.x1 >= photo.width - 2;

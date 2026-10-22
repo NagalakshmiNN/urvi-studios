@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MANUAL_FILL, MANUAL_KEEP, MANUAL_REMOVE, stampLine,
 } from "@/lib/reel/cutout-core";
+import { SET_BACKDROPS, byId, pickForDay, type Backdrop } from "@/lib/reel/backdrops";
 import {
   analysePhoto, buildStage, composeToCanvas, loadLogo, loadPhoto, parseColor, type Analysis,
 } from "@/lib/reel/browser";
@@ -56,6 +57,17 @@ function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "dress";
 }
 
+function averageColour(c: HTMLCanvasElement): [number, number, number] {
+  const t = document.createElement("canvas");
+  t.width = 64; t.height = 114;
+  const x = t.getContext("2d")!;
+  x.drawImage(c, 0, 0, t.width, t.height);
+  const d = x.getImageData(0, 0, t.width, t.height).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 250) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+  return n ? [r / n, g / n, b / n] : [128, 128, 128];
+}
+
 export default function ReelMaker({
   products, brand, defaultContact, instagramHandle, instagramUrl, initialProductId,
 }: {
@@ -77,6 +89,7 @@ export default function ReelMaker({
   const [autoMake, setAutoMake] = useState(false);
   const askRef = useRef<HTMLCanvasElement>(null);
   const [bgHex, setBgHex] = useState("#FFFFF0");
+  const [backdropId, setBackdropId] = useState("today");
   const [title, setTitle] = useState("");
   const [tagline, setTagline] = useState("");
   const [contact, setContact] = useState(defaultContact);
@@ -131,12 +144,23 @@ export default function ReelMaker({
 
   const hasStage = stageVersion > 0;
 
+  // A styled backdrop needs the dress cut out on a see-through stage.
+  const sceneRef = useRef(false);
+  useEffect(() => { sceneRef.current = removeBg && backdropId !== "plain"; }, [removeBg, backdropId]);
+  const dressRef = useRef<[number, number, number] | null>(null);
+  function resolveBackdrop(): Backdrop | undefined {
+    if (!sceneRef.current) return undefined;
+    if (backdropId === "today") return pickForDay(new Date(), dressRef.current);
+    return byId(backdropId) ?? pickForDay(new Date(), dressRef.current);
+  }
+
   // -------------------------------------------------------------- pipeline
 
   const rebuildStage = useCallback((bgOverride?: string) => {
     const composed = composedRef.current;
     if (!composed) return;
-    stageRef.current = buildStage(composed.canvas, composed.bbox, bgOverride ?? bgHex);
+    stageRef.current = buildStage(composed.canvas, composed.bbox, sceneRef.current ? null : bgOverride ?? bgHex);
+    dressRef.current = sceneRef.current ? averageColour(stageRef.current.canvas) : null;
     setStageInfo(stageRef.current.stage);
     setStageVersion((v) => v + 1);
   }, [bgHex]);
@@ -145,7 +169,7 @@ export default function ReelMaker({
     const analysis = analysisRef.current;
     if (!analysis) return;
     const hex = bgOverride ?? bgHex;
-    const { canvas, composed } = composeToCanvas(analysis, manualRef.current, parseColor(hex));
+    const { canvas, composed } = composeToCanvas(analysis, manualRef.current, sceneRef.current ? null : parseColor(hex));
     composedRef.current = { canvas, bbox: composed.bbox };
     const view = viewRef.current;
     if (view) {
@@ -231,6 +255,7 @@ export default function ReelMaker({
     if (!photo) return;
     setAwaiting(false);
     setRemoveBg(remove);
+    sceneRef.current = remove && (restore?.backdropId ?? backdropId) !== "plain";
     if (restore) {
       setShots(restore.shots);
       setTitle(restore.title);
@@ -239,6 +264,7 @@ export default function ReelMaker({
       setCaption(restore.caption);
       if (restore.contact.includes("\n")) setContact(restore.contact);
       setBgHex(restore.bgHex);
+      if (restore.backdropId) setBackdropId(restore.backdropId);
     }
     await process(photo, remove, restore);
   }
@@ -290,7 +316,7 @@ export default function ReelMaker({
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bgHex]);
+  }, [bgHex, backdropId]);
 
   // Remember this product's settings in this browser, a moment after each change.
   useEffect(() => {
@@ -298,13 +324,13 @@ export default function ReelMaker({
     const t = setTimeout(() => {
       const a = analysisRef.current;
       void saveSaved(productId, {
-        shots, title, tagline, details, caption, contact, bgHex, removeBg,
+        shots, title, tagline, details, caption, contact, bgHex, backdropId, removeBg,
         manual: removeBg && manualRef.current ? new Uint8Array(manualRef.current) : null,
         w: a?.w ?? 0, h: a?.h ?? 0, savedAt: Date.now(),
       });
     }, 900);
     return () => clearTimeout(t);
-  }, [productId, hasStage, awaiting, stageVersion, shots, title, tagline, details, caption, contact, bgHex, removeBg]);
+  }, [productId, hasStage, awaiting, stageVersion, shots, title, tagline, details, caption, contact, bgHex, backdropId, removeBg]);
 
   // ----------------------------------------------------------------- brush
 
@@ -469,7 +495,7 @@ export default function ReelMaker({
       await loadFonts();
       const logo = await loadLogo();
       const painter = new ReelPainter({
-        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo, backdrop: resolveBackdrop(),
         text: reelText(), width: PREVIEW_W, height: PREVIEW_H,
       });
       canvas.width = PREVIEW_W;
@@ -510,7 +536,7 @@ export default function ReelMaker({
       await loadFonts();
       const logo = await loadLogo();
       const painter = new ReelPainter({
-        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo, backdrop: resolveBackdrop(),
         text: reelText(), width: 1080, height: 1920,
       });
       const c = document.createElement("canvas");
@@ -556,7 +582,7 @@ export default function ReelMaker({
       await document.fonts.load(`500 20px "Montserrat"`).catch(() => undefined);
       const logo = await loadLogo();
       const painter = new ReelPainter({
-        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo, backdrop: resolveBackdrop(),
         text: reelText(), width: 1080, height: 1920,
       });
       const blob = await encodeReel(painter, setMakeProgress, ac.signal);
@@ -633,6 +659,18 @@ export default function ReelMaker({
             <input type="checkbox" checked={clearBg} onChange={(e) => setClearBg(e.target.checked)} />
             Clear the background and hanger
           </label>
+          {clearBg && (
+            <label className="reel-check">
+              Backdrop
+              <select value={backdropId} onChange={(e) => setBackdropId(e.target.value)}>
+                <option value="today">Today&apos;s pick (changes daily)</option>
+                <option value="plain">Plain colour</option>
+                {SET_BACKDROPS.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="reel-check">
             Background colour
             <input type="color" value={bgHex} onChange={(e) => setBgHex(e.target.value.toUpperCase())} />

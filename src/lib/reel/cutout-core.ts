@@ -413,7 +413,8 @@ function boxBlur(src: Float32Array, w: number, h: number, r: number): Float32Arr
  */
 export function composeCutout(
   rgba: Uint8ClampedArray, w: number, h: number, refined: Refined, manual: Uint8Array | null,
-  bg: [number, number, number],
+  /** Colour to set the dress on, or null to keep the background see-through (alpha). */
+  bg: [number, number, number] | null,
 ): Composed {
   const n = w * h;
   const sc = Math.max(w, h) / 2000;
@@ -453,10 +454,14 @@ export function composeCutout(
       const i = y * w + x;
       const a = alpha[i];
       const o = i * 4;
-      pixels[o] = pixels[o] * a + bg[0] * (1 - a);
-      pixels[o + 1] = pixels[o + 1] * a + bg[1] * (1 - a);
-      pixels[o + 2] = pixels[o + 2] * a + bg[2] * (1 - a);
-      pixels[o + 3] = 255;
+      if (bg) {
+        pixels[o] = pixels[o] * a + bg[0] * (1 - a);
+        pixels[o + 1] = pixels[o + 1] * a + bg[1] * (1 - a);
+        pixels[o + 2] = pixels[o + 2] * a + bg[2] * (1 - a);
+        pixels[o + 3] = 255;
+      } else {
+        pixels[o + 3] = Math.round(a * 255);
+      }
       if (final[i]) {
         if (x < x0) x0 = x;
         if (x > x1) x1 = x;

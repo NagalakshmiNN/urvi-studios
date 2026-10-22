@@ -11,6 +11,7 @@ export type SavedReel = {
   caption: string;
   contact: string;
   bgHex: string;
+  backdropId?: string;
   removeBg: boolean;
   /** Hand touch-up layer, with the photo size it belongs to. */
   manual: Uint8Array | null;

@@ -144,10 +144,10 @@ export type Stage = {
  *
  * `maxHeight` caps the stage so a huge photo does not become a huge canvas.
  */
-export function stageFor(dressW: number, dressH: number, maxHeight = 3000): {
+export function stageFor(dressW: number, dressH: number, maxHeight = 3000, room = 1.06): {
   width: number; height: number; scale: number;
 } {
-  const fullH = Math.max(dressH * 1.06, (dressW * 1.1) / ASPECT);
+  const fullH = Math.max(dressH * room, (dressW * (room + 0.04)) / ASPECT);
   const scale = Math.min(1, maxHeight / fullH);
   return {
     width: Math.round(fullH * ASPECT * scale),
@@ -157,7 +157,7 @@ export function stageFor(dressW: number, dressH: number, maxHeight = 3000): {
 }
 
 /** The part of the stage the camera sees for a pose. Never leaves the stage. */
-export function cropRect(stage: Stage, pose: Pose, aspect = ASPECT): Rect {
+export function cropRect(stage: Stage, pose: Pose, aspect = ASPECT, inside = false): Rect {
   const [px, py, zoom] = pose;
   let h = stage.height / Math.max(zoom, 0.05);
   let w = h * aspect;
@@ -173,9 +173,42 @@ export function cropRect(stage: Stage, pose: Pose, aspect = ASPECT): Rect {
   const dh = stage.dress.y1 - stage.dress.y0;
   const cx = stage.dress.x0 + px * dw;
   const cy = stage.dress.y0 + py * dh;
-  const x = Math.min(Math.max(cx - w / 2, 0), stage.width - w);
-  const y = Math.min(Math.max(cy - h / 2, 0), stage.height - h);
+  let x = Math.min(Math.max(cx - w / 2, 0), stage.width - w);
+  let y = Math.min(Math.max(cy - h / 2, 0), stage.height - h);
+  if (inside) {
+    // A close-up never wanders past the dress: keep the window inside its
+    // outline (a hair in from the edge, where the cutout is softest).
+    const ix = dw * 0.02, iy = dh * 0.015;
+    const lo = stage.dress.x0 + ix, hi = stage.dress.x1 - ix;
+    if (w <= hi - lo) x = Math.min(Math.max(x, lo), hi - w);
+    const top = stage.dress.y0 + iy, bot = stage.dress.y1 - iy;
+    if (h <= bot - top) y = Math.min(Math.max(y, top), bot - h);
+  }
   return { x, y, w, h };
+}
+
+/** How much of a rectangle is dress, 0..1. Built from the stage's alpha. */
+export type Coverage = (r: Rect) => number;
+
+/**
+ * Move a close-up's centre a little so its frame is full of fabric, not empty
+ * wall (a sleeve shot that starts half off the sleeve, say). Searches a small
+ * neighbourhood and prefers the smallest move that fixes it.
+ */
+export function fitPose(stage: Stage, pose: Pose, cover: Coverage, aspect = ASPECT): Pose {
+  if (pose[2] < 1.4) return pose;
+  const base = cover(cropRect(stage, pose, aspect, true));
+  if (base >= 0.96) return pose;
+  let best = pose, bestScore = base;
+  for (let dy = -0.14; dy <= 0.141; dy += 0.02) {
+    for (let dx = -0.14; dx <= 0.141; dx += 0.02) {
+      const q: Pose = [pose[0] + dx, pose[1] + dy, pose[2]];
+      const c = cover(cropRect(stage, q, aspect, true));
+      const score = c - 0.5 * Math.hypot(dx, dy);
+      if (score > bestScore) { bestScore = score; best = q; }
+    }
+  }
+  return best;
 }
 
 /**
