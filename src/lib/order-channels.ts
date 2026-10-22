@@ -50,12 +50,13 @@ export function isInPerson(order: { source?: string | null }): boolean {
 // Who made or facilitated the sale — an in-person sale is always
 // attributable to Lakshmi or Shilpa, website orders to the site itself.
 export const SALE_BY_OPTIONS: { value: string; label: string }[] = [
-  { value: "Lakshmi", label: "Lakshmi" },
+  // the stored value stays "Lakshmi" so existing records still match; only the name shown changes
+  { value: "Lakshmi", label: "RamaVijaya" },
   { value: "Shilpa", label: "Shilpa" },
 ];
 
 export const SALE_BY_LABELS: Record<string, string> = {
-  Lakshmi: "Lakshmi",
+  Lakshmi: "RamaVijaya",
   Shilpa: "Shilpa",
   Website: "Website",
 };

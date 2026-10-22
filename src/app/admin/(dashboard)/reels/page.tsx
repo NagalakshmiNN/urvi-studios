@@ -4,7 +4,7 @@ import { SITE } from "@/lib/site-config";
 import { detailsLine, draftCaption, factRows } from "@/lib/reel/caption";
 import ReelMaker from "./ReelMaker";
 
-/** 919632311118 -> +91 96323 11118 */
+/** 919180181526 -> +91 91801 81526 */
 function phone(n: string) {
   const m = /^(\d{2})(\d{5})(\d{5})$/.exec(n);
   return m ? `+${m[1]} ${m[2]} ${m[3]}` : `+${n}`;
@@ -64,7 +64,7 @@ export default async function AdminReelsPage({
         instagramUrl={`instagram.com/${SITE.instagramHandle}`}
         defaultContact={[
           `Shilpa  ${phone(SITE.whatsappNumberAlt)}`,
-          `RamaVijaya  ${phone("919180181526")}`,
+          `RamaVijaya  ${phone(SITE.whatsappNumber)}`,
           SITE.contactEmail,
           SITE.siteUrl.replace(/^https?:\/\//, ""),
         ].join("\n")}

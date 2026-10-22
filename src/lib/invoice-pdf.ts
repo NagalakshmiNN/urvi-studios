@@ -85,7 +85,7 @@ function formatDate(d: Date): string {
 }
 
 function formatPhone(raw: string): string {
-  // "919538559595" → "+91 95385 59595"
+  // "919180181526" → "+91 91801 81526"
   if (raw.startsWith("91") && raw.length === 12) {
     const num = raw.slice(2);
     return `+91 ${num.slice(0, 5)} ${num.slice(5)}`;
@@ -418,7 +418,7 @@ export function generateInvoicePdf(order: InvoiceOrder, items: InvoiceItem[]): B
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
 
-  doc.text(`Lakshmi:  ${formatPhone(SITE.whatsappNumber)}`, margin, y);
+  doc.text(`RamaVijaya:  ${formatPhone(SITE.whatsappNumber)}`, margin, y);
   y += 3.8;
   doc.text(`Shilpa:     ${formatPhone(SITE.whatsappNumberAlt)}`, margin, y);
   y += 3.8;

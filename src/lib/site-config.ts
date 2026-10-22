@@ -10,7 +10,7 @@ export const SITE = {
   registeredAddress: "Bengaluru, Karnataka, India",
   /** Set once the business has its own GSTIN; hidden while null. */
   gstin: null as string | null,
-  whatsappNumber: "919538559595", // Lakshmi — country code + number, no + or spaces
+  whatsappNumber: "919180181526", // RamaVijaya — country code + number, no + or spaces
   whatsappNumberAlt: "919632311118", // Shilpa
   instagramHandle: "urvi.studios",
   facebookUrl: "https://www.facebook.com/profile.php?id=61593916655169",
@@ -19,8 +19,7 @@ export const SITE = {
   // Every number an order handoff (the WhatsApp fallback when Razorpay isn't
   // configured) can be sent to — a customer can reach whichever is easiest.
   whatsappOrderNumbers: [
-    { name: "Lakshmi", number: "919538559595" },
+    { name: "RamaVijaya", number: "919180181526" },
     { name: "Shilpa", number: "919632311118" },
-    { name: "Urvi Studio", number: "919180181526" },
   ],
 };

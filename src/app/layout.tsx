@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s — Urvi Studios",
   },
   description:
-    "Urvi Studios — premium Indian-western fusion fashion. Festive wear, office wear, casual wear, kurtas and more, curated by Shilpa & Nagalakshmi.",
+    "Urvi Studios — premium Indian-western fusion fashion. Festive wear, office wear, casual wear, kurtas and more, curated by Shilpa & RamaVijaya.",
   icons: { icon: "/logo-black.png" },
 };
 

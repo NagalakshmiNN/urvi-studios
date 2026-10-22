@@ -5,7 +5,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export const metadata = {
   title: "Our Story — URVI Studios",
-  description: "How Shilpa and Nagalakshmi started URVI Studios, told in their own words.",
+  description: "How Shilpa and RamaVijaya started URVI Studios, told in their own words.",
 };
 
 // The illustrated strip, told in four panels, is now the whole story.
@@ -58,7 +58,7 @@ export default function AboutPage() {
               the speech bubbles enough to matter. */}
           <Image
             src="/brand/our-story-strip.png"
-            alt="An illustrated telling of how URVI Studios began: Shilpa and Nagalakshmi talking about how hard it is to find good traditional and office wear, deciding to curate pieces from their travels across India, and setting out to make beautiful, well-made clothing available at reasonable prices."
+            alt="An illustrated telling of how URVI Studios began: Shilpa and RamaVijaya talking about how hard it is to find good traditional and office wear, deciding to curate pieces from their travels across India, and setting out to make beautiful, well-made clothing available at reasonable prices."
             width={1024}
             height={1536}
             className="story-strip-img"
