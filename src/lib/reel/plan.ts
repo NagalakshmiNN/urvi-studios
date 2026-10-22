@@ -34,7 +34,7 @@ export const ASPECT = OUT_W / OUT_H;
 
 export const TOTAL_SECONDS = 30;
 export const CROSSFADE_SECONDS = 0.6;
-export const END_CARD_SECONDS = 3;
+export const END_CARD_SECONDS = 7;
 
 /**
  * A sensible plan for a front-facing kurti: whole dress, neckline and yoke, a

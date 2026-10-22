@@ -23,6 +23,8 @@ export type ReelProduct = {
   id: string; name: string; sku: string; imageUrl: string;
   /** "₹1,499 · Sizes S, M, L · Cotton" */
   details: string;
+  /** Fabric and wearing details for the closing screens. */
+  facts: [string, string][];
   /** Draft Instagram caption with hashtags. */
   caption: string;
 };
@@ -41,16 +43,28 @@ const BRUSH_HELP: Record<BrushMode, string> = {
 const PREVIEW_W = 216;
 const PREVIEW_H = 384;
 
+/** The site already loads these from Google Fonts; make sure they are ready before drawing. */
+async function loadFonts() {
+  const faces = [
+    '400 60px "Allura"', 'italic 500 30px "Cormorant Garamond"', '600 40px "Cormorant Garamond"',
+    '500 20px "Montserrat"', '600 20px "Montserrat"',
+  ];
+  await Promise.all(faces.map((f) => document.fonts.load(f).catch(() => undefined)));
+}
+
 function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "dress";
 }
 
 export default function ReelMaker({
-  products, brand, defaultContact, initialProductId,
+  products, brand, defaultContact, instagramHandle, instagramUrl, initialProductId,
 }: {
   products: ReelProduct[];
   brand: string;
+  /** Lines under "Contact us" on the last screen, one per line. */
   defaultContact: string;
+  instagramHandle: string;
+  instagramUrl: string;
   initialProductId?: string;
 }) {
   // ---- what the person chose
@@ -67,6 +81,7 @@ export default function ReelMaker({
   const [tagline, setTagline] = useState("");
   const [contact, setContact] = useState(defaultContact);
   const [details, setDetails] = useState("");
+  const [facts, setFacts] = useState<[string, string][]>([]);
   const [caption, setCaption] = useState("");
   const [copied, setCopied] = useState(false);
   const [, setSaved] = useState<SavedReel | null>(null);
@@ -196,7 +211,7 @@ export default function ReelMaker({
       setMethod(null);
       if (name) setTitle(name);
       const prod = products.find((x) => x.id === productIdRef.current);
-      if (prod) { setDetails(prod.details); setCaption(prod.caption); }
+      if (prod) { setDetails(prod.details); setCaption(prod.caption); setFacts(prod.facts); } else { setFacts([]); }
       const saved2 = prod ? await loadSaved(prod.id) : null;
       setSaved(saved2);
       setStatus(null);
@@ -222,7 +237,7 @@ export default function ReelMaker({
       setTagline(restore.tagline);
       setDetails(restore.details);
       setCaption(restore.caption);
-      setContact(restore.contact);
+      if (restore.contact.includes("\n")) setContact(restore.contact);
       setBgHex(restore.bgHex);
     }
     await process(photo, remove, restore);
@@ -451,11 +466,11 @@ export default function ReelMaker({
     if (!sr || !canvas) return;
     setError(null);
     try {
-      await document.fonts.load(`600 30px "Cormorant Garamond"`).catch(() => undefined);
+      await loadFonts();
       const logo = await loadLogo();
       const painter = new ReelPainter({
         stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
-        text: { brand, title, tagline, contact, details }, width: PREVIEW_W, height: PREVIEW_H,
+        text: reelText(), width: PREVIEW_W, height: PREVIEW_H,
       });
       canvas.width = PREVIEW_W;
       canvas.height = PREVIEW_H;
@@ -476,6 +491,14 @@ export default function ReelMaker({
 
   useEffect(() => () => { if (playRef.current != null) cancelAnimationFrame(playRef.current); }, []);
 
+  // everything the painter writes on screen
+  function reelText() {
+    return {
+      brand, title, tagline, contact, details, facts, instagramHandle, instagramUrl,
+      contactLines: contact.split("\n").map((l) => l.trim()).filter(Boolean),
+    };
+  }
+
   // ---------------------------------------------------------------- cover + caption
 
   async function downloadCover() {
@@ -483,11 +506,11 @@ export default function ReelMaker({
     if (!sr) return;
     setError(null);
     try {
-      await document.fonts.load(`600 40px "Cormorant Garamond"`).catch(() => undefined);
+      await loadFonts();
       const logo = await loadLogo();
       const painter = new ReelPainter({
         stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
-        text: { brand, title, tagline, contact, details }, width: 1080, height: 1920,
+        text: reelText(), width: 1080, height: 1920,
       });
       const c = document.createElement("canvas");
       c.width = 1080;
@@ -528,12 +551,12 @@ export default function ReelMaker({
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      await document.fonts.load(`600 40px "Cormorant Garamond"`).catch(() => undefined);
+      await loadFonts();
       await document.fonts.load(`500 20px "Montserrat"`).catch(() => undefined);
       const logo = await loadLogo();
       const painter = new ReelPainter({
         stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex, logo,
-        text: { brand, title, tagline, contact, details }, width: 1080, height: 1920,
+        text: reelText(), width: 1080, height: 1920,
       });
       const blob = await encodeReel(painter, setMakeProgress, ac.signal);
       setVideo({
@@ -825,8 +848,9 @@ export default function ReelMaker({
               <input type="text" value={tagline} onChange={(e) => { setTagline(e.target.value); setVideo(null); }} maxLength={60} />
             </label>
             <label className="reel-field">
-              <span className="field-label">Contact line</span>
-              <input type="text" value={contact} onChange={(e) => { setContact(e.target.value); setVideo(null); }} maxLength={60} />
+              <span className="field-label">Contact lines, last screen (one per line)</span>
+              <textarea value={contact} rows={3} maxLength={160} style={{ width: "100%", font: "inherit" }}
+                onChange={(e) => { setContact(e.target.value); setVideo(null); }} />
             </label>
           </div>
           <label className="reel-field" style={{ marginTop: 14, maxWidth: 560 }}>

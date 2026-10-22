@@ -20,6 +20,13 @@ export type ReelText = {
   contact: string;
   /** One line under the product name on the end card, e.g. price, sizes, fabric. */
   details?: string;
+  /** Fabric card rows, e.g. ["Fabric", "Cotton kota"], ["Perfect for", "Office"]. Empty skips the card. */
+  facts?: [string, string][];
+  /** Closing card: "@urvi.studios" and "instagram.com/urvi.studios". */
+  instagramHandle?: string;
+  instagramUrl?: string;
+  /** Closing card, under "Contact us": WhatsApp, email, website. */
+  contactLines?: string[];
 };
 
 export type PainterOptions = {
@@ -54,6 +61,8 @@ const OLIVE = "#3F4827";
 const GOLD = "#A98238";
 const IVORY = "#F7F1E8";
 const SERIF = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
+const SCRIPT = "'Allura', 'Alex Brush', 'Brush Script MT', cursive";
+const SERIF_I = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
 const SANS = "'Montserrat', -apple-system, 'Segoe UI', Arial, sans-serif";
 
 function makeCanvas(w: number, h: number): AnyCanvas {
@@ -116,7 +125,8 @@ export class ReelPainter {
   readonly height: number;
   private o: PainterOptions;
   private shots: Shot[];
-  private endCard: AnyCanvas;
+  /** The closing screens: fabric details (when there are any), then Instagram and contact. */
+  private endCards: AnyCanvas[];
   private mark: AnyCanvas | null;
   private captionCache = new Map<string, AnyCanvas>();
   private ink: string;
@@ -129,7 +139,7 @@ export class ReelPainter {
     this.timeline = planTimeline(this.shots.map((s) => s.weight), TOTAL_SECONDS);
     this.ink = luminance(o.background) < 0.45 ? IVORY : OLIVE;
     this.mark = o.watermark === false ? null : o.logo ? this.makeLogoWatermark(o.logo) : this.makeWatermark();
-    this.endCard = this.makeEndCard();
+    this.endCards = [...(this.hasFacts() ? [this.makeFactsCard()] : []), this.makeClosingCard()];
   }
 
   // ------------------------------------------------------------ furniture
@@ -199,29 +209,70 @@ export class ReelPainter {
     return c;
   }
 
-  private makeEndCard(): AnyCanvas {
-    const { width: W, height: H, o } = this;
+  private hasFacts(): boolean {
+    const t = this.o.text;
+    return !!((t.facts && t.facts.length) || t.details);
+  }
+
+  /** Ivory page with a fine gold frame, the base of both closing screens. */
+  private cardBase(): { c: AnyCanvas; ctx: Canvas2D } {
+    const { width: W, height: H } = this;
     const c = makeCanvas(W, H);
     const ctx = ctxOf(c);
     ctx.fillStyle = IVORY;
     ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = GOLD;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = Math.max(2, W * 0.0022);
+    const m = W * 0.04;
+    ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
+    ctx.lineWidth = Math.max(1, W * 0.001);
+    ctx.strokeRect(m * 1.5, m * 1.5, W - 3 * m, H - 3 * m);
+    ctx.globalAlpha = 1;
+    return { c, ctx };
+  }
 
-    // the dress on its stage, in a soft card
-    const maxW = W * 0.64;
-    const logo = o.logo ?? null;
-    const maxH = H * (logo ? 0.38 : 0.5);
+  /** A short gold rule with a small diamond in the middle. */
+  private flourish(ctx: Canvas2D, y: number, half = 0.16) {
+    const { width: W, height: H } = this;
+    ctx.strokeStyle = GOLD;
+    ctx.fillStyle = GOLD;
+    ctx.lineWidth = Math.max(2, H * 0.0016);
+    const d = H * 0.007;
+    ctx.beginPath();
+    ctx.moveTo(W * (0.5 - half), y);
+    ctx.lineTo(W / 2 - d * 2.2, y);
+    ctx.moveTo(W / 2 + d * 2.2, y);
+    ctx.lineTo(W * (0.5 + half), y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(W / 2, y - d);
+    ctx.lineTo(W / 2 + d, y);
+    ctx.lineTo(W / 2, y + d);
+    ctx.lineTo(W / 2 - d, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /** The dress in a soft card, the product name in script, then the fabric and details. */
+  private makeFactsCard(): AnyCanvas {
+    const { width: W, height: H, o } = this;
+    const { c, ctx } = this.cardBase();
+
+    const maxW = W * 0.5;
+    const maxH = H * 0.33;
     const sw = o.stageCanvas.width;
     const sh = o.stageCanvas.height;
     const k = Math.min(maxW / sw, maxH / sh);
     const cw = sw * k;
     const ch = sh * k;
     const px = (W - cw) / 2;
-    const py = H * (logo ? 0.07 : 0.11);
+    const py = H * 0.075;
     const r = W * 0.025;
     ctx.save();
-    ctx.shadowColor = "rgba(60,40,30,0.32)";
+    ctx.shadowColor = "rgba(60,40,30,0.30)";
     ctx.shadowBlur = W * 0.04;
-    ctx.shadowOffsetY = H * 0.012;
+    ctx.shadowOffsetY = H * 0.01;
     ctx.fillStyle = o.background;
     roundRectPath(ctx, px, py, cw, ch, r);
     ctx.fill();
@@ -233,49 +284,115 @@ export class ReelPainter {
     ctx.drawImage(o.stageCanvas as CanvasImageSource, px, py, cw, ch);
     ctx.restore();
 
-    let y = py + ch + H * 0.06;
-    ctx.fillStyle = OLIVE;
+    let y = py + ch + H * 0.08;
     ctx.textBaseline = "alphabetic";
     if (o.text.title) {
-      ctx.font = `500 ${H * 0.0245}px ${SANS}`;
+      ctx.fillStyle = OLIVE;
+      let size = H * 0.062;
+      ctx.font = `400 ${size}px ${SCRIPT}`;
+      // long names shrink to fit between the frame lines
+      const tw = ctx.measureText(o.text.title).width;
+      if (tw > W * 0.78) { size *= (W * 0.78) / tw; ctx.font = `400 ${size}px ${SCRIPT}`; }
       centered(ctx, o.text.title, W / 2, y);
-      y += H * 0.062;
+      y += H * 0.04;
+    }
+    this.flourish(ctx, y);
+    y += H * 0.05;
+
+    const facts = (o.text.facts ?? []).slice(0, 4);
+    if (facts.length) {
+      ctx.fillStyle = GOLD;
+      ctx.font = `600 ${H * 0.0145}px ${SANS}`;
+      spacedCentered(ctx, "THE DETAILS", W / 2, y, H * 0.0055);
+      y += H * 0.048;
+      for (const [label, value] of facts) {
+        ctx.fillStyle = GOLD;
+        ctx.font = `italic 500 ${H * 0.022}px ${SERIF_I}`;
+        centered(ctx, label, W / 2, y);
+        y += H * 0.037;
+        ctx.fillStyle = OLIVE;
+        let vs = H * 0.033;
+        ctx.font = `600 ${vs}px ${SERIF}`;
+        const vw = ctx.measureText(value).width;
+        if (vw > W * 0.78) { vs *= (W * 0.78) / vw; ctx.font = `600 ${vs}px ${SERIF}`; }
+        centered(ctx, value, W / 2, y);
+        y += H * 0.052;
+      }
     }
     if (o.text.details) {
-      ctx.fillStyle = GOLD;
-      ctx.font = `500 ${H * 0.021}px ${SANS}`;
-      centered(ctx, o.text.details, W / 2, y - H * (o.text.title ? 0.012 : 0));
-      y += H * 0.035;
+      ctx.fillStyle = OLIVE;
+      ctx.font = `500 ${H * 0.0215}px ${SANS}`;
+      y += H * 0.004;
+      centered(ctx, o.text.details, W / 2, y);
     }
+    return c;
+  }
+
+  /** The last screen: the logo, the Instagram handle and link, and how to reach us. */
+  private makeClosingCard(): AnyCanvas {
+    const { width: W, height: H, o } = this;
+    const { c, ctx } = this.cardBase();
+    const logo = o.logo ?? null;
+    ctx.textBaseline = "alphabetic";
+    let y = H * 0.07;
     if (logo) {
       const { w: lw, h: lh } = sizeOf(logo);
-      const lh2 = H * 0.25;
+      const lh2 = H * 0.33;
       const lw2 = (lh2 * lw) / lh;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(logo, (W - lw2) / 2, y - H * 0.025, lw2, lh2);
-      y += lh2 + H * 0.015;
+      ctx.drawImage(logo, (W - lw2) / 2, y, lw2, lh2);
+      y += lh2 + H * 0.07;
     } else {
-      ctx.font = `600 ${H * 0.042}px ${SERIF}`;
-      spacedCentered(ctx, o.text.brand.toUpperCase(), W / 2, y, H * 0.006);
-      y += H * 0.03;
-      ctx.strokeStyle = GOLD;
-      ctx.lineWidth = Math.max(2, H * 0.002);
-      ctx.beginPath();
-      ctx.moveTo(W * 0.41, y);
-      ctx.lineTo(W * 0.59, y);
-      ctx.stroke();
-      y += H * 0.04;
-    }
-    if (o.text.tagline) {
-      ctx.fillStyle = "#78645A";
-      ctx.font = `400 ${H * 0.02}px ${SANS}`;
-      centered(ctx, o.text.tagline, W / 2, y);
-      y += H * 0.04;
-    }
-    if (o.text.contact) {
       ctx.fillStyle = OLIVE;
-      ctx.font = `500 ${H * 0.022}px ${SANS}`;
-      centered(ctx, o.text.contact, W / 2, y);
+      ctx.font = `600 ${H * 0.05}px ${SERIF}`;
+      spacedCentered(ctx, o.text.brand.toUpperCase(), W / 2, y + H * 0.08, H * 0.008);
+      y += H * 0.2;
+    }
+
+    const handle = o.text.instagramHandle ?? "";
+    const link = o.text.instagramUrl ?? "";
+    if (handle || link) {
+      ctx.fillStyle = GOLD;
+      ctx.font = `400 ${H * 0.05}px ${SCRIPT}`;
+      centered(ctx, "Follow us on Instagram", W / 2, y);
+      y += H * 0.062;
+      if (handle) {
+        ctx.fillStyle = OLIVE;
+        ctx.font = `600 ${H * 0.046}px ${SERIF}`;
+        spacedCentered(ctx, handle, W / 2, y, H * 0.0035);
+        y += H * 0.04;
+      }
+      if (link) {
+        ctx.fillStyle = "#78645A";
+        ctx.font = `500 ${H * 0.0185}px ${SANS}`;
+        centered(ctx, link, W / 2, y);
+        y += H * 0.03;
+      }
+      y += H * 0.012;
+      this.flourish(ctx, y);
+      y += H * 0.055;
+    }
+
+    const lines = (o.text.contactLines ?? []).filter(Boolean).slice(0, 4);
+    if (lines.length) {
+      ctx.fillStyle = GOLD;
+      ctx.font = `600 ${H * 0.0155}px ${SANS}`;
+      spacedCentered(ctx, "CONTACT US", W / 2, y, H * 0.0065);
+      y += H * 0.05;
+      ctx.fillStyle = OLIVE;
+      for (const line of lines) {
+        let fs = H * 0.0235;
+        ctx.font = `500 ${fs}px ${SANS}`;
+        const lw = ctx.measureText(line).width;
+        if (lw > W * 0.8) { fs *= (W * 0.8) / lw; ctx.font = `500 ${fs}px ${SANS}`; }
+        centered(ctx, line, W / 2, y);
+        y += H * 0.047;
+      }
+    }
+    if (!logo && o.text.tagline) {
+      ctx.fillStyle = GOLD;
+      ctx.font = `400 ${H * 0.04}px ${SCRIPT}`;
+      centered(ctx, o.text.tagline, W / 2, Math.max(y + H * 0.02, H * 0.93));
     }
     return c;
   }
@@ -287,7 +404,18 @@ export class ReelPainter {
     const [s, e] = this.timeline.spans[layer.index];
     ctx.globalAlpha = alpha;
     if (layer.index >= this.shots.length) {
-      ctx.drawImage(this.endCard as CanvasImageSource, 0, 0);
+      // The closing screens in turn: fabric details, then Instagram and contact.
+      const into = layer.progress * (e - s);
+      const n = this.endCards.length;
+      const hold = (e - s) * 0.46;
+      ctx.drawImage(this.endCards[0] as CanvasImageSource, 0, 0);
+      if (n > 1) {
+        const mix = Math.min(1, Math.max(0, (into - hold) / 0.8));
+        if (mix > 0) {
+          ctx.globalAlpha = alpha * mix;
+          ctx.drawImage(this.endCards[1] as CanvasImageSource, 0, 0);
+        }
+      }
       ctx.globalAlpha = 1;
       return;
     }

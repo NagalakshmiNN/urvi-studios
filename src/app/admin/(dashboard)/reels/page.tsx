@@ -1,8 +1,14 @@
 import { db } from "@/db";
 import { firstImageUrl } from "@/components/admin/ProductThumb";
 import { SITE } from "@/lib/site-config";
-import { detailsLine, draftCaption } from "@/lib/reel/caption";
+import { detailsLine, draftCaption, factRows } from "@/lib/reel/caption";
 import ReelMaker from "./ReelMaker";
+
+/** 919538559595 -> +91 95385 59595 */
+function phone(n: string) {
+  const m = /^(\d{2})(\d{5})(\d{5})$/.exec(n);
+  return m ? `+${m[1]} ${m[2]} ${m[3]}` : `+${n}`;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +29,7 @@ export default async function AdminReelsPage({
         price: p.price,
         fabric: p.fabric,
         perfectFor: p.perfectFor,
+        bestWeather: p.bestWeather,
         styleNotes: p.styleNotes,
         description: p.description,
         sizes: [...p.sizes].filter((z) => z.stock > 0).sort((a, b) => a.position - b.position).map((z) => z.label),
@@ -35,6 +42,7 @@ export default async function AdminReelsPage({
         sku: p.sku,
         imageUrl: firstImageUrl(p.images),
         details: detailsLine(src),
+        facts: factRows(src),
         caption: draftCaption(src),
       };
     })
@@ -52,7 +60,13 @@ export default async function AdminReelsPage({
       <ReelMaker
         products={products}
         brand="Urvi Studios"
-        defaultContact={`@${SITE.instagramHandle}`}
+        instagramHandle={`@${SITE.instagramHandle}`}
+        instagramUrl={`instagram.com/${SITE.instagramHandle}`}
+        defaultContact={[
+          `WhatsApp ${phone(SITE.whatsappNumber)}`,
+          SITE.contactEmail,
+          SITE.siteUrl.replace(/^https?:\/\//, ""),
+        ].join("\n")}
         initialProductId={product}
       />
     </>

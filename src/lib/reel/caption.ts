@@ -6,6 +6,7 @@ export type CaptionSource = {
   price: number;
   fabric: string;
   perfectFor?: string | null;
+  bestWeather?: string | null;
   styleNotes?: string | null;
   description?: string | null;
   sizes: string[]; // sizes with stock
@@ -34,13 +35,26 @@ function firstSentence(text: string, max = 160): string {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
-/** "₹1,499 · Sizes S, M, L · Cotton" for the end card. */
+/** "₹1,499 · Sizes S, M, L" for the end card (the fabric has its own row). */
 export function detailsLine(p: CaptionSource): string {
   const parts = [inr(p.price)];
   if (p.sizes.length) parts.push(`Sizes ${p.sizes.join(", ")}`);
-  const fabric = p.fabricTags?.split("|").filter(Boolean)[0] ?? p.fabric;
-  if (fabric) parts.push(fabric.length > 24 ? fabric.slice(0, 23) + "…" : fabric);
   return parts.join(" · ");
+}
+
+function brief(text: string, max = 44): string {
+  const t = plainText(text).replace(/[.;]+$/, "");
+  const first = t.split(/[.;]\s/)[0];
+  return first.length > max ? first.slice(0, max - 1).trimEnd() + "…" : first;
+}
+
+/** The rows of the "details" screen near the end of the reel. */
+export function factRows(p: CaptionSource): [string, string][] {
+  const rows: [string, string][] = [];
+  if (p.fabric) rows.push(["Fabric", brief(p.fabric)]);
+  if (p.perfectFor) rows.push(["Perfect for", brief(p.perfectFor)]);
+  if (p.bestWeather) rows.push(["Best weather", brief(p.bestWeather)]);
+  return rows;
 }
 
 export function hashtagsFor(p: CaptionSource): string[] {

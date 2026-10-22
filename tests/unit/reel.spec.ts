@@ -63,7 +63,7 @@ test("brush strokes mark the touch-up layer", () => {
   expect(layer[0]).toBe(0);
 });
 
-import { detailsLine, draftCaption, hashtagsFor, plainText } from "../../src/lib/reel/caption";
+import { detailsLine, draftCaption, factRows, hashtagsFor, plainText } from "../../src/lib/reel/caption";
 
 const kurti = {
   name: "Orange Zari Kurti", price: 1499, fabric: "Pure cotton",
@@ -72,9 +72,14 @@ const kurti = {
   parentTags: "Everyday|Office", fabricTags: "Cotton",
 };
 
-test("the end-card line carries price, sizes and fabric", () => {
-  expect(detailsLine(kurti)).toBe("₹1,499 · Sizes S, M, L · Cotton");
-  expect(detailsLine({ ...kurti, sizes: [] })).toBe("₹1,499 · Cotton");
+test("the end-card line carries price and sizes", () => {
+  expect(detailsLine(kurti)).toBe("₹1,499 · Sizes S, M, L");
+  expect(detailsLine({ ...kurti, sizes: [] })).toBe("₹1,499");
+});
+
+test("the details screen lists fabric and where to wear it", () => {
+  expect(factRows(kurti)).toEqual([["Fabric", "Pure cotton"], ["Perfect for", "Office and everyday"]]);
+  expect(factRows({ ...kurti, fabric: "<p>Soft kota cotton. Light and airy.</p>" })[0][1]).toBe("Soft kota cotton");
 });
 
 test("the caption draft is plain text with the facts and hashtags", () => {
