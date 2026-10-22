@@ -1,0 +1,723 @@
+"use client";
+
+// The reel maker: a photo of a dress in, a 30-second vertical reel out.
+// Everything happens in this browser tab — the cutout network, the painting
+// and the video encoding — so it costs nothing to run and the photos are never
+// uploaded anywhere. Steps are shown in the order they are done, and each one
+// can be redone without starting again.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  MANUAL_FILL, MANUAL_KEEP, MANUAL_REMOVE, stampLine,
+} from "@/lib/reel/cutout-core";
+import {
+  analysePhoto, buildStage, composeToCanvas, loadPhoto, parseColor, type Analysis,
+} from "@/lib/reel/browser";
+import {
+  ASPECT, cropRect, defaultShots, lerpPose, softnessNotes, type Pose, type Shot, type Stage,
+} from "@/lib/reel/plan";
+import { ReelPainter, canMakeVideo, encodeReel } from "@/lib/reel/render";
+
+export type ReelProduct = { id: string; name: string; sku: string; imageUrl: string };
+
+type BrushMode = "remove" | "keep" | "fill";
+const BRUSH_VALUE: Record<BrushMode, number> = { remove: MANUAL_REMOVE, keep: MANUAL_KEEP, fill: MANUAL_FILL };
+const BRUSH_COLOUR: Record<BrushMode, string> = {
+  remove: "rgba(210,40,40,0.5)", keep: "rgba(40,150,60,0.5)", fill: "rgba(40,90,220,0.5)",
+};
+const BRUSH_HELP: Record<BrushMode, string> = {
+  remove: "Paint over anything that should not be there (books, shelf edges, a hanger outside the dress).",
+  keep: "Paint over any part of the dress that was cut away by mistake.",
+  fill: "Paint over a hanger or object lying across the dress. It is rebuilt from the fabric next to it.",
+};
+
+const PREVIEW_W = 216;
+const PREVIEW_H = 384;
+
+function slug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "dress";
+}
+
+export default function ReelMaker({
+  products, brand, defaultContact, initialProductId,
+}: {
+  products: ReelProduct[];
+  brand: string;
+  defaultContact: string;
+  initialProductId?: string;
+}) {
+  // ---- what the person chose
+  const [productId, setProductId] = useState(initialProductId ?? "");
+  const [removeBg, setRemoveBg] = useState(false);
+  // A photo is open and we are waiting for the person to say whether the
+  // background should be cleared. Nothing is changed before they answer.
+  const [awaiting, setAwaiting] = useState(false);
+  const askRef = useRef<HTMLCanvasElement>(null);
+  const [bgHex, setBgHex] = useState("#FFFFF0");
+  const [title, setTitle] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [contact, setContact] = useState(defaultContact);
+  const [shots, setShots] = useState<Shot[]>(defaultShots);
+  const [selected, setSelected] = useState(0);
+  const [clickSets, setClickSets] = useState<"from" | "to">("from");
+
+  // ---- progress and results
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [supported, setSupported] = useState(true);
+  const [method, setMethod] = useState<"colour" | "plain" | null>(null);
+  const [stageVersion, setStageVersion] = useState(0);
+  const [makeProgress, setMakeProgress] = useState<number | null>(null);
+  const [video, setVideo] = useState<{ url: string; mb: number; name: string } | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  // ---- brush
+  const [brush, setBrush] = useState<BrushMode>("remove");
+  const [brushSize, setBrushSize] = useState(26);
+  const [zoom, setZoom] = useState(1);
+  const [canUndo, setCanUndo] = useState(false);
+
+  // ---- heavy things live in refs, not state
+  const photoRef = useRef<HTMLCanvasElement | null>(null);
+  const analysisRef = useRef<Analysis | null>(null);
+  const manualRef = useRef<Uint8Array | null>(null);
+  const undoRef = useRef<Uint8Array[]>([]);
+  const composedRef = useRef<{ canvas: HTMLCanvasElement; bbox: { x0: number; y0: number; x1: number; y1: number } } | null>(null);
+  const stageRef = useRef<{ canvas: HTMLCanvasElement; stage: Stage } | null>(null);
+  const strokeRef = useRef<{ pts: [number, number][]; r: number } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const playRef = useRef<number | null>(null);
+
+  const viewRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const overviewRef = useRef<HTMLCanvasElement>(null);
+  const fromRef = useRef<HTMLCanvasElement>(null);
+  const toRef = useRef<HTMLCanvasElement>(null);
+  const playCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => { setSupported(canMakeVideo()); }, []);
+  useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
+
+  const hasStage = stageVersion > 0;
+  const stageInfo = stageRef.current?.stage ?? null;
+
+  // -------------------------------------------------------------- pipeline
+
+  const rebuildStage = useCallback(() => {
+    const composed = composedRef.current;
+    if (!composed) return;
+    stageRef.current = buildStage(composed.canvas, composed.bbox, bgHex);
+    setStageVersion((v) => v + 1);
+  }, [bgHex]);
+
+  const recompose = useCallback(() => {
+    const analysis = analysisRef.current;
+    if (!analysis) return;
+    const { canvas, composed } = composeToCanvas(analysis, manualRef.current, parseColor(bgHex));
+    composedRef.current = { canvas, bbox: composed.bbox };
+    const view = viewRef.current;
+    if (view) {
+      view.width = canvas.width;
+      view.height = canvas.height;
+      view.getContext("2d")!.drawImage(canvas, 0, 0);
+    }
+    const ov = overlayRef.current;
+    if (ov) {
+      ov.width = canvas.width;
+      ov.height = canvas.height;
+    }
+    rebuildStage();
+  }, [bgHex, rebuildStage]);
+
+  const process = useCallback(async (photo: HTMLCanvasElement, remove: boolean) => {
+    setError(null);
+    setVideo(null);
+    setMethod(null);
+    try {
+      if (remove) {
+        const analysis = await analysePhoto(photo, setStatus);
+        analysisRef.current = analysis;
+        manualRef.current = new Uint8Array(analysis.w * analysis.h);
+        undoRef.current = [];
+        setCanUndo(false);
+        setMethod(analysis.refined.method);
+        recompose();
+      } else {
+        analysisRef.current = null;
+        manualRef.current = null;
+        composedRef.current = {
+          canvas: photo,
+          bbox: { x0: 0, y0: 0, x1: photo.width - 1, y1: photo.height - 1 },
+        };
+        rebuildStage();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong preparing the photo.");
+    } finally {
+      setStatus(null);
+    }
+  }, [recompose, rebuildStage]);
+
+  async function openPhoto(src: File | string, name?: string) {
+    setError(null);
+    setStatus("Opening the photo…");
+    try {
+      const photo = await loadPhoto(src);
+      photoRef.current = photo;
+      analysisRef.current = null;
+      manualRef.current = null;
+      composedRef.current = null;
+      stageRef.current = null;
+      setStageVersion(0);
+      setVideo(null);
+      setMethod(null);
+      if (name && !title) setTitle(name);
+      setAwaiting(true);
+      setStatus(null);
+    } catch {
+      setError("That photo could not be opened. Try a JPG or PNG.");
+      setStatus(null);
+    }
+  }
+
+  // The person's answer to "clear the background?"
+  async function decide(remove: boolean) {
+    const photo = photoRef.current;
+    if (!photo) return;
+    setAwaiting(false);
+    setRemoveBg(remove);
+    await process(photo, remove);
+  }
+
+  // show the untouched photo while the question is open
+  useEffect(() => {
+    const photo = photoRef.current;
+    const c = askRef.current;
+    if (!awaiting || !photo || !c) return;
+    c.width = photo.width;
+    c.height = photo.height;
+    c.getContext("2d")!.drawImage(photo, 0, 0);
+  }, [awaiting]);
+
+  function chooseProduct(id: string) {
+    setProductId(id);
+    const p = products.find((x) => x.id === id);
+    if (p) void openPhoto(p.imageUrl, p.name);
+  }
+
+  // a product named in the address opens straight away
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (startedRef.current || !initialProductId) return;
+    startedRef.current = true;
+    const p = products.find((x) => x.id === initialProductId);
+    if (p) void openPhoto(p.imageUrl, p.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // changing the colour recomposes after a short pause
+  const firstColour = useRef(true);
+  useEffect(() => {
+    if (firstColour.current) { firstColour.current = false; return; }
+    const t = setTimeout(() => {
+      if (analysisRef.current) recompose();
+      else if (composedRef.current) rebuildStage();
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgHex]);
+
+  // ----------------------------------------------------------------- brush
+
+  function canvasPoint(e: React.PointerEvent<HTMLCanvasElement>): [number, number] {
+    const c = e.currentTarget;
+    const r = c.getBoundingClientRect();
+    return [((e.clientX - r.left) * c.width) / r.width, ((e.clientY - r.top) * c.height) / r.height];
+  }
+
+  function brushRadius(c: HTMLCanvasElement) {
+    const r = c.getBoundingClientRect();
+    return Math.max(2, (brushSize / 2) * (c.width / r.width));
+  }
+
+  function drawStrokeSegment(a: [number, number], b: [number, number], r: number) {
+    const ctx = overlayRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.strokeStyle = BRUSH_COLOUR[brush];
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = r * 2;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  }
+
+  function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!analysisRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = canvasPoint(e);
+    const r = brushRadius(e.currentTarget);
+    strokeRef.current = { pts: [p], r };
+    drawStrokeSegment(p, p, r);
+  }
+
+  function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    const s = strokeRef.current;
+    if (!s) return;
+    const p = canvasPoint(e);
+    drawStrokeSegment(s.pts[s.pts.length - 1], p, s.r);
+    s.pts.push(p);
+  }
+
+  function onUp() {
+    const s = strokeRef.current;
+    const a = analysisRef.current;
+    const manual = manualRef.current;
+    strokeRef.current = null;
+    if (!s || !a || !manual) return;
+    undoRef.current.push(new Uint8Array(manual));
+    if (undoRef.current.length > 12) undoRef.current.shift();
+    setCanUndo(true);
+    const value = BRUSH_VALUE[brush];
+    for (let i = 0; i < s.pts.length; i++) {
+      const p = s.pts[i];
+      const q = s.pts[Math.max(0, i - 1)];
+      stampLine(manual, a.w, a.h, q[0], q[1], p[0], p[1], s.r, value);
+    }
+    setStatus("Updating…");
+    setTimeout(() => {
+      recompose();
+      setStatus(null);
+    }, 20);
+  }
+
+  function undo() {
+    const prev = undoRef.current.pop();
+    if (!prev) return;
+    manualRef.current = prev;
+    setCanUndo(undoRef.current.length > 0);
+    setStatus("Updating…");
+    setTimeout(() => { recompose(); setStatus(null); }, 20);
+  }
+
+  function resetTouchUps() {
+    const a = analysisRef.current;
+    if (!a) return;
+    undoRef.current.push(new Uint8Array(manualRef.current ?? new Uint8Array(a.w * a.h)));
+    manualRef.current = new Uint8Array(a.w * a.h);
+    setCanUndo(true);
+    setStatus("Updating…");
+    setTimeout(() => { recompose(); setStatus(null); }, 20);
+  }
+
+  // ----------------------------------------------------------- shot editor
+
+  function patchShot(i: number, patch: Partial<Shot>) {
+    setShots((cur) => cur.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+    setVideo(null);
+  }
+
+  function setPose(i: number, which: "from" | "to", axis: 0 | 1 | 2, value: number) {
+    const pose = [...shots[i][which]] as Pose;
+    pose[axis] = value;
+    patchShot(i, { [which]: pose } as Partial<Shot>);
+  }
+
+  const drawCrop = useCallback((canvas: HTMLCanvasElement | null, pose: Pose) => {
+    const sr = stageRef.current;
+    if (!canvas || !sr) return;
+    canvas.width = PREVIEW_W;
+    canvas.height = PREVIEW_H;
+    const r = cropRect(sr.stage, pose, ASPECT);
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(sr.canvas, r.x, r.y, r.w, r.h, 0, 0, PREVIEW_W, PREVIEW_H);
+  }, []);
+
+  useEffect(() => {
+    const sr = stageRef.current;
+    const shot = shots[selected];
+    if (!sr || !shot) return;
+    drawCrop(fromRef.current, shot.from);
+    drawCrop(toRef.current, shot.to);
+    const ov = overviewRef.current;
+    if (ov) {
+      ov.width = PREVIEW_W;
+      ov.height = PREVIEW_H;
+      const ctx = ov.getContext("2d")!;
+      ctx.drawImage(sr.canvas, 0, 0, PREVIEW_W, PREVIEW_H);
+      const k = PREVIEW_W / sr.stage.width;
+      for (const [pose, colour] of [[shot.from, "#A98238"], [shot.to, "#3F4827"]] as const) {
+        const r = cropRect(sr.stage, pose, ASPECT);
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(r.x * k, r.y * k, r.w * k, r.h * k);
+      }
+    }
+  }, [shots, selected, stageVersion, drawCrop]);
+
+  function onOverviewClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const sr = stageRef.current;
+    if (!sr) return;
+    const c = e.currentTarget;
+    const r = c.getBoundingClientRect();
+    const sx = ((e.clientX - r.left) / r.width) * sr.stage.width;
+    const sy = ((e.clientY - r.top) / r.height) * sr.stage.height;
+    const d = sr.stage.dress;
+    const px = Math.min(1, Math.max(0, (sx - d.x0) / (d.x1 - d.x0)));
+    const py = Math.min(1, Math.max(0, (sy - d.y0) / (d.y1 - d.y0)));
+    const pose = [...shots[selected][clickSets]] as Pose;
+    pose[0] = Math.round(px * 100) / 100;
+    pose[1] = Math.round(py * 100) / 100;
+    patchShot(selected, { [clickSets]: pose } as Partial<Shot>);
+  }
+
+  // ------------------------------------------------------------ preview play
+
+  function stopPlay() {
+    if (playRef.current != null) cancelAnimationFrame(playRef.current);
+    playRef.current = null;
+    setPlaying(false);
+  }
+
+  async function play() {
+    const sr = stageRef.current;
+    const canvas = playCanvasRef.current;
+    if (!sr || !canvas) return;
+    setError(null);
+    try {
+      await document.fonts.load(`600 30px "Cormorant Garamond"`).catch(() => undefined);
+      const painter = new ReelPainter({
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex,
+        text: { brand, title, tagline, contact }, width: PREVIEW_W, height: PREVIEW_H,
+      });
+      canvas.width = PREVIEW_W;
+      canvas.height = PREVIEW_H;
+      const ctx = canvas.getContext("2d")!;
+      const t0 = performance.now();
+      setPlaying(true);
+      const frame = () => {
+        const t = (performance.now() - t0) / 1000;
+        if (t >= painter.timeline.total) { stopPlay(); return; }
+        painter.drawAt(ctx, t);
+        playRef.current = requestAnimationFrame(frame);
+      };
+      playRef.current = requestAnimationFrame(frame);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The preview could not start.");
+    }
+  }
+
+  useEffect(() => () => { if (playRef.current != null) cancelAnimationFrame(playRef.current); }, []);
+
+  // ---------------------------------------------------------------- make it
+
+  async function make() {
+    const sr = stageRef.current;
+    if (!sr) return;
+    stopPlay();
+    setError(null);
+    setVideo(null);
+    setMakeProgress(0);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      await document.fonts.load(`600 40px "Cormorant Garamond"`).catch(() => undefined);
+      await document.fonts.load(`500 20px "Montserrat"`).catch(() => undefined);
+      const painter = new ReelPainter({
+        stageCanvas: sr.canvas, stage: sr.stage, shots, background: bgHex,
+        text: { brand, title, tagline, contact }, width: 1080, height: 1920,
+      });
+      const blob = await encodeReel(painter, setMakeProgress, ac.signal);
+      setVideo({
+        url: URL.createObjectURL(blob),
+        mb: blob.size / 1048576,
+        name: `${slug(title || brand)}-reel.mp4`,
+      });
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError")) {
+        setError(e instanceof Error ? e.message : "The reel could not be made.");
+      }
+    } finally {
+      setMakeProgress(null);
+      abortRef.current = null;
+    }
+  }
+
+  // ------------------------------------------------------------------ view
+
+  const shot = shots[selected];
+  const notes = stageInfo ? softnessNotes(stageInfo, shots) : [];
+  const enabledCount = shots.filter((s) => s.enabled).length;
+  const tooMany = enabledCount > 9;
+
+  return (
+    <div className="reel-maker">
+      {!supported && (
+        <div className="notice-box error">
+          This browser cannot make video files. Open this page in the latest Chrome or Edge on a computer.
+        </div>
+      )}
+      {error && <div className="notice-box error">{error}</div>}
+
+      {/* 1 ------------------------------------------------------- photo */}
+      <section className="admin-card reel-step">
+        <h2>1 · Photo</h2>
+        <div className="reel-row">
+          <label className="reel-field">
+            <span className="field-label">A product photo</span>
+            <select value={productId} onChange={(e) => chooseProduct(e.target.value)} disabled={!!status}>
+              <option value="">Choose a product…</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+              ))}
+            </select>
+          </label>
+          <label className="reel-field">
+            <span className="field-label">…or a photo from this computer</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={!!status}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) { setProductId(""); void openPhoto(f, f.name.replace(/\.[^.]+$/, "")); }
+              }}
+            />
+          </label>
+        </div>
+        <div className="reel-row" style={{ marginTop: 14, alignItems: "center" }}>
+          {photoRef.current && !awaiting && !status && (
+            <button type="button" className="btn btn-outline btn-small" onClick={() => setAwaiting(true)}>
+              {removeBg ? "Change the background choice" : "Remove the background instead"}
+            </button>
+          )}
+          <label className="reel-check">
+            Background colour
+            <input type="color" value={bgHex} onChange={(e) => setBgHex(e.target.value.toUpperCase())} />
+            <button type="button" className="btn-ghost" onClick={() => setBgHex("#FFFFF0")}>Ivory</button>
+            <button type="button" className="btn-ghost" onClick={() => setBgHex("#F7F0E4")}>Brand ivory</button>
+          </label>
+        </div>
+        <p className="field-hint">
+          Everything runs in this browser tab. The photo is not uploaded anywhere. The first time, a small cutout
+          model downloads (about 5 MB plus 14 MB of engine) and is then remembered by the browser.
+        </p>
+        {status && <div className="notice-box" style={{ marginTop: 14 }}>{status}</div>}
+
+        {awaiting && !status && (
+          <div className="reel-ask">
+            <canvas ref={askRef} className="reel-askcanvas" />
+            <div>
+              <h3>Clear the background and hanger?</h3>
+              <p className="field-hint">
+                This is your original photo and nothing has been changed. If you say yes, the wall, hanger and
+                anything around the dress are replaced with the plain colour chosen above, and you can check and
+                touch up the result before making the reel. If you say no, the reel uses your photo exactly as it is.
+              </p>
+              <div className="reel-actions">
+                <button type="button" className="btn btn-primary" onClick={() => void decide(true)}>
+                  Yes, clear the background
+                </button>
+                <button type="button" className="btn btn-outline" onClick={() => void decide(false)}>
+                  No, keep my photo as it is
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 2 --------------------------------------------------------- cutout */}
+      {removeBg && !awaiting && analysisRef.current && (
+        <section className="admin-card reel-step">
+          <h2>2 · Check the cutout</h2>
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            {method === "plain"
+              ? "This dress is not one plain colour, so the cutout is rougher. Use the brush to clean up the edges."
+              : "Looks right? Then go to the next step. If something is left over, or something real was removed, paint over it."}
+          </p>
+          <div className="reel-brushbar">
+            {(["remove", "keep", "fill"] as BrushMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`chip ${brush === m ? "active" : ""}`}
+                onClick={() => setBrush(m)}
+              >
+                {m === "remove" ? "Remove" : m === "keep" ? "Bring back" : "Rebuild from fabric"}
+              </button>
+            ))}
+            <label className="reel-check">
+              Brush
+              <input type="range" min={6} max={90} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} />
+            </label>
+            <label className="reel-check">
+              Zoom
+              <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
+                <option value={1}>Fit</option>
+                <option value={1.6}>1.6×</option>
+                <option value={2.4}>2.4×</option>
+              </select>
+            </label>
+            <button type="button" className="btn btn-outline btn-small" onClick={undo} disabled={!canUndo || !!status}>Undo</button>
+            <button type="button" className="btn btn-outline btn-small" onClick={resetTouchUps} disabled={!!status}>Clear touch-ups</button>
+          </div>
+          <p className="field-hint">{BRUSH_HELP[brush]}</p>
+          <div className="reel-view">
+            <div className="reel-view-inner" style={{ width: `${zoom * 100}%` }}>
+              <canvas ref={viewRef} className="reel-canvas" />
+              <canvas
+                ref={overlayRef}
+                className="reel-canvas reel-overlay"
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerCancel={onUp}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 3 ----------------------------------------------------------- shots */}
+      {hasStage && !awaiting && shot && (
+        <section className="admin-card reel-step">
+          <h2>3 · Shots</h2>
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            The reel moves slowly across the dress in these shots, one after another. Turn shots off, rename the captions,
+            or aim a shot at a different part of the dress. Click the small picture to point the camera.
+          </p>
+          <div className="reel-shots">
+            <div className="reel-shotlist">
+              {shots.map((s, i) => (
+                <div key={i} className={`reel-shotrow ${i === selected ? "on" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={s.enabled}
+                    onChange={(e) => patchShot(i, { enabled: e.target.checked })}
+                    aria-label={`Use shot ${s.name}`}
+                  />
+                  <button type="button" className="reel-shotname" onClick={() => setSelected(i)}>
+                    {i + 1}. {s.name}
+                  </button>
+                </div>
+              ))}
+              {tooMany && <p className="field-error">That is a lot for 30 seconds. Turn a few off.</p>}
+            </div>
+
+            <div className="reel-shotedit">
+              <div className="reel-previews">
+                <figure>
+                  <canvas ref={fromRef} />
+                  <figcaption style={{ color: "var(--gold)" }}>Start</figcaption>
+                </figure>
+                <figure>
+                  <canvas ref={toRef} />
+                  <figcaption style={{ color: "var(--olive)" }}>End</figcaption>
+                </figure>
+                <figure>
+                  <canvas ref={overviewRef} onClick={onOverviewClick} style={{ cursor: "crosshair" }} />
+                  <figcaption>
+                    <label><input type="radio" checked={clickSets === "from"} onChange={() => setClickSets("from")} /> click sets start</label>
+                    <br />
+                    <label><input type="radio" checked={clickSets === "to"} onChange={() => setClickSets("to")} /> click sets end</label>
+                  </figcaption>
+                </figure>
+              </div>
+              <div className="reel-sliders">
+                <label className="reel-field">
+                  <span className="field-label">Caption (optional)</span>
+                  <input
+                    type="text" value={shot.caption} maxLength={40} placeholder="e.g. Embroidered yoke"
+                    onChange={(e) => patchShot(selected, { caption: e.target.value })}
+                  />
+                </label>
+                <label className="reel-field">
+                  <span className="field-label">Time on this shot <em>{shot.weight.toFixed(1)}×</em></span>
+                  <input type="range" min={0.5} max={2} step={0.1} value={shot.weight}
+                    onChange={(e) => patchShot(selected, { weight: Number(e.target.value) })} />
+                </label>
+                {(["from", "to"] as const).map((which) => (
+                  <div key={which} className="reel-posegroup">
+                    <strong>{which === "from" ? "Start" : "End"}</strong>
+                    {(["Across", "Down", "Zoom"] as const).map((label, axis) => (
+                      <label key={label} className="reel-slider">
+                        <span>{label}</span>
+                        <input
+                          type="range"
+                          min={axis === 2 ? 1 : 0} max={axis === 2 ? 3 : 1} step={0.01}
+                          value={shot[which][axis]}
+                          onChange={(e) => setPose(selected, which, axis as 0 | 1 | 2, Number(e.target.value))}
+                        />
+                        <em>{shot[which][axis].toFixed(2)}</em>
+                      </label>
+                    ))}
+                  </div>
+                ))}
+                <button type="button" className="btn-ghost" onClick={() => { setShots(defaultShots()); setVideo(null); }}>
+                  Reset all shots
+                </button>
+              </div>
+            </div>
+          </div>
+          {notes.length > 0 && (
+            <div className="notice-box" style={{ marginTop: 14 }}>
+              {notes.map((n) => <div key={n}>{n}</div>)}
+              <div>A sharper photo (straight from the phone camera) fixes this.</div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 4 ------------------------------------------------------- make it */}
+      {hasStage && !awaiting && (
+        <section className="admin-card reel-step">
+          <h2>4 · Make the reel</h2>
+          <div className="reel-row">
+            <label className="reel-field">
+              <span className="field-label">Product name (end card)</span>
+              <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setVideo(null); }} maxLength={60} />
+            </label>
+            <label className="reel-field">
+              <span className="field-label">Tagline (optional)</span>
+              <input type="text" value={tagline} onChange={(e) => { setTagline(e.target.value); setVideo(null); }} maxLength={60} />
+            </label>
+            <label className="reel-field">
+              <span className="field-label">Contact line</span>
+              <input type="text" value={contact} onChange={(e) => { setContact(e.target.value); setVideo(null); }} maxLength={60} />
+            </label>
+          </div>
+
+          <div className="reel-actions">
+            <button type="button" className="btn btn-outline" onClick={playing ? stopPlay : play} disabled={makeProgress != null || tooMany || enabledCount === 0}>
+              {playing ? "Stop preview" : "Preview (small)"}
+            </button>
+            <button type="button" className="btn btn-primary" onClick={make} disabled={makeProgress != null || !supported || tooMany || enabledCount === 0}>
+              {makeProgress != null ? `Making… ${Math.round(makeProgress * 100)}%` : "Make 30-second reel"}
+            </button>
+            {makeProgress != null && (
+              <button type="button" className="btn btn-outline" onClick={() => abortRef.current?.abort()}>Cancel</button>
+            )}
+          </div>
+
+          <div className="reel-outputs">
+            <div>
+              <canvas ref={playCanvasRef} className="reel-previewcanvas" width={PREVIEW_W} height={PREVIEW_H} />
+            </div>
+            {video && (
+              <div className="reel-result">
+                <video src={video.url} controls playsInline className="reel-video" />
+                <p className="field-hint">
+                  {video.mb.toFixed(1)} MB · 1080×1920 · 30 seconds · no sound. Add music inside Instagram so it is licensed.
+                </p>
+                <a className="btn btn-primary" href={video.url} download={video.name}>Download MP4</a>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

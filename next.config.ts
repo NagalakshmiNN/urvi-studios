@@ -20,22 +20,27 @@ import type { NextConfig } from "next";
 // /api/images route and data: URIs. 'unsafe-inline' for styles is required by
 // the inline style attributes throughout the app and by Next's own injected
 // styles; 'unsafe-eval' is deliberately NOT granted.
-const CSP = [
+const cspFor = (reels: boolean) => [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com",
+  `script-src 'self' 'unsafe-inline'${reels ? " 'wasm-unsafe-eval'" : ""} https://checkout.razorpay.com https://*.razorpay.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https://*.razorpay.com https://rzp-1415-prod-dashboard-activation.s3.amazonaws.com",
   "connect-src 'self' https://api.razorpay.com https://*.razorpay.com https://lumberjack.razorpay.com",
   "frame-src https://api.razorpay.com https://*.razorpay.com",
+  ...(reels ? ["media-src 'self' blob:"] : []),
   "form-action 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "object-src 'none'",
 ].join("; ");
 
+// The admin reel maker runs a small neural network (WebAssembly) and plays back
+// the video it makes (a blob:). Those two allowances are given to that one page
+// only; every other page keeps the stricter policy.
+const REELS_PATH = "/admin/reels";
+
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy", value: CSP },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -49,7 +54,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    return [
+      {
+        source: "/:path((?!admin/reels).*)",
+        headers: [{ key: "Content-Security-Policy", value: cspFor(false) }, ...SECURITY_HEADERS],
+      },
+      {
+        source: REELS_PATH,
+        headers: [{ key: "Content-Security-Policy", value: cspFor(true) }, ...SECURITY_HEADERS],
+      },
+    ];
   },
 };
 
