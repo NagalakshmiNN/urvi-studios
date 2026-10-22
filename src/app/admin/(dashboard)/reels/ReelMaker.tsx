@@ -475,6 +475,7 @@ export default function ReelMaker({
       canvas.width = PREVIEW_W;
       canvas.height = PREVIEW_H;
       const ctx = canvas.getContext("2d")!;
+      // eslint-disable-next-line react-hooks/purity -- runs when the button is pressed, not during render
       const t0 = performance.now();
       setPlaying(true);
       const frame = () => {
