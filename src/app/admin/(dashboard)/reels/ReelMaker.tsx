@@ -306,17 +306,39 @@ export default function ReelMaker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // changing the colour recomposes after a short pause
+  // Changing the backdrop or colour re-makes the reel on its own, after a short
+  // pause so a run of clicks counts as one change. A reel still being made is
+  // stopped first. The colour only matters when no styled backdrop is in use.
   const firstColour = useRef(true);
+  const prevLook = useRef({ bgHex, backdropId });
   useEffect(() => {
     if (firstColour.current) { firstColour.current = false; return; }
+    const prev = prevLook.current;
+    prevLook.current = { bgHex, backdropId };
+    const matters = sceneRef.current ? prev.backdropId !== backdropId : prev.bgHex !== bgHex || prev.backdropId !== backdropId;
     const t = setTimeout(() => {
+      if (!photoRef.current || !composedRef.current) return; // nothing open yet
       if (analysisRef.current) recompose();
-      else if (composedRef.current) rebuildStage();
+      else rebuildStage();
+      if (matters) {
+        abortRef.current?.abort();
+        setAutoMake(true);
+      }
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgHex, backdropId]);
+
+  // Ticking or unticking "Clear the background and hanger" redoes the photo that
+  // is open, and then the reel.
+  const firstTick = useRef(true);
+  useEffect(() => {
+    if (firstTick.current) { firstTick.current = false; return; }
+    if (!photoRef.current) return;
+    abortRef.current?.abort();
+    void decide(clearBg).then(() => setAutoMake(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearBg]);
 
   // Remember this product's settings in this browser, a moment after each change.
   useEffect(() => {
@@ -596,8 +618,11 @@ export default function ReelMaker({
         setError(e instanceof Error ? e.message : "The reel could not be made.");
       }
     } finally {
-      setMakeProgress(null);
-      abortRef.current = null;
+      // a newer make may have started meanwhile; only the latest one clears the bar
+      if (abortRef.current === ac) {
+        setMakeProgress(null);
+        abortRef.current = null;
+      }
     }
   }
 
