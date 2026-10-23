@@ -18,3 +18,15 @@ test("the public site keeps the strict policy", () => {
     expect(csp, p).not.toContain("media-src");
   }
 });
+
+test("Google Analytics is allowed, and only the hosts it needs", () => {
+  for (const p of ["/", "/admin/products"]) {
+    const csp = cspForPath(p);
+    expect(csp, p).toContain("script-src 'self' 'unsafe-inline'");
+    expect(csp, p).toContain("https://www.googletagmanager.com");
+    expect(csp, p).toContain("connect-src 'self'");
+    expect(csp, p).toContain("https://www.google-analytics.com");
+    expect(csp, p).not.toContain("https:;");
+    expect(csp, p).not.toMatch(/script-src[^;]*\*(\s|;|$)/);
+  }
+});
