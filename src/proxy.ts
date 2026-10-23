@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { cspForPath } from "@/lib/csp";
 
 /**
  * The key every session cookie is signed with.
@@ -75,9 +76,13 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("Content-Security-Policy", cspForPath(pathname));
+  return response;
 }
 
 export const config = {
-  matcher: ["/account/:path*", "/admin/:path*"],
+  // Every page and API route, so each gets its Content-Security-Policy; static
+  // files (anything with a dot) and Next's own assets are left alone.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };
