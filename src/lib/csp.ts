@@ -22,8 +22,18 @@ export const cspFor = (reels: boolean) => [
 ].join("; ");
 
 /** The reel maker runs a neural network (WebAssembly) and plays back a blob: video. */
-export const REELS_PATH = "/admin/reels";
+/**
+ * A browser keeps the security policy of the first page it loaded. Moving
+ * between admin pages with the menu swaps the content without reloading, so
+ * the reel maker would inherit the policy of whatever admin page came first.
+ * 'wasm-unsafe-eval' only lets WebAssembly be compiled (it does not allow
+ * eval of text as script), and admin pages are behind the login, so every
+ * admin page gets the reel maker's allowances. The public site stays strict.
+ */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
 
 export function cspForPath(pathname: string): string {
-  return cspFor(pathname === REELS_PATH || pathname.startsWith(REELS_PATH + "/"));
+  return cspFor(isAdminPath(pathname));
 }

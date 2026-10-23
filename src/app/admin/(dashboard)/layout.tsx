@@ -13,7 +13,7 @@ const NAV = [
   { href: "/admin/stock/grid", label: "Stock Grid" },
   { href: "/admin/purchases", label: "Purchases" },
   { href: "/admin/pricing", label: "Pricing" },
-  { href: "/admin/reels", label: "Reel Maker" },
+  { href: "/admin/reels", label: "Reel Maker", hard: true },
   { href: "/admin/vendors", label: "Vendors" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
@@ -51,9 +51,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           URVI <span style={{ opacity: 0.6, fontSize: 13 }}>Admin</span>
         </div>
         <nav>
-          {NAV.map((item) => (
-            <Link key={item.href} href={item.href}>{item.label}</Link>
-          ))}
+          {NAV.map((item) =>
+            "hard" in item ? (
+              // A full page load, so the browser takes this page's own security policy
+              // (the one that lets the cutout engine run) instead of keeping the previous page's.
+              <a key={item.href} href={item.href}>{item.label}</a>
+            ) : (
+              <Link key={item.href} href={item.href}>{item.label}</Link>
+            ),
+          )}
         </nav>
         <form action={adminLogout} style={{ marginTop: 24 }}>
           <button type="submit" style={{ background: "none", border: "none", color: "rgba(247,240,228,0.6)", fontSize: 12.5, cursor: "pointer", padding: "10px 12px" }}>
