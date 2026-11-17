@@ -570,6 +570,33 @@ export const checkoutSessions = pgTable("checkout_sessions", {
   createdAt: createdAt(),
 });
 
+
+// --------------------------------------------------------- Festival Events
+//
+// Admin-managed sale / festival events that auto-activate on the homepage
+// with animated banners, festive imagery and discount badges — toggled by
+// date range so they switch on and off without code deploys.
+
+export const festivalEvents = pgTable("festival_events", {
+  id: id(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  tagline: text("tagline"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  theme: text("theme").notNull().default("gold"),
+  bannerText: text("banner_text"),
+  bannerSub: text("banner_sub"),
+  animation: text("animation").default("confetti"),
+  discountType: text("discount_type"),
+  discountValue: integer("discount_value"),
+  badgeText: text("badge_text").default("SALE"),
+  isActive: boolean("is_active").notNull().default(true),
+  showMascot: boolean("show_mascot").notNull().default(false),
+  mascotMessage: text("mascot_message"),
+  createdAt: createdAt(),
+});
+
 // ------------------------------------------------------------ Site Settings
 //
 // A simple key-value store for site-wide configuration that can be

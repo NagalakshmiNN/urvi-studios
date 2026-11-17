@@ -10,11 +10,14 @@ import { formatINR } from "@/lib/format";
 import { FREE_SHIP_THRESHOLD } from "@/lib/order-pricing";
 import ReviewsCarousel from "@/components/ReviewsCarousel";
 import { SIZE_CHART } from "@/lib/size-guide";
+import { getActiveEvent, FESTIVAL_THEMES } from "@/lib/festivals";
+import FestivalBanner from "@/components/FestivalBanner";
 
 const CATEGORY_IMAGE_LIMIT = 6;
 
 export default async function HomePage() {
   const customerId = await getCustomerSession();
+  const activeEvent = await getActiveEvent();
 
   const products = await db.query.products.findMany({
     where: (p, { eq }) => eq(p.isActive, true),
@@ -117,6 +120,18 @@ export default async function HomePage() {
 
   return (
     <>
+      {activeEvent && (
+        <FestivalBanner
+          name={activeEvent.name}
+          tagline={activeEvent.tagline}
+          bannerText={activeEvent.bannerText}
+          bannerSub={activeEvent.bannerSub}
+          theme={FESTIVAL_THEMES[activeEvent.theme] || FESTIVAL_THEMES.gold}
+          animation={activeEvent.animation}
+          endsAt={activeEvent.endsAt.toISOString()}
+        />
+      )}
+
       <SiteHeader active="Home" />
 
       <section className="hero">

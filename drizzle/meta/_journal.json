@@ -99,6 +99,13 @@
       "when": 1791900000000,
       "tag": "0013_add_review_media",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794916253962,
+      "tag": "0014_add_festival_events",
+      "breakpoints": true
     }
   ]
 }
