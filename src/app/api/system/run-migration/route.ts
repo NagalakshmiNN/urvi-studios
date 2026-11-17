@@ -1,4 +1,4 @@
-// Temporary endpoint to run migration 0015 (mascot system).
+// Temporary endpoint to run migration 0015 (festival_events + mascot system).
 // Delete this file after the migration has been applied.
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
@@ -16,7 +16,30 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. Create mascot_messages table
+    // 1. Create festival_events table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS "festival_events" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "slug" text NOT NULL UNIQUE,
+        "name" text NOT NULL,
+        "tagline" text,
+        "starts_at" timestamp with time zone NOT NULL,
+        "ends_at" timestamp with time zone NOT NULL,
+        "theme" text NOT NULL DEFAULT 'gold',
+        "banner_text" text,
+        "banner_sub" text,
+        "animation" text DEFAULT 'confetti',
+        "discount_type" text,
+        "discount_value" integer,
+        "badge_text" text DEFAULT 'SALE',
+        "is_active" boolean NOT NULL DEFAULT true,
+        "show_mascot" boolean NOT NULL DEFAULT false,
+        "mascot_message" text,
+        "created_at" timestamp with time zone DEFAULT now() NOT NULL
+      )
+    `);
+
+    // 2. Create mascot_messages table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "mascot_messages" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -29,7 +52,7 @@ export async function GET(request: NextRequest) {
       )
     `);
 
-    // 2. Seed mascot settings
+    // 3. Seed mascot settings
     await db.execute(sql`
       INSERT INTO "site_settings" ("key", "value") VALUES
         ('mascot_enabled', 'true'),
@@ -38,7 +61,7 @@ export async function GET(request: NextRequest) {
       ON CONFLICT DO NOTHING
     `);
 
-    // 3. Seed default messages (only if table is empty)
+    // 4. Seed default messages (only if table is empty)
     const existing = await db.execute(sql`SELECT count(*) as cnt FROM mascot_messages`);
     const count = Number((existing as any).rows?.[0]?.cnt ?? (existing as any)[0]?.cnt ?? 0);
 
@@ -68,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      message: "Migration 0015 applied: mascot_messages table created, settings seeded, " + (count === 0 ? "18 default messages inserted." : "messages already existed, skipped."),
+      message: "Migration 0015 applied: festival_events + mascot_messages tables created, settings seeded, " + (count === 0 ? "18 default messages inserted." : "messages already existed, skipped."),
     });
   } catch (err) {
     console.error("Migration 0015 error:", err);
