@@ -4,6 +4,8 @@ import "./globals.css";
 import BetaBanner from "@/components/BetaBanner";
 import ErrorTracker from "@/components/ErrorTracker";
 import { getBoolSetting } from "@/lib/site-settings";
+import MascotWalker from "@/components/MascotWalker";
+import { getMascotSettings, getMascotMessages } from "@/app/actions/mascot";
 
 export const metadata: Metadata = {
   title: {
@@ -17,6 +19,8 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const showBeta = await getBoolSetting("beta_banner_enabled");
+  const mascotData = await getMascotSettings();
+  const mascotMsgs = mascotData.enabled ? await getMascotMessages() : [];
   return (
     <html lang="en">
       <head>
@@ -44,6 +48,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <ErrorTracker />
         {children}
         {showBeta && <BetaBanner />}
+        {mascotData.enabled && (
+          <MascotWalker
+            imageA={mascotData.imageA}
+            imageB={mascotData.imageB}
+            messages={mascotMsgs.map((m) => ({ id: m.id, message: m.message, animation: m.animation }))}
+          />
+        )}
       </body>
     </html>
   );

@@ -608,6 +608,22 @@ export const siteSettings = pgTable("site_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------------------------------------------------------- Mascot Messages
+//
+// Speech-bubble text that the walking mascots say when clicked.
+// Each message has an animation type (wave, dance, jump, twirl, sit, namaste)
+// and a sort order. Admin can add/edit/delete via /admin/mascots.
+
+export const mascotMessages = pgTable("mascot_messages", {
+  id: id(),
+  message: text("message").notNull(),
+  animation: text("animation").notNull().default("wave"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // --------------------------------------------------------------- Warehouses
 //
 // Saved pickup / return addresses for courier shipments. Each warehouse
