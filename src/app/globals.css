@@ -554,7 +554,7 @@ p { line-height: 1.7; color: var(--earth); }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--sage); }
 
 /* ---------------- Product detail ---------------- */
-.pdp { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; padding: 56px 0 90px; align-items: flex-start; }
+.pdp { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; padding: 56px 0 36px; align-items: flex-start; }
 .pdp-gallery img { border-radius: 3px; width: 100%; }
 /* The main photo and its arrows share a stacking context, so the arrows sit
    over the image rather than pushing it around. */
@@ -637,7 +637,7 @@ p { line-height: 1.7; color: var(--earth); }
 .trust-row .t { font-size: 12px; color: var(--sage); display: flex; align-items: center; gap: 6px; }
 
 /* ---------------- Reviews ---------------- */
-.reviews-section { border-top: 1px solid var(--line); padding-top: 30px; margin-top: 40px; }
+.reviews-section { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 0; }
 .review-summary { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
 .review-summary .avg { font-family: var(--font-display); font-size: 40px; color: var(--olive); }
 .stars { color: var(--gold); font-size: 15px; letter-spacing: 1px; }
