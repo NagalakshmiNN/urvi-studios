@@ -18,7 +18,12 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const showBeta = await getBoolSetting("beta_banner_enabled");
+  let showBeta = false;
+  try {
+    showBeta = await getBoolSetting("beta_banner_enabled");
+  } catch {
+    // Settings table may not be accessible — disable beta banner gracefully
+  }
   let mascotData = { enabled: false, imageA: '/mascots/mascot-ivory.png', imageB: '/mascots/mascot-mustard.png' };
   let mascotMsgs: { id: string; message: string; animation: string }[] = [];
   try {

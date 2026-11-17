@@ -17,7 +17,12 @@ const CATEGORY_IMAGE_LIMIT = 6;
 
 export default async function HomePage() {
   const customerId = await getCustomerSession();
-  const activeEvent = await getActiveEvent();
+  let activeEvent = null;
+  try {
+    activeEvent = await getActiveEvent();
+  } catch {
+    // Festival system not ready yet — show page without festival banner
+  }
 
   const products = await db.query.products.findMany({
     where: (p, { eq }) => eq(p.isActive, true),
