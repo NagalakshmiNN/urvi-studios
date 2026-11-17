@@ -78,8 +78,8 @@ export const STYLE_GUIDES: StyleGuide[] = [
       { title: "Dance-floor tested", body: "If you can't move your arms above your head in the trial fitting, you won't be able to on the night either." },
       { title: "Pack a flat pair for later", body: "Even the best heels get retired by the second function — a pretty juttis or flats swap keeps the night going." },
     ],
-    categorySlug: "festive-wear",
-    closingNote: "From our Festive Wear line — rich fabrics, beautiful detailing, built for exactly this kind of night.",
+    categorySlug: "fusion-edit",
+    closingNote: "From our Fusion Edit — Indian craft, western ease, built for exactly this kind of night.",
   },
   {
     slug: "weekend-off-duty",
