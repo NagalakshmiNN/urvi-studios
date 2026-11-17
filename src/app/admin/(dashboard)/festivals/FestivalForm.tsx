@@ -1,6 +1,6 @@
 "use client";
 
-import { FESTIVAL_THEMES } from "@/lib/festivals";
+import { FESTIVAL_THEMES } from "@/lib/festival-themes";
 
 type FestivalEvent = {
   id: string;
