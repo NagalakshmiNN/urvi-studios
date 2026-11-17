@@ -17,10 +17,17 @@ export const metadata: Metadata = {
   icons: { icon: "/logo-black.png" },
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const showBeta = await getBoolSetting("beta_banner_enabled");
-  const mascotData = await getMascotSettings();
-  const mascotMsgs = mascotData.enabled ? await getMascotMessages() : [];
+  let mascotData = { enabled: false, imageA: '/mascots/mascot-ivory.png', imageB: '/mascots/mascot-mustard.png' };
+  let mascotMsgs: { id: string; message: string; animation: string }[] = [];
+  try {
+    mascotData = await getMascotSettings();
+    mascotMsgs = mascotData.enabled ? await getMascotMessages() : [];
+  } catch {
+    // Mascot tables may not exist yet (migration pending) — gracefully disable
+    mascotData = { enabled: false, imageA: '', imageB: '' };
+  }
   return (
     <html lang="en">
       <head>
