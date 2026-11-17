@@ -11,13 +11,14 @@ const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime
 const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav"]);
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const MAX_PHOTOS = 5;
 
 type MediaItem = {
   kind: "photo" | "video" | "audio";
-  base64: string;
+  base64?: string;
+  assetId?: string; // Pre-uploaded via /api/reviews/upload-media
   contentType: string;
   sortOrder: number;
 };
@@ -115,6 +116,24 @@ export async function POST(request: Request) {
     }
 
     for (const m of body.media) {
+      // Items with assetId were pre-uploaded via /api/reviews/upload-media.
+      // Items with base64 are inline (small files).
+      if (m.assetId) {
+        // Verify the referenced asset exists
+        const existingAsset = await db.query.productImageAssets.findFirst({
+          where: eq(schema.productImageAssets.id, m.assetId),
+        });
+        if (!existingAsset) {
+          return NextResponse.json({ error: "Pre-uploaded media not found." }, { status: 400 });
+        }
+        mediaItems.push(m);
+        continue;
+      }
+
+      if (!m.base64) {
+        return NextResponse.json({ error: "Media must have either base64 data or assetId." }, { status: 400 });
+      }
+
       const sizeBytes = Math.ceil(m.base64.length * 0.75);
 
       if (m.kind === "photo") {
@@ -129,7 +148,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "Video must be MP4, WebM or MOV." }, { status: 400 });
         }
         if (sizeBytes > MAX_VIDEO_BYTES) {
-          return NextResponse.json({ error: "Video must be under 50 MB." }, { status: 400 });
+          return NextResponse.json({ error: "Video must be under 20 MB." }, { status: 400 });
         }
       } else if (m.kind === "audio") {
         if (!ALLOWED_AUDIO_TYPES.has(m.contentType)) {
@@ -164,16 +183,27 @@ export async function POST(request: Request) {
   // Upload all media assets first
   const assetRecords: { kind: string; assetId: string; sortOrder: number; url: string }[] = [];
   for (const m of mediaItems) {
-    const [asset] = await db
-      .insert(schema.productImageAssets)
-      .values({ contentType: m.contentType, dataBase64: m.base64 })
-      .returning({ id: schema.productImageAssets.id });
-    assetRecords.push({
-      kind: m.kind,
-      assetId: asset.id,
-      sortOrder: m.sortOrder,
-      url: `/api/images/${asset.id}`,
-    });
+    if (m.assetId) {
+      // Pre-uploaded: asset already exists in DB (created by upload-media endpoint)
+      assetRecords.push({
+        kind: m.kind,
+        assetId: m.assetId,
+        sortOrder: m.sortOrder,
+        url: `/api/images/${m.assetId}`,
+      });
+    } else if (m.base64) {
+      // Inline: create asset row with base64 data
+      const [asset] = await db
+        .insert(schema.productImageAssets)
+        .values({ contentType: m.contentType, dataBase64: m.base64 })
+        .returning({ id: schema.productImageAssets.id });
+      assetRecords.push({
+        kind: m.kind,
+        assetId: asset.id,
+        sortOrder: m.sortOrder,
+        url: `/api/images/${asset.id}`,
+      });
+    }
   }
 
   // First photo becomes the legacy photoUrl for backward compat

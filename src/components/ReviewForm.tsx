@@ -16,9 +16,16 @@ const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav"]);
 
 const MAX_PHOTO_MB = 5;
-const MAX_VIDEO_MB = 50;
+const MAX_VIDEO_MB = 20;
 const MAX_AUDIO_MB = 10;
 const MAX_PHOTOS = 5;
+
+// Files larger than this threshold are uploaded via the chunked upload
+// endpoint instead of being embedded as base64 in the review JSON body.
+// Netlify Functions have a ~6 MB request body limit, so the JSON body must
+// stay well under that. 3 MB raw → ~4 MB base64 → safe.
+const CHUNKED_UPLOAD_THRESHOLD = 3 * 1024 * 1024; // 3 MB
+const CHUNK_SIZE = 3 * 1024 * 1024; // 3 MB per chunk
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -30,6 +37,85 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      resolve(dataUrl.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Upload a large file via the chunked upload endpoint.
+ * Returns the asset ID for use in the review submission.
+ */
+async function uploadLargeFile(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<string> {
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+  // 1. Start the upload session
+  const startRes = await fetch("/api/reviews/upload-media", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "start",
+      contentType: file.type,
+      totalChunks,
+    }),
+  });
+  if (!startRes.ok) {
+    const err = await startRes.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to start upload.");
+  }
+  const { uploadId } = await startRes.json();
+
+  // 2. Upload each chunk
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const slice = file.slice(start, end);
+    const base64 = await blobToBase64(slice);
+
+    const chunkRes = await fetch("/api/reviews/upload-media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "chunk",
+        uploadId,
+        index: i,
+        data: base64,
+      }),
+    });
+    if (!chunkRes.ok) {
+      const err = await chunkRes.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to upload chunk ${i + 1}.`);
+    }
+
+    if (onProgress) {
+      onProgress(Math.round(((i + 1) / totalChunks) * 100));
+    }
+  }
+
+  // 3. Finalize — assemble chunks and get the asset ID
+  const completeRes = await fetch("/api/reviews/upload-media", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "complete", uploadId }),
+  });
+  if (!completeRes.ok) {
+    const err = await completeRes.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to finalize upload.");
+  }
+  const { assetId } = await completeRes.json();
+  return assetId;
 }
 
 export default function ReviewForm({
@@ -53,6 +139,7 @@ export default function ReviewForm({
   const [body, setBody] = useState("");
   const [media, setMedia] = useState<MediaFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -155,17 +242,51 @@ export default function ReviewForm({
     }
     setError("");
     setSubmitting(true);
+    setUploadProgress("");
 
     try {
-      // Convert all media files to base64
-      const mediaPayload = await Promise.all(
-        media.map(async (m, i) => ({
-          kind: m.kind,
-          base64: await fileToBase64(m.file),
-          contentType: m.contentType,
-          sortOrder: i,
-        }))
-      );
+      // Process media: small files → base64 inline, large files → chunked upload
+      const mediaPayload: {
+        kind: string;
+        base64?: string;
+        assetId?: string;
+        contentType: string;
+        sortOrder: number;
+      }[] = [];
+
+      for (let i = 0; i < media.length; i++) {
+        const m = media[i];
+
+        if (m.file.size > CHUNKED_UPLOAD_THRESHOLD) {
+          // Large file → upload via chunks first
+          setUploadProgress(
+            `Uploading ${m.kind} (${Math.round(m.file.size / 1024 / 1024)} MB)…`,
+          );
+          const assetId = await uploadLargeFile(m.file, (pct) => {
+            setUploadProgress(
+              `Uploading ${m.kind}… ${pct}%`,
+            );
+          });
+          mediaPayload.push({
+            kind: m.kind,
+            assetId,
+            contentType: m.contentType,
+            sortOrder: i,
+          });
+        } else {
+          // Small file → embed as base64
+          setUploadProgress(media.length > 1 ? `Processing file ${i + 1}/${media.length}…` : "");
+          const base64 = await fileToBase64(m.file);
+          mediaPayload.push({
+            kind: m.kind,
+            base64,
+            contentType: m.contentType,
+            sortOrder: i,
+          });
+        }
+      }
+
+      setUploadProgress("Submitting review…");
 
       const res = await fetch("/api/reviews/submit", {
         method: "POST",
@@ -176,9 +297,6 @@ export default function ReviewForm({
           title: title.trim() || undefined,
           reviewBody: body.trim(),
           media: mediaPayload.length > 0 ? mediaPayload : undefined,
-          // Legacy single-photo fields for backward compat
-          photoBase64: undefined,
-          photoContentType: undefined,
         }),
       });
       const data = await res.json();
@@ -188,10 +306,16 @@ export default function ReviewForm({
       }
       setSuccess(true);
       router.refresh();
-    } catch {
-      setError("Network error — please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg && msg !== "Failed to fetch") {
+        setError(msg);
+      } else {
+        setError("Network error — please check your connection and try again.");
+      }
     } finally {
       setSubmitting(false);
+      setUploadProgress("");
     }
   }
 
@@ -345,7 +469,9 @@ export default function ReviewForm({
 
       <div className="rf-actions">
         <button type="submit" className="btn btn-gold" disabled={submitting}>
-          {submitting ? "Submitting…" : "Submit Review"}
+          {submitting
+            ? uploadProgress || "Submitting…"
+            : "Submit Review"}
         </button>
         <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)} disabled={submitting}>
           Cancel
