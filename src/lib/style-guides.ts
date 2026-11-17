@@ -78,8 +78,8 @@ export const STYLE_GUIDES: StyleGuide[] = [
       { title: "Dance-floor tested", body: "If you can't move your arms above your head in the trial fitting, you won't be able to on the night either." },
       { title: "Pack a flat pair for later", body: "Even the best heels get retired by the second function — a pretty juttis or flats swap keeps the night going." },
     ],
-    categorySlug: "fusion-edit",
-    closingNote: "From our Fusion Edit — Indian craft, western ease, built for exactly this kind of night.",
+    categorySlug: "festive-wear",
+    closingNote: "From our Festive Wear line — rich fabrics, beautiful detailing, built for exactly this kind of night.",
   },
   {
     slug: "weekend-off-duty",
@@ -168,8 +168,8 @@ export const STYLE_GUIDES: StyleGuide[] = [
       { title: "Skip anything too fitted or too bare", body: "This is a first-impression outfit, not a night-out one — comfort and coverage read as confidence here." },
       { title: "A dupatta or stole earns its place", body: "It's the easiest way to look considered without looking like you overdressed for the occasion." },
     ],
-    categorySlug: "fusion-edit",
-    closingNote: "From our Fusion Edit — polished, respectful, and genuinely comfortable to sit through a long lunch in.",
+    categorySlug: "festive-wear",
+    closingNote: "From our Festive Wear line — polished, respectful, and genuinely comfortable to sit through a long lunch in.",
   },
   {
     slug: "evening-dates",
