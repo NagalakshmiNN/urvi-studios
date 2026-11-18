@@ -154,20 +154,43 @@ export default function MascotAdmin({ initialSettings, initialMessages }: Props)
           <div>
             <h2 style={{ margin: "0 0 4px", fontSize: 18 }}>Mascots On/Off</h2>
             <p style={{ margin: 0, color: "#888", fontSize: 13 }}>
-              Toggle walking mascots on the public site
+              {enabled
+                ? "Mascots are walking on the public site. Toggle to hide them."
+                : "Mascots are hidden. Toggle to show them on the public site."}
             </p>
           </div>
-          <button
-            onClick={handleToggle}
-            disabled={isPending}
-            style={{
-              ...btnStyle,
-              background: enabled ? "#4CAF50" : "#999",
-              minWidth: 100,
-            }}
-          >
-            {enabled ? "ON" : "OFF"}
-          </button>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 10, cursor: isPending ? "wait" : "pointer" }}>
+            <div
+              onClick={handleToggle}
+              style={{
+                position: "relative",
+                width: 52,
+                height: 28,
+                borderRadius: 14,
+                background: enabled ? "#4CAF50" : "#ccc",
+                transition: "background 0.2s",
+                opacity: isPending ? 0.5 : 1,
+                cursor: isPending ? "wait" : "pointer",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  left: enabled ? 27 : 3,
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left 0.2s",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }}
+              />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: enabled ? "#4CAF50" : "#999", minWidth: 28 }}>
+              {isPending ? "..." : enabled ? "ON" : "OFF"}
+            </span>
+          </label>
         </div>
       </div>
 

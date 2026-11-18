@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
 type MascotMessage = {
   id: string;
@@ -26,6 +27,7 @@ const ANIM_DURATIONS: Record<string, number> = {
 
 export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
   const mascotARef = useRef<HTMLDivElement>(null);
   const mascotBRef = useRef<HTMLDivElement>(null);
   const bubbleARef = useRef<HTMLDivElement>(null);
@@ -47,6 +49,7 @@ export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerP
     setReducedMotion(mq.matches);
     const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
     mq.addEventListener("change", handler);
+
     return () => mq.removeEventListener("change", handler);
   }, []);
 
@@ -148,6 +151,8 @@ export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerP
     };
   }, [dismissed, reducedMotion]);
 
+  // Hide mascots on admin pages
+  if (pathname?.startsWith("/admin")) return null;
   if (dismissed) return null;
 
   return (
