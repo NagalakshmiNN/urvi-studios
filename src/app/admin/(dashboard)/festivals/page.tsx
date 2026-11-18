@@ -1,6 +1,7 @@
 import { db, schema } from "@/db";
 import Link from "next/link";
 import { deleteFestivalAction } from "@/app/actions/festival";
+import FestivalToggle from "./FestivalToggle";
 
 export default async function AdminFestivalsPage() {
   const events = await db.query.festivalEvents.findMany({
@@ -19,7 +20,7 @@ export default async function AdminFestivalsPage() {
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>Festival &amp; Sale Events</h1>
+        <h1 style={{ margin: 0 }}>Festival & Sale Events</h1>
         <Link
           href="/admin/festivals/new"
           style={{
@@ -36,6 +37,10 @@ export default async function AdminFestivalsPage() {
         </Link>
       </div>
 
+      <p style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
+        Use the toggle to turn festival animations and banners on/off instantly. Only one festival should be active at a time.
+      </p>
+
       {events.length === 0 ? (
         <p style={{ color: "#888" }}>
           No events yet. Create your first festival or sale event to show animated banners on the homepage.
@@ -50,6 +55,7 @@ export default async function AdminFestivalsPage() {
         >
           <thead>
             <tr style={{ borderBottom: "2px solid #eee", textAlign: "left" }}>
+              <th style={{ padding: "10px 8px" }}>On/Off</th>
               <th style={{ padding: "10px 8px" }}>Name</th>
               <th style={{ padding: "10px 8px" }}>Theme</th>
               <th style={{ padding: "10px 8px" }}>Starts</th>
@@ -64,6 +70,9 @@ export default async function AdminFestivalsPage() {
               const s = status(e);
               return (
                 <tr key={e.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                  <td style={{ padding: "10px 8px" }}>
+                    <FestivalToggle eventId={e.id} active={e.isActive} />
+                  </td>
                   <td style={{ padding: "10px 8px", fontWeight: 600 }}>
                     {e.name}
                     {e.tagline && <div style={{ fontWeight: 400, fontSize: 12, color: "#888" }}>{e.tagline}</div>}

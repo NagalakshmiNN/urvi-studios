@@ -12,6 +12,7 @@ import ReviewsCarousel from "@/components/ReviewsCarousel";
 import { SIZE_CHART } from "@/lib/size-guide";
 import { getActiveEvent, FESTIVAL_THEMES } from "@/lib/festivals";
 import FestivalBanner from "@/components/FestivalBanner";
+import FestivalCanvas from "@/components/FestivalCanvas";
 
 const CATEGORY_IMAGE_LIMIT = 6;
 
@@ -135,6 +136,10 @@ export default async function HomePage() {
           animation={activeEvent.animation}
           endsAt={activeEvent.endsAt.toISOString()}
         />
+      )}
+
+      {activeEvent && (
+        <FestivalCanvas animation={activeEvent.animation} />
       )}
 
       <SiteHeader active="Home" />

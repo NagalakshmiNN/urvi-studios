@@ -135,3 +135,19 @@ export async function deleteFestivalAction(formData: FormData) {
   revalidatePath("/admin/festivals");
   redirect("/admin/festivals");
 }
+
+
+export async function toggleFestivalActiveAction(id: string, isActive: boolean) {
+  const admin = await getAdminSession();
+  if (!admin) redirect("/admin/login");
+
+  if (!id) throw new Error("Event ID is required");
+
+  await db
+    .update(schema.festivalEvents)
+    .set({ isActive })
+    .where(eq(schema.festivalEvents.id, id));
+
+  revalidatePath("/");
+  revalidatePath("/admin/festivals");
+}

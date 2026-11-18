@@ -44,7 +44,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const themes = Object.keys(FESTIVAL_THEMES);
-const animations = ["confetti", "sparkle", "fireworks", "snow", "diyas", "none"];
+const animations = ["diwali", "christmas", "sankranti", "navratri", "ugadi", "none"];
 
 export default function FestivalForm({
   event,
