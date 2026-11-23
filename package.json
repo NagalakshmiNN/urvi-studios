@@ -19,7 +19,7 @@
     "verify": "npm run typecheck && npm run build && npm run test"
   },
   "dependencies": {
-    "@netlify/blobs": "^11.1.9",
+    "@netlify/blobs": "11.1.9",
     "@netlify/database": "^2.0.0",
     "@netlify/functions": "^6.0.0",
     "@tiptap/core": "^3.31.3",
