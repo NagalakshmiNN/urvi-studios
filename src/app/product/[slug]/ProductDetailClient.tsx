@@ -304,15 +304,19 @@ export default function ProductDetailClient({
         <div className="field-block">
           <div className="field-label"><span>Color — {color}</span></div>
           <div className="color-options">
-            {product.colors.map((c) => (
-              <span
-                key={c.name}
-                className={`color-opt ${c.name === color ? "selected" : ""}`}
-                style={{ background: c.hex }}
-                title={c.name}
-                onClick={() => setColor(c.name)}
-              />
-            ))}
+            {product.colors.map((c) => {
+              // Fix: if hex is the grey fallback but name IS a hex code, use name as color
+              const displayHex = (c.hex === "#999999" && /^#[0-9a-fA-F]{3,8}$/.test(c.name)) ? c.name : c.hex;
+              return (
+                <span
+                  key={c.name}
+                  className={`color-opt ${c.name === color ? "selected" : ""}`}
+                  style={{ background: displayHex }}
+                  title={c.name}
+                  onClick={() => setColor(c.name)}
+                />
+              );
+            })}
           </div>
         </div>
 

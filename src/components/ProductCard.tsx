@@ -50,9 +50,10 @@ export default function ProductCard({
           {product.compareAtPrice && <span className="strike">{formatINR(product.compareAtPrice)}</span>}
         </div>
         <div className="swatches">
-          {product.colors.map((c) => (
-            <span key={c.name} className="swatch-dot" style={{ background: c.hex }} title={c.name} />
-          ))}
+          {product.colors.map((c) => {
+            const displayHex = (c.hex === "#999999" && /^#[0-9a-fA-F]{3,8}\$/.test(c.name)) ? c.name : c.hex;
+            return <span key={c.name} className="swatch-dot" style={{ background: displayHex }} title={c.name} />;
+          })}
         </div>
       </Link>
       <QuickAddButton

@@ -118,8 +118,12 @@ export async function createProductAction(_prev: AdminFormState, formData: FormD
   if (colorPairs.length) {
     await db.insert(schema.productColors).values(
       colorPairs.map((pair, i) => {
-        const [colorName, hex] = pair.split(":").map((s) => s.trim());
-        return { productId: product.id, name: colorName || pair, hex: hex || "#999999", position: i };
+        const parts = pair.split(":").map((s) => s.trim());
+        // Handle hex-only entries like "#F5A900" (no name before colon)
+        const isHexOnly = parts.length === 1 && /^#[0-9a-fA-F]{3,8}$/.test(parts[0]);
+        const colorName = isHexOnly ? parts[0] : (parts[0] || pair);
+        const hex = isHexOnly ? parts[0] : (parts[1] || ((/^#[0-9a-fA-F]{3,8}$/.test(parts[0])) ? parts[0] : "#999999"));
+        return { productId: product.id, name: colorName, hex, position: i };
       })
     );
   }
@@ -245,8 +249,12 @@ export async function updateProductFullAction(_prev: AdminFormState, formData: F
   if (colorPairs.length) {
     await db.insert(schema.productColors).values(
       colorPairs.map((pair, i) => {
-        const [colorName, hex] = pair.split(":").map((s) => s.trim());
-        return { productId, name: colorName || pair, hex: hex || "#999999", position: i };
+        const parts = pair.split(":").map((s) => s.trim());
+        // Handle hex-only entries like "#F5A900" (no name before colon)
+        const isHexOnly = parts.length === 1 && /^#[0-9a-fA-F]{3,8}$/.test(parts[0]);
+        const colorName = isHexOnly ? parts[0] : (parts[0] || pair);
+        const hex = isHexOnly ? parts[0] : (parts[1] || ((/^#[0-9a-fA-F]{3,8}$/.test(parts[0])) ? parts[0] : "#999999"));
+        return { productId, name: colorName, hex, position: i };
       })
     );
   }
