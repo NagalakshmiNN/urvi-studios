@@ -3,6 +3,53 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { cspForPath } from "@/lib/csp";
 
+// ─── Known Bot User-Agent Patterns ──────────────────────────────────
+// These are matched case-insensitively against the request's User-Agent.
+// Well-behaved bots respect robots.txt; this catches the ones that don't.
+
+const BLOCKED_BOTS = [
+  // AI scrapers
+  "gptbot",
+  "chatgpt-user",
+  "ccbot",
+  "anthropic-ai",
+  "claude-web",
+  "google-extended",
+  "bytespider",
+  "perplexitybot",
+  "cohere-ai",
+  "applebot-extended",
+
+  // SEO scrapers (not needed for our site)
+  "ahrefsbot",
+  "semrushbot",
+  "mj12bot",
+  "dotbot",
+  "petalbot",
+  "blexbot",
+  "dataforseo",
+
+  // Aggressive crawlers
+  "megaindex",
+  "barkrowler",
+  "aspiegelbot",
+  "zoominfobot",
+
+  // Generic scraper signatures
+  "scrapy",
+  "python-requests",
+  "go-http-client",
+  "java/",
+  "wget/",
+  "libwww-perl",
+  "httpclient",
+  "php/",
+  "curl/",
+];
+
+// Paths that should never be accessed by bots
+const PROTECTED_PATHS = ["/admin", "/api"];
+
 /**
  * The key every session cookie is signed with.
  *
@@ -13,7 +60,7 @@ import { cspForPath } from "@/lib/csp";
  * worst way for a thing like this to fail.
  *
  * Now a missing secret throws. Deliberately when a session is signed or read,
- * not when this module loads: the production build evaluates every route's
+ * not when this module loads: the production build evaluates every route’s
  * module graph, and the environment variable is not present at build time
  * (it is scoped to the running functions, which is where it belongs). Failing
  * at import would make the build fall over; failing at use makes requests
@@ -46,6 +93,19 @@ async function hasValidSession(request: NextRequest, cookieName: string, kind: "
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const ua = (request.headers.get("user-agent") || "").toLowerCase();
+
+  // ─── Bot protection ─────────────────────────────────────────────
+  // Block known bad bots entirely
+  if (BLOCKED_BOTS.some((bot) => ua.includes(bot))) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // Block empty user-agents on protected paths
+  // (legitimate browsers always send a User-Agent)
+  if (!ua && PROTECTED_PATHS.some((p) => pathname.startsWith(p))) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
   // ---------------------------------------------------------- /account/*
   if (pathname.startsWith("/account")) {
@@ -74,6 +134,12 @@ export async function proxy(request: NextRequest) {
     if (isAdminLogin && loggedIn) {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
+    // Extra headers for admin routes
+    const response = NextResponse.next();
+    response.headers.set("Content-Security-Policy", cspForPath(pathname));
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return response;
   }
 
   const response = NextResponse.next();
@@ -83,6 +149,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Every page and API route, so each gets its Content-Security-Policy; static
-  // files (anything with a dot) and Next's own assets are left alone.
+  // files (anything with a dot) and Next’s own assets are left alone.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };
