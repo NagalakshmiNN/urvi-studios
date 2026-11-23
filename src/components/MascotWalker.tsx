@@ -10,6 +10,7 @@ type MascotMessage = {
 };
 
 type MascotWalkerProps = {
+  onFinished?: () => void;
   imageA: string;
   imageB: string;
   messages: MascotMessage[];
@@ -25,7 +26,7 @@ const ANIM_DURATIONS: Record<string, number> = {
   sit: 1800,
 };
 
-export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerProps) {
+export default function MascotWalker({ imageA, imageB, messages, onFinished }: MascotWalkerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const mascotARef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,22 @@ export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerP
   }, []);
 
   // Spawn sparkles
+
+  // Auto-finish: fade out after ~30s and call onFinished
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    if (!onFinished || dismissed) return;
+    const timer = setTimeout(() => {
+      setFading(true);
+      // After fade animation (1s), call onFinished
+      setTimeout(() => {
+        setDismissed(true);
+        onFinished();
+      }, 1000);
+    }, 30000); // 30 seconds
+    return () => clearTimeout(timer);
+  }, [onFinished, dismissed]);
+
   const spawnSparkles = useCallback((mascotEl: HTMLDivElement) => {
     const container = containerRef.current;
     if (!container || reducedMotion) return;
@@ -158,7 +175,7 @@ export default function MascotWalker({ imageA, imageB, messages }: MascotWalkerP
   return (
     <>
       <style>{mascotCSS}</style>
-      <div className="mascot-container" ref={containerRef}>
+      <div className={`mascot-container${fading ? " mascot-fading" : ""}`} ref={containerRef}>
         <div
           className="mascot-char"
           ref={mascotARef}
@@ -390,5 +407,14 @@ const mascotCSS = `
     color: #d4a84a;
     border-color: #d4a84a;
   }
+}
+
+/* Fade-out transition */
+.mascot-fading {
+  animation: mascotFadeOut 1s ease forwards;
+}
+@keyframes mascotFadeOut {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(20px); }
 }
 `;

@@ -4,7 +4,7 @@ import "./globals.css";
 import BetaBanner from "@/components/BetaBanner";
 import ErrorTracker from "@/components/ErrorTracker";
 import { getBoolSetting } from "@/lib/site-settings";
-import MascotWalker from "@/components/MascotWalker";
+import MascotBotOrchestrator from "@/components/MascotBotOrchestrator";
 import { getMascotSettings, getMascotMessages } from "@/app/actions/mascot";
 
 export const metadata: Metadata = {
@@ -61,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         {showBeta && <BetaBanner />}
         {mascotData.enabled && (
-          <MascotWalker
+          <MascotBotOrchestrator
             imageA={mascotData.imageA}
             imageB={mascotData.imageB}
             messages={mascotMsgs.map((m) => ({ id: m.id, message: m.message, animation: m.animation }))}
