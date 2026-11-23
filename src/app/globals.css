@@ -455,7 +455,7 @@ p { line-height: 1.7; color: var(--earth); }
   font-size: 11.5px; color: var(--earth); display: inline-flex; align-items: center; gap: 6px; line-height: 1.4;
 }
 .chip-sm.active, .chip-sm:hover { background: var(--olive); color: var(--ivory); border-color: var(--olive); }
-.chip-color-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); flex: none; }
+.chip-color-dot { width: 10px; height: 10px; border-radius: 50%; border: none; box-shadow: 0 1px 2px rgba(0,0,0,0.15); flex: none; }
 .refine-clear { align-self: center; font-size: 11.5px; color: var(--earth); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .refine-clear:hover { color: var(--olive); }
 
@@ -524,7 +524,7 @@ p { line-height: 1.7; color: var(--earth); }
 .product-card .p-price { font-family: var(--font-display); font-size: 17px; color: var(--olive); font-weight: 600; }
 .product-card .p-price .strike { font-family: var(--font-body); text-decoration: line-through; opacity: 0.5; font-weight: 400; margin-left: 6px; }
 .product-card .swatches { display: flex; gap: 5px; margin-top: 8px; }
-.product-card .swatch-dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+.product-card .swatch-dot { width: 13px; height: 13px; border-radius: 50%; border: none; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
 .product-card .add-link {
   display: inline-block;
   margin-top: 12px;
@@ -612,8 +612,8 @@ p { line-height: 1.7; color: var(--earth); }
 .size-opt.sold-out { cursor: not-allowed; color: var(--sage); background: var(--sand); text-decoration: line-through; opacity: 0.65; }
 .size-opt.sold-out.selected { border-color: var(--line); background: var(--sand); color: var(--sage); }
 .color-options { display: flex; gap: 10px; }
-.color-opt { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; position: relative; }
-.color-opt.selected { border-color: var(--gold); }
+.color-opt { width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+.color-opt.selected { transform: scale(1.18); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
 .qty-row { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
 .qty-stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 2px; }
 .qty-stepper button { width: 38px; height: 42px; background: none; border: none; font-size: 16px; color: var(--olive); }
