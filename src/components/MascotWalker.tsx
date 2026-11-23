@@ -204,7 +204,10 @@ export default function MascotWalker({ imageA, imageB, messages, onFinished }: M
         </div>
         <button
           className="mascot-dismiss-btn"
-          onClick={() => setDismissed(true)}
+          onClick={() => {
+            try { localStorage.setItem("urvi-hide-mascots", "true"); } catch {}
+            setDismissed(true);
+          }}
           aria-label="Hide mascots"
           title="Hide mascots"
         >

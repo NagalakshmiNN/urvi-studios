@@ -28,6 +28,7 @@ type UrviBotWidgetProps = {
   imageA: string; // mascot-ivory
   imageB: string; // mascot-mustard
   visible: boolean; // controlled by parent (delayed after walkers)
+  onHidePermanently?: () => void;
 };
 
 /* ─── Styles (inline to keep single-file) ────────────────────────────── */
@@ -43,7 +44,7 @@ const COLORS = {
 
 /* ─── Component ──────────────────────────────────────────────────────── */
 
-export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidgetProps) {
+export default function UrviBotWidget({ imageA, imageB, visible, onHidePermanently }: UrviBotWidgetProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -94,7 +95,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
 
   const startConversation = useCallback(async () => {
     setReplies([]);
-    await addBotMsg("Namaste! I'm <b>Urvi</b> and this is <b>Stuti</b>! 🙏");
+    await addBotMsg(`Namaste! I'm <img src="${imageA}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;object-position:top;vertical-align:middle;margin:0 2px;" alt="Nikhila"/> <b>Nikhila</b> and this is <img src="${imageB}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;object-position:top;vertical-align:middle;margin:0 2px;" alt="Shristi"/> <b>Shristi</b>! 🙏`);
     await addBotMsg("Welcome to Urvi Studios! How can we help you today?");
     setReplies([
       { label: "🛍️ Browse Collections", action: () => flowBrowse() },
@@ -301,7 +302,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
           <span style={{ position: "relative" }}>
             <img
               src={imageA}
-              alt="Urvi"
+              alt="Nikhila"
               style={{
                 width: 52,
                 height: 52,
@@ -316,7 +317,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
           {/* Mascot B */}
           <img
             src={imageB}
-            alt="Stuti"
+            alt="Shristi"
             style={{
               width: 52,
               height: 52,
@@ -369,7 +370,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
           <div style={{ display: "flex", alignItems: "center" }}>
             <img
               src={imageA}
-              alt="Urvi"
+              alt="Nikhila"
               style={{
                 width: 40,
                 height: 40,
@@ -382,7 +383,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
             />
             <img
               src={imageB}
-              alt="Stuti"
+              alt="Shristi"
               style={{
                 width: 40,
                 height: 40,
@@ -396,7 +397,7 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.ivory }}>Urvi & Stuti</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.ivory }}>Nikhila & Shristi</div>
             <div style={{ fontSize: 11, color: COLORS.sand, marginTop: 2, opacity: 0.8 }}>
               Your shopping assistants
             </div>
@@ -525,12 +526,31 @@ export default function UrviBotWidget({ imageA, imageB, visible }: UrviBotWidget
             textAlign: "center",
             fontSize: 10,
             color: COLORS.sage,
-            opacity: 0.5,
             flexShrink: 0,
             borderTop: `1px solid ${COLORS.sand}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          Powered by Urvi Studios
+          <span style={{ opacity: 0.5 }}>Powered by Urvi Studios</span>
+          {onHidePermanently && (
+            <button
+              onClick={() => { handleClose(); onHidePermanently(); }}
+              style={{
+                background: "none",
+                border: "none",
+                color: COLORS.sage,
+                fontSize: 10,
+                cursor: "pointer",
+                opacity: 0.6,
+                padding: "2px 4px",
+                textDecoration: "underline",
+              }}
+            >
+              Don\u2019t show again
+            </button>
+          )}
         </div>
       </div>
 
