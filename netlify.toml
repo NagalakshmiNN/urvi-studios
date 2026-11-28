@@ -15,6 +15,13 @@
 # timezone setting, so the conversion has to be done here and redone if the
 # desired hour ever changes.
 
+# ─── Secrets Scanning ────────────────────────────────────────────────
+# CONTACT_NOTIFY_EMAIL and ADMIN_BOOTSTRAP_EMAIL are email addresses,
+# not secrets — they legitimately appear in the codebase (site-config,
+# seed data).  Tell Netlify's scanner to ignore them.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "CONTACT_NOTIFY_EMAIL,ADMIN_BOOTSTRAP_EMAIL"
+
 [functions."stock-report"]
   schedule = "30 1 * * *"
 
